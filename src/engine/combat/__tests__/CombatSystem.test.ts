@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SeededRNG } from '../../rng/SeededRNG';
 import { calcDamage } from '../CombatSystem';
+import { tickStatus, applyPoison, applyBurn } from '../StatusEffects';
 import type { CombatActor } from '../CombatTypes';
 
 function createActor(overrides: Partial<CombatActor> & { id: string; side: 'player' | 'enemy' }): CombatActor {
@@ -13,7 +14,7 @@ function createActor(overrides: Partial<CombatActor> & { id: string; side: 'play
       attack: 10, defense: 3, speed: 5, luck: 0,
       ...overrides.stats,
     },
-    statusEffects: [],
+    statusEffects: overrides.statusEffects ?? [],
   };
 }
 
@@ -54,5 +55,44 @@ describe('CombatSystem damage rules', () => {
       }
     }
     expect(foundCrit).toBe(true);
+  });
+});
+
+describe('Status effects', () => {
+  it('poison deals 10% maxHp per turn', () => {
+    const actor = createActor({
+      id: 'poisoned', side: 'player',
+      stats: { hp: 50, maxHp: 50 },
+      statusEffects: [{ type: 'poison', duration: 1 }],
+    });
+
+    const { tickResult } = applyPoison(actor);
+
+    expect(tickResult.damage).toBe(5); // 10% of 50 maxHp
+    expect(tickResult.updatedActor.statusEffects).toHaveLength(0); // duration expired
+  });
+
+  it('stun causes skip turn', () => {
+    const actor = createActor({
+      id: 'stunned', side: 'player',
+      stats: { hp: 50, maxHp: 50 },
+      statusEffects: [{ type: 'stun', duration: 1 }],
+    });
+
+    const { skippedTurn } = tickStatus(actor);
+
+    expect(skippedTurn).toBe(true);
+  });
+
+  it('burn deals 5% maxHp per turn', () => {
+    const actor = createActor({
+      id: 'burning', side: 'player',
+      stats: { hp: 100, maxHp: 100 },
+      statusEffects: [{ type: 'burn', duration: 1 }],
+    });
+
+    const { tickResult } = applyBurn(actor);
+
+    expect(tickResult.damage).toBe(5); // 5% of 100 maxHp
   });
 });
