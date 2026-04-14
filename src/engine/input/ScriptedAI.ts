@@ -26,5 +26,5 @@ export class ScriptedAI implements IBattleInput {
 
   onBattleStart(): void {}
 
-  onBattleEnd(): void {}
+  onBattleEnd(winner: 'player' | 'enemy'): void {}
 }
