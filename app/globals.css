@@ -11,3 +11,104 @@ body {
   color: var(--foreground);
   background: var(--background);
 }
+
+@keyframes confetti-fall {
+  from {
+    transform: translateY(-12vh) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(120vh) rotate(720deg);
+    opacity: 0.85;
+  }
+}
+
+.animate-confetti-fall {
+  animation-name: confetti-fall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* 战斗：重击撞击 */
+@keyframes battle-charge {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  40% {
+    transform: translateX(36px) scale(1.08);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes enemy-recoil {
+  0%,
+  100% {
+    transform: translateX(0) scale(1);
+  }
+  35% {
+    transform: translateX(18px) scale(0.92);
+  }
+}
+
+.animate-battle-charge {
+  animation: battle-charge 0.48s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+.animate-enemy-recoil {
+  animation: enemy-recoil 0.48s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+}
+
+/* 防御：盾牌虚影脉动 */
+@keyframes shield-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.06);
+  }
+}
+
+.animate-shield-ghost {
+  animation: shield-pulse 1.4s ease-in-out infinite;
+}
+
+/* 自动逃跑：角色向左侧撤离 */
+@keyframes battle-flee-escape {
+  0% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: translateX(-85%) scale(0.88);
+    opacity: 0.15;
+    filter: blur(2px);
+  }
+}
+
+.animate-battle-flee-escape {
+  animation: battle-flee-escape 1.05s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+}
+
+@keyframes flee-dust {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-120%, -60%) scale(1.2);
+  }
+}
+
+.animate-flee-dust {
+  animation: flee-dust 1.05s ease-out forwards;
+}

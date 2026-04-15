@@ -1,16 +1,108 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameState } from '../hooks/useGameState'
-import { allSkills, equipmentTypes, EquipmentType, Skill } from '../constants'
+import {
+  equipmentTypes,
+  EquipmentType,
+  Skill,
+  BASIC_ATTACK,
+  getSkillById,
+  calcEnemyStats,
+  attackIntervalMsFromSpd,
+  mitigatedPhysicalDamage,
+} from '../constants'
+
+/** 重击：撞击演出；防御：盾牌虚影依赖 isDefending */
+const SKILL_HEAVY_STRIKE_ID = 1
 
 interface Props {
   game: GameState
 }
 
+function playerAttackIntervalMs(spd: number): number {
+  return Math.max(380, Math.min(2200, 1150 - spd * 28))
+}
+
+function enemyAttackIntervalMs(enemySpd: number): number {
+  return attackIntervalMsFromSpd(enemySpd) + Math.floor(Math.random() * 200)
+}
+
+function skillCooldownRemaining(endAt: Record<number, number>, skillId: number): number {
+  const t = endAt[skillId]
+  if (t === undefined) return 0
+  return Math.max(0, t - Date.now())
+}
+
+function ConfettiCelebration() {
+  const pieces = Array.from({ length: 48 }, (_, i) => ({
+    id: i,
+    left: `${(i * 17 + (i % 7) * 13) % 100}%`,
+    delay: `${(i % 12) * 0.08}s`,
+    duration: `${2.2 + (i % 5) * 0.15}s`,
+    hue: (i * 47) % 360,
+  }))
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+      {pieces.map((p) => (
+        <span
+          key={p.id}
+          className="absolute top-0 h-3 w-2 rounded-sm opacity-90 animate-confetti-fall"
+          style={{
+            left: p.left,
+            animationDelay: p.delay,
+            animationDuration: p.duration,
+            backgroundColor: `hsl(${p.hue} 85% 55%)`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+type BattleSnap = {
+  enemyHP: number
+  playerHP: number
+  totalStats: { maxHp: number; atk: number; def: number; spd: number }
+  isDefending: boolean
+  nextAttackSkillId: number | null
+  skillCooldownEndAt: Record<number, number>
+  enemyLevel: number
+}
+
 export default function BattlePanel({ game }: Props) {
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [droppedEquipment, setDroppedEquipment] = useState<{ name: string; icon: string } | null>(null)
+  const [battleFx, setBattleFx] = useState<'none' | 'player-hit' | 'enemy-hit' | 'player-skill'>('none')
+  const [floatTexts, setFloatTexts] = useState<Array<{ id: number; text: string; side: 'left' | 'right' }>>([])
+  const [battleTimeSec, setBattleTimeSec] = useState(0)
+  const [, setCdUiTick] = useState(0)
+  /** 开战时中央 ⚔ 只显示约 1 秒 */
+  const [showCenterBattleIcon, setShowCenterBattleIcon] = useState(true)
+  /** 重击：玩家前冲 + 敌人受击 */
+  const [heavyStrikePlaying, setHeavyStrikePlaying] = useState(false)
+
+  const floatIdRef = useRef(0)
+  const isGameOverRef = useRef(false)
+  const nextPlayerAtkAtRef = useRef(0)
+  const nextEnemyAtkAtRef = useRef(0)
+  /** 与防御技能同步，避免同一 tick 内敌人读不到刚设置的防御 */
+  const defendingRef = useRef(false)
+  /** 本场战斗是否已触发过自动逃跑（避免重复） */
+  const autoFleeConsumedRef = useRef(false)
+  /** 自动逃跑演出期间暂停战斗逻辑 */
+  const pauseBattleForFleeRef = useRef(false)
+  const [autoFleeAnimating, setAutoFleeAnimating] = useState(false)
+  const snapRef = useRef<BattleSnap>({
+    enemyHP: 0,
+    playerHP: 0,
+    totalStats: { maxHp: 1, atk: 1, def: 1, spd: 1 },
+    isDefending: false,
+    nextAttackSkillId: null,
+    skillCooldownEndAt: {},
+    enemyLevel: 1,
+  })
+
   const {
     playerLevel,
     playerHP,
@@ -20,17 +112,11 @@ export default function BattlePanel({ game }: Props) {
     enemyMaxHp,
     enemyLevel,
     nearbyEnemy,
-    currentTurn,
-    setCurrentTurn,
-    selectedSkill,
-    setSelectedSkill,
+    showBattle,
     isGameOver,
     battleResult,
     isDefending,
     setIsDefending,
-    battleRound,
-    setBattleRound,
-    actionLocked,
     gainedExp,
     gainedGold,
     battleLog,
@@ -43,233 +129,478 @@ export default function BattlePanel({ game }: Props) {
     setPlayerExp,
     playerGold,
     setPlayerGold,
-    inventory,
     setInventory,
-    equippedGear,
-    setEquippedGear,
+    setEnemyHP,
+    setIsGameOver,
+    setBattleResult,
+    setGainedExp,
+    setGainedGold,
+    nextAttackSkillId,
+    setNextAttackSkillId,
+    skillCooldownEndAt,
+    setSkillCooldownEndAt,
+    setSelectedSkill,
+    autoFleeHpPercent,
   } = game
 
-  // 敌人回合
+  snapRef.current = {
+    enemyHP,
+    playerHP,
+    totalStats,
+    isDefending,
+    nextAttackSkillId,
+    skillCooldownEndAt,
+    enemyLevel,
+  }
+
   useEffect(() => {
-    if (currentTurn !== 'enemy' || isGameOver) return
+    defendingRef.current = isDefending
+  }, [isDefending])
 
-    const timer = setTimeout(() => {
-      const enemyBaseDamage = (enemyLevel) * 2 + Math.floor(Math.random() * 5)
-      let damage = Math.max(1, enemyBaseDamage - totalStats.def)
-      let logMsg = `敌人攻击！`
+  useEffect(() => {
+    isGameOverRef.current = isGameOver
+  }, [isGameOver])
 
-      if (isDefending) {
-        damage = Math.floor(damage * 0.5)
-        logMsg += `（被防御削弱）`
-        setIsDefending(false)
+  useEffect(() => {
+    if (showBattle) {
+      autoFleeConsumedRef.current = false
+      pauseBattleForFleeRef.current = false
+      setAutoFleeAnimating(false)
+    }
+  }, [showBattle])
+
+  useEffect(() => {
+    if (!autoFleeAnimating) return
+    const t = window.setTimeout(() => {
+      pauseBattleForFleeRef.current = false
+      setAutoFleeAnimating(false)
+      handleFlee({ successMessage: '逃跑成功！已安全撤离战场。' })
+    }, 1100)
+    return () => window.clearTimeout(t)
+  }, [autoFleeAnimating, handleFlee])
+
+  /** 技能冷却遮罩需要周期性重绘 */
+  useEffect(() => {
+    if (!showBattle || isGameOver) return
+    const id = window.setInterval(() => setCdUiTick((n) => n + 1), 150)
+    return () => window.clearInterval(id)
+  }, [showBattle, isGameOver])
+
+  /** 进入战斗后中央对战图标仅展示 1 秒 */
+  useEffect(() => {
+    if (!showBattle) return
+    setShowCenterBattleIcon(true)
+    const t = window.setTimeout(() => setShowCenterBattleIcon(false), 1000)
+    return () => window.clearTimeout(t)
+  }, [showBattle])
+
+  const pushFloat = useCallback((text: string, side: 'left' | 'right') => {
+    const id = ++floatIdRef.current
+    setFloatTexts((prev) => [...prev, { id, text, side }])
+    window.setTimeout(() => {
+      setFloatTexts((prev) => prev.filter((x) => x.id !== id))
+    }, 900)
+  }, [])
+
+  const flashFx = useCallback((kind: 'player-hit' | 'enemy-hit' | 'player-skill') => {
+    setBattleFx(kind)
+    window.setTimeout(() => setBattleFx('none'), 220)
+  }, [])
+
+  const triggerHeavyStrikeVfx = useCallback(() => {
+    setHeavyStrikePlaying(true)
+    window.setTimeout(() => setHeavyStrikePlaying(false), 500)
+  }, [])
+
+  const handleVictory = useCallback(
+    (closingLog: string) => {
+      if (isGameOverRef.current) return
+      isGameOverRef.current = true
+      setIsGameOver(true)
+      setBattleResult('win')
+      const expGain = enemyLevel * 2
+      const goldGain = enemyLevel * 2
+      setGainedExp(expGain)
+      setGainedGold(goldGain)
+      setPlayerGold((prev) => prev + goldGain)
+      if (Math.random() < 0.1) {
+        const types: EquipmentType[] = ['weapon', 'ring', 'armor', 'shoes']
+        const randomType = types[Math.floor(Math.random() * types.length)]
+        const eq = equipmentTypes[randomType]
+        setInventory((prev) => [...prev, { type: randomType, name: eq.name, icon: eq.icon }])
+        setDroppedEquipment({ name: eq.name, icon: eq.icon })
+        setBattleLog((prev) => [...prev, `运气不错！获得了${eq.icon}${eq.name}！`])
       }
+      const afterLevelUp = tryLevelUp(playerExp + expGain)
+      setPlayerExp(afterLevelUp.exp)
+      setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
+      if (afterLevelUp.level > playerLevel) {
+        setBattleLog((prev) => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
+      }
+    },
+    [
+      enemyLevel,
+      playerExp,
+      playerLevel,
+      setBattleLog,
+      setBattleResult,
+      setGainedExp,
+      setGainedGold,
+      setInventory,
+      setIsGameOver,
+      setPlayerExp,
+      setPlayerGold,
+      tryLevelUp,
+    ],
+  )
 
-      setPlayerHP(prev => Math.max(0, prev - damage))
-      setBattleLog(prev => [...prev, `${logMsg}造成了 ${damage} 点伤害！`])
-      setCurrentTurn('player')
-      setBattleRound(prev => prev + 1)
-      game.setActionLocked(false)
-    }, 1000)
+  const beginSkillCooldown = useCallback(
+    (skillId: number, ms: number) => {
+      if (skillId === BASIC_ATTACK.id || ms <= 0) return
+      setSkillCooldownEndAt((prev) => ({ ...prev, [skillId]: Date.now() + ms }))
+    },
+    [setSkillCooldownEndAt],
+  )
 
-    return () => clearTimeout(timer)
-  }, [currentTurn, isGameOver, isDefending, enemyLevel, totalStats.def])
-
-  // 检查玩家是否死亡
   useEffect(() => {
     if (playerHP <= 0 && !isGameOver) {
-      game.setIsGameOver(true)
-      game.setBattleResult('lose')
-      // 阵亡后清除金币、恢复满血
+      setIsGameOver(true)
+      setBattleResult('lose')
+      // 失败惩罚：仅清零金币，不修改背包与已装备（不调用 setInventory / setEquippedGear）
       setPlayerGold(0)
       setPlayerHP(totalStats.maxHp)
     }
-  }, [playerHP, isGameOver])
+  }, [playerHP, isGameOver, setBattleResult, setIsGameOver, setPlayerHP, setPlayerGold, totalStats.maxHp])
 
-  // 使用技能
-  const useSkill = (skill: (typeof allSkills)[0]) => {
-    if (currentTurn !== 'player' || isGameOver || actionLocked) return
+  useEffect(() => {
+    if (!showBattle || isGameOver) return
 
-    game.setActionLocked(true)
-    setSelectedSkill(skill.id)
-    let log = `你使用了 ${skill.name}！`
-    let totalDamage = 0
-    const hits = skill.hits || 1
+    const now = Date.now()
+    nextPlayerAtkAtRef.current = now + 450
+    nextEnemyAtkAtRef.current = now + 800
+    setBattleTimeSec(0)
 
-    if (skill.type === 'damage') {
-      for (let i = 0; i < hits; i++) {
-        totalDamage += Math.floor(totalStats.atk * skill.multiplier)
+    const tickBattleTime = window.setInterval(() => {
+      setBattleTimeSec((s) => s + 1)
+    }, 1000)
+
+    const id = window.setInterval(() => {
+      if (isGameOverRef.current) return
+      if (pauseBattleForFleeRef.current) return
+      const t = Date.now()
+      const s = snapRef.current
+
+      if (t >= nextPlayerAtkAtRef.current) {
+        nextPlayerAtkAtRef.current = t + playerAttackIntervalMs(s.totalStats.spd)
+
+        let skill: Skill = BASIC_ATTACK
+        if (s.nextAttackSkillId !== null) {
+          const q = getSkillById(s.nextAttackSkillId)
+          const cd = skillCooldownRemaining(s.skillCooldownEndAt, s.nextAttackSkillId)
+          if (q && cd <= 0) {
+            skill = q
+            setNextAttackSkillId(null)
+          }
+        }
+
+        let log = ''
+        const hits = skill.hits || 1
+
+        if (skill.type === 'damage' || skill.type === 'counter') {
+          if (skill.id === SKILL_HEAVY_STRIKE_ID) {
+            triggerHeavyStrikeVfx()
+          } else {
+            flashFx(skill.id === BASIC_ATTACK.id ? 'enemy-hit' : 'player-skill')
+          }
+          const enemyDef = calcEnemyStats(s.enemyLevel).def
+          let totalDamage = 0
+          for (let i = 0; i < hits; i++) {
+            const raw = Math.floor(s.totalStats.atk * skill.multiplier)
+            totalDamage += mitigatedPhysicalDamage(raw, enemyDef)
+          }
+          setEnemyHP((prev) => {
+            const newHP = Math.max(0, prev - totalDamage)
+            if (newHP <= 0) {
+              queueMicrotask(() => handleVictory(`「${skill.name}」击败敌人！`))
+            }
+            return newHP
+          })
+          pushFloat(`-${totalDamage}`, 'right')
+          log = `${skill.name} 造成 ${totalDamage} 伤害`
+        } else if (skill.type === 'heal') {
+          flashFx('player-skill')
+          const heal = Math.floor(s.totalStats.atk * skill.multiplier)
+          setPlayerHP((prev) => {
+            const next = Math.min(s.totalStats.maxHp, prev + heal)
+            const g = next - prev
+            if (g > 0) queueMicrotask(() => pushFloat(`+${g}`, 'left'))
+            return next
+          })
+          log = `${skill.name} 恢复生命`
+        } else if (skill.type === 'defense') {
+          flashFx('player-skill')
+          defendingRef.current = true
+          setIsDefending(true)
+          log = `${skill.name} 准备防御`
+        }
+
+        setBattleLog((prev) => [...prev, log])
+        if (skill.id !== BASIC_ATTACK.id && skill.cooldownMs) {
+          beginSkillCooldown(skill.id, skill.cooldownMs)
+        }
       }
-      const newHP = Math.max(0, enemyHP - totalDamage)
-      game.setEnemyHP(newHP)
-      log += ` 造成 ${totalDamage} 点伤害！`
-      if (newHP <= 0) {
-        game.setIsGameOver(true)
-        game.setBattleResult('win')
-        const expGain = enemyLevel * 2
-        const goldGain = enemyLevel * 2
-        game.setGainedExp(expGain)
-        game.setGainedGold(goldGain)
-        setPlayerGold(prev => prev + goldGain)
-        // 10%装备掉落
-        if (Math.random() < 0.1) {
-          const types: EquipmentType[] = ['weapon', 'ring', 'armor', 'shoes']
-          const randomType = types[Math.floor(Math.random() * types.length)]
-          const eq = equipmentTypes[randomType]
-          setInventory(prev => [...prev, { type: randomType, name: eq.name, icon: eq.icon }])
-          setDroppedEquipment({ name: eq.name, icon: eq.icon })
-          setBattleLog(prev => [...prev, `运气不错！获得了${eq.icon}${eq.name}！`])
+
+      if (t >= nextEnemyAtkAtRef.current) {
+        const enemyCombat = calcEnemyStats(snapRef.current.enemyLevel)
+        nextEnemyAtkAtRef.current = t + enemyAttackIntervalMs(enemyCombat.spd)
+
+        const rawEnemyHit = enemyCombat.atk + Math.floor(Math.random() * 4)
+        let damage = mitigatedPhysicalDamage(rawEnemyHit, snapRef.current.totalStats.def)
+        let logMsg = `敌人攻击！`
+        if (defendingRef.current) {
+          damage = Math.floor(damage * 0.5)
+          logMsg += `（防御减半）`
+          defendingRef.current = false
+          setIsDefending(false)
         }
-        const afterLevelUp = tryLevelUp(playerExp + expGain)
-        setPlayerExp(afterLevelUp.exp)
-        setBattleLog(prev => [...prev, log, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
-        if (afterLevelUp.level > playerLevel) {
-          setBattleLog(prev => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
-        }
-        game.setActionLocked(false)
-        return
+        flashFx('player-hit')
+        pushFloat(`-${damage}`, 'left')
+        setPlayerHP((prev) => {
+          const next = Math.max(0, prev - damage)
+          const maxHp = snapRef.current.totalStats.maxHp
+          const threshold = autoFleeHpPercent
+          if (
+            !autoFleeConsumedRef.current &&
+            threshold > 0 &&
+            maxHp > 0 &&
+            next > 0 &&
+            (next / maxHp) * 100 <= threshold + 1e-6
+          ) {
+            autoFleeConsumedRef.current = true
+            pauseBattleForFleeRef.current = true
+            setAutoFleeAnimating(true)
+          }
+          return next
+        })
+        setBattleLog((prev) => [...prev, `${logMsg} ${damage} 伤害`])
       }
-    } else if (skill.type === 'heal') {
-      const heal = Math.floor(totalStats.atk * skill.multiplier)
-      const newHP = Math.min(totalStats.maxHp, playerHP + heal)
-      setPlayerHP(newHP)
-      log += ` 恢复了 ${newHP - playerHP} 点生命！`
-    } else if (skill.type === 'defense') {
-      log += ' 下次受伤减少50%！'
-      setIsDefending(true)
-    } else if (skill.type === 'counter') {
-      const damage = Math.floor(totalStats.atk * skill.multiplier)
-      const newHP = Math.max(0, enemyHP - damage)
-      game.setEnemyHP(newHP)
-      log += ` 反击造成了 ${damage} 点伤害！`
-      if (newHP <= 0) {
-        game.setIsGameOver(true)
-        game.setBattleResult('win')
-        const expGain = enemyLevel * 2
-        const goldGain = enemyLevel * 2
-        game.setGainedExp(expGain)
-        game.setGainedGold(goldGain)
-        setPlayerGold(prev => prev + goldGain)
-        // 10%装备掉落
-        if (Math.random() < 0.1) {
-          const types: EquipmentType[] = ['weapon', 'ring', 'armor', 'shoes']
-          const randomType = types[Math.floor(Math.random() * types.length)]
-          const eq = equipmentTypes[randomType]
-          setInventory(prev => [...prev, { type: randomType, name: eq.name, icon: eq.icon }])
-          setDroppedEquipment({ name: eq.name, icon: eq.icon })
-          setBattleLog(prev => [...prev, `运气不错！获得了${eq.icon}${eq.name}！`])
-        }
-        const afterLevelUp = tryLevelUp(playerExp + expGain)
-        setPlayerExp(afterLevelUp.exp)
-        setBattleLog(prev => [...prev, log, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
-        if (afterLevelUp.level > playerLevel) {
-          setBattleLog(prev => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
-        }
-        game.setActionLocked(false)
-        return
-      }
+    }, 40)
+
+    return () => {
+      window.clearInterval(id)
+      window.clearInterval(tickBattleTime)
     }
+  }, [
+    showBattle,
+    isGameOver,
+    beginSkillCooldown,
+    flashFx,
+    handleVictory,
+    pushFloat,
+    setBattleLog,
+    setEnemyHP,
+    setIsDefending,
+    setNextAttackSkillId,
+    setPlayerHP,
+    triggerHeavyStrikeVfx,
+    autoFleeHpPercent,
+    handleFlee,
+  ])
 
-    setBattleLog(prev => [...prev, log])
-
-    setTimeout(() => {
-      setCurrentTurn('enemy')
-    }, 500)
+  const queueSkill = (skill: Skill) => {
+    if (isGameOver) return
+    if (skillCooldownRemaining(skillCooldownEndAt, skill.id) > 0) return
+    setSelectedSkill(skill.id)
+    setNextAttackSkillId(skill.id)
+    setBattleLog((prev) => [...prev, `已就绪：下次自动攻击使用「${skill.name}」`])
   }
 
   const availableSkills = getAvailableSkills()
+  const atkPerSec = (1000 / playerAttackIntervalMs(totalStats.spd)).toFixed(2)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 背景 */}
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/home-bg.png')" }} />
       <div className="absolute inset-0 bg-black/50" />
 
-      {/* 战斗面板 */}
       <div className="relative w-[800px] h-[600px] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 rounded-3xl shadow-2xl overflow-hidden">
-        {/* 顶部标题 */}
-        <div className="h-14 bg-gradient-to-b from-yellow-400 to-yellow-500 flex items-center justify-center border-b-4 border-orange-500">
-          <span className="text-orange-900 font-bold text-lg">第 {battleRound} 回合</span>
+        <div className="h-12 bg-gradient-to-b from-yellow-400 to-yellow-500 flex items-center justify-center border-b-4 border-orange-500 px-3">
+          <span className="text-orange-900 font-bold text-base">实时战斗 · {battleTimeSec}s</span>
         </div>
 
-        {/* 角色区域 */}
-        <div className="flex items-center justify-between px-8 py-6">
-          {/* 玩家 */}
-          <div className="text-center">
+        {/* 左上角：攻速 / 下一发，不占中间舞台 */}
+        <div className="pointer-events-none absolute left-2 top-14 z-30 flex max-w-[140px] flex-col gap-0.5 text-[10px] leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+          <span>
+            攻速 <span className="font-mono text-cyan-200">{atkPerSec}</span>/s
+          </span>
+          {nextAttackSkillId !== null && (
+            <span className="truncate text-amber-200">
+              下一发：{getSkillById(nextAttackSkillId)?.name ?? '?'}
+            </span>
+          )}
+        </div>
+
+        <div className="relative flex min-h-[240px] items-center justify-between px-8 py-6">
+          {autoFleeAnimating && (
+            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/35">
+              <div className="rounded-2xl border-2 border-amber-300/80 bg-amber-950/90 px-6 py-3 text-center shadow-xl">
+                <div className="text-2xl mb-1">💨</div>
+                <div className="text-amber-100 font-bold text-sm">自动撤离中…</div>
+              </div>
+            </div>
+          )}
+          <div
+            className={`text-center transition-transform duration-75 ${
+              battleFx === 'player-hit' && !autoFleeAnimating ? 'translate-x-1 scale-95 brightness-125' : ''
+            } ${autoFleeAnimating ? 'animate-battle-flee-escape' : ''}`}
+          >
             <div className="bg-blue-500 text-white font-bold px-4 py-1 rounded-t-lg mb-2">玩家</div>
-            <div className="bg-blue-900/50 border-2 border-blue-400 rounded-xl p-3 w-36">
+            <div
+              className={`bg-blue-900/50 border-2 border-blue-400 rounded-xl p-3 w-36 relative min-h-[200px] ${
+                heavyStrikePlaying && !autoFleeAnimating ? 'animate-battle-charge' : ''
+              }`}
+            >
               <div className="bg-yellow-400 text-orange-900 font-bold text-xs px-2 py-0.5 rounded-full mb-2">LV.{playerLevel}</div>
-              <img src="/player.png" alt="Player" className="w-24 h-24 object-contain mx-auto" />
+              <div className="relative mx-auto h-24 w-24">
+                {autoFleeAnimating && (
+                  <span
+                    className="pointer-events-none absolute left-1/2 top-1/2 z-[2] text-3xl animate-flee-dust select-none"
+                    aria-hidden
+                  >
+                    💨
+                  </span>
+                )}
+                {isDefending && !autoFleeAnimating && (
+                  <div className="pointer-events-none absolute inset-[-6px] z-10 flex items-center justify-center rounded-full bg-sky-400/20 ring-2 ring-sky-300/50 animate-shield-ghost">
+                    <span
+                      className="select-none text-[3.75rem] leading-none opacity-[0.45] drop-shadow-[0_0_14px_rgba(125,211,252,0.8)]"
+                      aria-hidden
+                    >
+                      🛡️
+                    </span>
+                  </div>
+                )}
+                <img src="/player.png" alt="Player" className="relative z-[1] h-full w-full object-contain" />
+              </div>
               <div className="mt-2">
                 <div className="flex justify-between text-xs text-white mb-1">
                   <span>HP</span>
-                  <span>{playerHP}/{totalStats.maxHp}</span>
+                  <span>
+                    {playerHP}/{totalStats.maxHp}
+                  </span>
                 </div>
                 <div className="h-2 bg-gray-700 rounded-full">
-                  <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${(playerHP / totalStats.maxHp) * 100}%` }} />
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all"
+                    style={{ width: `${(playerHP / totalStats.maxHp) * 100}%` }}
+                  />
                 </div>
               </div>
+              {floatTexts
+                .filter((f) => f.side === 'left')
+                .map((f) => (
+                  <div
+                    key={f.id}
+                    className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 animate-bounce text-lg font-black text-amber-300 drop-shadow-md"
+                  >
+                    {f.text}
+                  </div>
+                ))}
             </div>
           </div>
 
-          {/* VS */}
-          <div className="bg-orange-500 text-white font-black text-3xl px-6 py-3 rounded-xl border-4 border-yellow-400">VS</div>
+          {showCenterBattleIcon && (
+            <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
+              <div className="bg-orange-500/95 text-white font-black text-2xl px-5 py-2.5 rounded-xl border-4 border-yellow-400 shadow-lg animate-pulse">
+                ⚔
+              </div>
+            </div>
+          )}
 
-          {/* 敌人 */}
-          <div className="text-center">
+          <div
+            className={`text-center transition-transform duration-75 ${
+              battleFx === 'enemy-hit' ? '-translate-x-1 scale-95 brightness-125' : ''
+            }`}
+          >
             <div className="bg-red-500 text-white font-bold px-4 py-1 rounded-t-lg mb-2">{nearbyEnemy?.name || '敌人'}</div>
-            <div className="bg-red-900/50 border-2 border-red-400 rounded-xl p-3 w-36">
+            <div
+              className={`bg-red-900/50 border-2 border-red-400 rounded-xl p-3 w-36 relative min-h-[200px] ${
+                heavyStrikePlaying ? 'animate-enemy-recoil' : ''
+              }`}
+            >
               <div className="bg-red-400 text-white font-bold text-xs px-2 py-0.5 rounded-full mb-2">LV.{enemyLevel}</div>
               <img src="/enemy.png" alt="Enemy" className="w-24 h-24 object-contain mx-auto" />
               <div className="mt-2">
                 <div className="flex justify-between text-xs text-white mb-1">
                   <span>HP</span>
-                  <span>{enemyHP}/{enemyMaxHp}</span>
+                  <span>
+                    {enemyHP}/{enemyMaxHp}
+                  </span>
                 </div>
                 <div className="h-2 bg-gray-700 rounded-full">
-                  <div className="h-full bg-red-500 rounded-full transition-all" style={{ width: `${(enemyHP / enemyMaxHp) * 100}%` }} />
+                  <div
+                    className="h-full bg-red-500 rounded-full transition-all"
+                    style={{ width: `${(enemyHP / enemyMaxHp) * 100}%` }}
+                  />
                 </div>
               </div>
+              {floatTexts
+                .filter((f) => f.side === 'right')
+                .map((f) => (
+                  <div
+                    key={f.id}
+                    className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 animate-bounce text-lg font-black text-red-300 drop-shadow-md"
+                  >
+                    {f.text}
+                  </div>
+                ))}
             </div>
           </div>
         </div>
 
-        {/* 回合指示 */}
-        <div className="text-center">
-          <span className={`inline-block px-6 py-1 rounded-full text-white font-bold text-sm ${currentTurn === 'player' ? 'bg-blue-500' : 'bg-red-500'}`}>
-            {currentTurn === 'player' ? '你的回合' : '敌方回合'}
-          </span>
-        </div>
-
-        {/* 技能栏 */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-yellow-500 to-yellow-400 border-t-4 border-orange-500 p-4">
-          <div className="flex items-center justify-center gap-4">
-            {!isGameOver && currentTurn === 'player' && (
-              <button onClick={handleFlee} className="px-4 py-2 bg-gray-500 hover:bg-gray-400 rounded-lg text-white font-bold text-sm border-2 border-gray-300">
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            {!isGameOver && (
+              <button
+                type="button"
+                onClick={() => handleFlee({ successMessage: '逃跑成功！已离开战斗。' })}
+                disabled={autoFleeAnimating}
+                className="px-4 py-2 bg-gray-500 hover:bg-gray-400 rounded-lg text-white font-bold text-sm border-2 border-gray-300 disabled:opacity-50"
+              >
                 逃跑
               </button>
             )}
-            {availableSkills.map(skill => (
-              <button
-                key={skill.id}
-                onClick={() => currentTurn === 'player' && !isGameOver && !actionLocked && useSkill(skill)}
-                onMouseEnter={() => setHoveredSkill(skill)}
-                onMouseLeave={() => setHoveredSkill(null)}
-                disabled={currentTurn !== 'player' || isGameOver || actionLocked}
-                className={`w-16 h-14 rounded-xl flex flex-col items-center justify-center shadow-lg border-2 relative ${
-                  selectedSkill === skill.id
-                    ? 'bg-orange-500 border-orange-300'
-                    : currentTurn === 'player' && !isGameOver && !actionLocked
-                      ? 'bg-blue-500 border-blue-300 hover:bg-blue-400'
-                      : 'bg-gray-500 border-gray-300 opacity-50'
-                }`}
-              >
-                <span className="text-xl">{skill.icon}</span>
-                <span className="text-xs text-white font-bold">{skill.name}</span>
-              </button>
-            ))}
+            {availableSkills.map((skill) => {
+              const cd = skillCooldownRemaining(skillCooldownEndAt, skill.id)
+              const locked = cd > 0 || isGameOver
+              return (
+                <button
+                  key={skill.id}
+                  type="button"
+                  onClick={() => !locked && queueSkill(skill)}
+                  onMouseEnter={() => setHoveredSkill(skill)}
+                  onMouseLeave={() => setHoveredSkill(null)}
+                  disabled={locked}
+                  className={`relative w-16 h-14 rounded-xl flex flex-col items-center justify-center shadow-lg border-2 ${
+                    nextAttackSkillId === skill.id
+                      ? 'bg-orange-500 border-orange-300 ring-2 ring-white'
+                      : locked
+                        ? 'bg-gray-600 border-gray-500 opacity-70'
+                        : 'bg-blue-500 border-blue-300 hover:bg-blue-400'
+                  }`}
+                >
+                  <span className="text-xl">{skill.icon}</span>
+                  <span className="text-xs text-white font-bold">{skill.name}</span>
+                  {cd > 0 && (
+                    <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/55 text-white text-sm font-black">
+                      {(cd / 1000).toFixed(1)}s
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
-          {/* 技能提示 */}
           {hoveredSkill && (
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-gray-900/95 border-2 border-yellow-400 rounded-xl p-3 w-48 shadow-xl z-50">
               <div className="text-center mb-2">
@@ -278,51 +609,68 @@ export default function BattlePanel({ game }: Props) {
               </div>
               <div className="text-gray-300 text-xs text-center mb-1">{hoveredSkill.desc}</div>
               <div className="text-yellow-400 text-xs text-center">
-                {hoveredSkill.type === 'damage' && `伤害: ${Math.floor(totalStats.atk * hoveredSkill.multiplier)}${hoveredSkill.hits ? ` x${hoveredSkill.hits}` : ''}`}
-                {hoveredSkill.type === 'heal' && `治疗: ${Math.floor(totalStats.atk * hoveredSkill.multiplier)} HP`}
-                {hoveredSkill.type === 'defense' && '效果: 下次受伤减少50%'}
-                {hoveredSkill.type === 'counter' && `反击: ${Math.floor(totalStats.atk * hoveredSkill.multiplier)} 伤害`}
+                点击：下一发自动攻击使用 · CD {((hoveredSkill.cooldownMs ?? 0) / 1000).toFixed(1)}s
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* 战斗日志 */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 w-64 h-48 bg-black/70 rounded-lg p-2 overflow-y-auto">
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 w-64 max-h-48 bg-black/70 rounded-lg p-2 overflow-y-auto">
         {battleLog.map((log, idx) => (
-          <div key={idx} className="text-white text-xs mb-1">{log}</div>
+          <div key={idx} className="text-white text-xs mb-1">
+            {log}
+          </div>
         ))}
       </div>
 
-      {/* 结算弹窗 */}
       {isGameOver && (
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20">
-          <div className="bg-gradient-to-b from-yellow-400 to-orange-500 border-4 border-orange-600 rounded-3xl p-8 w-80 text-center">
-            <div className="bg-red-500 text-white font-black text-xl px-6 py-2 rounded-xl border-4 border-red-300 mx-auto mb-4 -mt-10">
+          <div className="relative bg-gradient-to-b from-yellow-400 to-orange-500 border-4 border-orange-600 rounded-3xl p-8 w-80 text-center overflow-hidden">
+            {battleResult === 'win' && <ConfettiCelebration />}
+            <div className="relative z-10 bg-red-500 text-white font-black text-xl px-6 py-2 rounded-xl border-4 border-red-300 mx-auto mb-4 -mt-10">
               {battleResult === 'win' ? '胜利！' : '失败...'}
             </div>
-            <div className="bg-white/30 rounded-xl p-4 mb-4">
-              <div className="text-orange-900 text-sm">战斗回合</div>
-              <div className="text-4xl font-black text-orange-900">{battleRound}</div>
+            <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
+              <div className="text-orange-900 text-sm">战斗时长</div>
+              <div className="text-4xl font-black text-orange-900">{battleTimeSec}s</div>
             </div>
             {battleResult === 'win' && (
-              <div className="bg-white/30 rounded-xl p-4 mb-4">
+              <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
                 <div className="text-orange-900 text-sm mb-2">战斗奖励</div>
                 <div className="flex justify-around">
-                  <div><div className="text-2xl">💰</div><div className="text-xs text-orange-900">金币+{gainedGold}</div></div>
-                  <div><div className="text-2xl">⭐</div><div className="text-xs text-orange-900">经验+{gainedExp}</div></div>
+                  <div>
+                    <div className="text-2xl">💰</div>
+                    <div className="text-xs text-orange-900">金币+{gainedGold}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl">⭐</div>
+                    <div className="text-xs text-orange-900">经验+{gainedExp}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {battleResult === 'lose' && (
+              <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
+                <div className="text-orange-900 text-sm leading-relaxed">
+                  已失去全部金币；装备与背包保留。
                 </div>
               </div>
             )}
             {droppedEquipment && (
-              <div className="bg-green-500/80 rounded-xl p-4 mb-4 animate-bounce">
+              <div className="relative z-10 bg-green-500/80 rounded-xl p-4 mb-4 animate-bounce">
                 <div className="text-white font-bold mb-1">🎉 装备掉落！</div>
                 <div className="text-4xl mb-1">{droppedEquipment.icon}</div>
                 <div className="text-white text-sm">{droppedEquipment.name}</div>
               </div>
             )}
-            <button onClick={closeBattle} className="w-full py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-white font-bold border-2 border-blue-300">返回大厅</button>
+            <button
+              type="button"
+              onClick={closeBattle}
+              className="relative z-10 w-full py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-white font-bold border-2 border-blue-300"
+            >
+              返回大厅
+            </button>
           </div>
         </div>
       )}

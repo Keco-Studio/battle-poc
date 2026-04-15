@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { GameState } from '../hooks/useGameState'
-import { COLLISION_SCALE, INTERACTION_RANGE } from '../constants'
+import { INTERACTION_RANGE, calcEnemyStats } from '../constants'
+import type { DockPanelId } from '../hooks/useGameState'
+import DockFeatureModal from './DockFeatureModal'
 
 interface Props {
   game: GameState
@@ -37,12 +39,30 @@ export default function GameMap({ game }: Props) {
     totalStats,
     playerGold,
     setShowCharacter,
+    fleeSuccessMessage,
+    dismissFleeSuccessMessage,
+    dockPanel,
+    setDockPanel,
   } = game
 
-  const collisionCanvasRef = useRef<HTMLCanvasElement>(null)
-  const [collisionMap, setCollisionMap] = useState<boolean[][]>([])
+  const dockItems: { id: DockPanelId; label: string; icon: string }[] = [
+    { id: 'achievements', label: '成就', icon: '🏆' },
+    { id: 'log', label: '日志', icon: '📜' },
+    { id: 'chat', label: '聊天', icon: '💬' },
+    { id: 'battle_system', label: '战斗系统', icon: '⚔️' },
+    { id: 'character_login', label: '角色登录', icon: '👤' },
+  ]
+
+  useEffect(() => {
+    if (!fleeSuccessMessage) return
+    const t = window.setTimeout(() => dismissFleeSuccessMessage(), 4500)
+    return () => window.clearTimeout(t)
+  }, [fleeSuccessMessage, dismissFleeSuccessMessage])
+
   const [enemyPreviewLevel, setEnemyPreviewLevel] = useState(1)
   const keysRef = useRef<Record<string, boolean>>({ w: false, a: false, s: false, d: false })
+  /** 逻辑坐标（0–100），供键盘增量与点击 teleport 共用 */
+  const posRef = useRef({ x: playerPos.x, y: playerPos.y })
   const [mounted, setMounted] = useState(false)
 
   // 避免 SSR hydration 不匹配
@@ -104,119 +124,73 @@ export default function GameMap({ game }: Props) {
     return () => clearInterval(msgInterval)
   }, [enemies])
 
-  // 加载障碍图
-  useEffect(() => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.src = '/black-white.jpg'
-    img.onload = () => {
-      const canvas = collisionCanvasRef.current
-      if (!canvas) return
-
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-
-      canvas.width = img.width / COLLISION_SCALE
-      canvas.height = img.height / COLLISION_SCALE
-
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const data = imageData.data
-
-      const map: boolean[][] = []
-      for (let y = 0; y < canvas.height; y++) {
-        const row: boolean[] = []
-        for (let x = 0; x < canvas.width; x++) {
-          const i = (y * canvas.width + x) * 4
-          const isBlack = data[i] < 128 && data[i + 1] < 128 && data[i + 2] < 128
-          row.push(isBlack)
-        }
-        map.push(row)
-      }
-
-      setCollisionMap(map)
-    }
-  }, [])
-
-  // 检查位置是否可通行
-  const isWalkable = (x: number, y: number): boolean => {
-    if (collisionMap.length === 0) return true
-
-    const canvasWidth = collisionMap[0]?.length || 0
-    const canvasHeight = collisionMap.length
-
-    const px = Math.floor((x / 100) * canvasWidth)
-    const py = Math.floor((y / 100) * canvasHeight)
-
-    if (px < 0 || px >= canvasWidth || py < 0 || py >= canvasHeight) {
-      return false
-    }
-
-    return !collisionMap[py][px]
-  }
-
-  // 检查移动是否有效
-  const canMoveTo = (x: number, y: number): boolean => {
-    if (x < 0 || x > 100 || y < 0 || y > 100) return false
-    const radius = 2
-    for (let dy = -radius; dy <= radius; dy++) {
-      for (let dx = -radius; dx <= radius; dx++) {
-        if (!isWalkable(x + dx, y + dy)) return false
-      }
-    }
-    return true
-  }
-
-  // 键盘移动
+  // 键盘移动：稳定「每秒速度」——用 Δt（秒）积分，不用帧数（帧率波动时仍匀速）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase()
-      if (key in keysRef.current) keysRef.current[key] = true
+      if (!(key in keysRef.current)) return
+      if (e.repeat) return
+      keysRef.current[key] = true
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase()
-      if (key in keysRef.current) keysRef.current[key] = false
+      if (!(key in keysRef.current)) return
+      keysRef.current[key] = false
     }
 
-    const move = () => {
-      const speed = 1.5
-      let dx = 0, dy = 0
-      if (keysRef.current.w) dy -= speed
-      if (keysRef.current.s) dy += speed
-      if (keysRef.current.a) dx -= speed
-      if (keysRef.current.d) dx += speed
+    /** 地图 0–100 坐标下，与 160px/s 同量纲的每秒变化量（原 (160/1600)*100） */
+    const speedMapUnitsPerSec = (160 / 1600) * 100
+    /** 单帧最多按 1/30 秒积分，避免卡顿时 Δt 过大瞬移 */
+    const maxDtSec = 1 / 30
 
-      if (dx !== 0 || dy !== 0) {
-        setPlayerPos(prev => {
-          const newX = Math.max(0, Math.min(100, prev.x + dx))
-          const newY = Math.max(0, Math.min(100, prev.y + dy))
-          if (!canMoveTo(newX, newY)) {
-            if (canMoveTo(newX, prev.y)) {
-              return { x: newX, y: prev.y }
-            }
-            if (canMoveTo(prev.x, newY)) {
-              return { x: prev.x, y: newY }
-            }
-            return prev
-          }
-          return { x: newX, y: newY }
-        })
+    let lastTime = performance.now()
+    let rafId = 0
+    let active = true
+
+    const move = (time: number) => {
+      if (!active) return
+
+      const rawSec = (time - lastTime) / 1000
+      lastTime = time
+      const dt = Math.min(Math.max(rawSec, 0), maxDtSec)
+
+      let mx = 0
+      let my = 0
+      const k = keysRef.current
+      if (k.w) my -= 1
+      if (k.s) my += 1
+      if (k.a) mx -= 1
+      if (k.d) mx += 1
+
+      if (mx !== 0 || my !== 0) {
+        if (mx !== 0 && my !== 0) {
+          const inv = 1 / Math.SQRT2
+          mx *= inv
+          my *= inv
+        }
+        let nx = posRef.current.x + mx * speedMapUnitsPerSec * dt
+        let ny = posRef.current.y + my * speedMapUnitsPerSec * dt
+        nx = Math.max(0, Math.min(100, nx))
+        ny = Math.max(0, Math.min(100, ny))
+        posRef.current = { x: nx, y: ny }
+        setPlayerPos({ x: nx, y: ny })
       }
-      requestAnimationFrame(move)
+
+      rafId = requestAnimationFrame(move)
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
-    const frameId = requestAnimationFrame(move)
+    rafId = requestAnimationFrame(move)
 
     return () => {
+      active = false
+      cancelAnimationFrame(rafId)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
-      cancelAnimationFrame(frameId)
     }
-  }, [collisionMap, setPlayerPos])
+  }, [setPlayerPos])
 
   // 检测附近敌人（使用动态位置）
   useEffect(() => {
@@ -228,40 +202,59 @@ export default function GameMap({ game }: Props) {
     })
     setNearbyEnemy(found || null)
     setShowInteraction(!!found)
-    // 缓存敌人预览等级
+    // 缓存敌人预览等级（开战为玩家−1～−2，用中位作属性代表）
     if (found) {
-      setEnemyPreviewLevel(Math.max(1, playerLevel - 1 - Math.floor(Math.random() * 2)))
+      setEnemyPreviewLevel(Math.max(1, playerLevel - 1))
     }
   }, [playerPos, enemies, enemyPositions, setNearbyEnemy, setShowInteraction, playerLevel])
 
-  // 点击地图移动
+  // 点击地图移动（所有区域可达）
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = ((e.clientX - rect.left) / rect.width) * 100
     const y = ((e.clientY - rect.top) / rect.height) * 100
-    if (canMoveTo(x, y)) {
-      setPlayerPos({ x, y })
-    }
+    posRef.current = { x, y }
+    setPlayerPos({ x, y })
   }
+
+  const enemyLevelRangeMin = Math.max(1, playerLevel - 2)
+  const enemyLevelRangeMax = Math.max(1, playerLevel - 1)
 
   const getEnemyPreviewLevel = () => {
     // SSR 时使用稳定值避免 hydration 不匹配
     if (!mounted) return 1
     if (!nearbyEnemy) return enemyPreviewLevel
-    const diff = 1 + (nearbyEnemy.id % 2)
-    return Math.max(1, playerLevel - diff)
+    return Math.max(1, playerLevel - 1)
+  }
+
+  const getEnemyPreviewStats = () => {
+    const lv = !mounted ? 1 : Math.max(1, playerLevel - 1)
+    return calcEnemyStats(lv)
   }
 
   return (
     <main className="relative w-screen h-screen overflow-hidden">
-      <canvas ref={collisionCanvasRef} style={{ display: 'none' }} />
-
       {/* 全屏地图背景 */}
       <div
         className="absolute inset-0 bg-cover bg-center cursor-crosshair"
         style={{ backgroundImage: "url('/home-bg.png')" }}
         onClick={handleMapClick}
       />
+
+      {fleeSuccessMessage && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
+          <div className="flex max-w-md flex-col items-center gap-3 rounded-xl border-2 border-emerald-400/80 bg-emerald-950/95 px-6 py-4 text-center shadow-xl backdrop-blur-sm">
+            <div className="text-lg font-bold text-emerald-200">{fleeSuccessMessage}</div>
+            <button
+              type="button"
+              onClick={() => dismissFleeSuccessMessage()}
+              className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-emerald-500"
+            >
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 左上角玩家信息 */}
       <div
@@ -303,13 +296,10 @@ export default function GameMap({ game }: Props) {
         </div>
       </div>
 
-      {/* 敌人标记 */}
+      {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
       {enemies.map(enemy => {
-        // 敌人实际等级 = max(1, 玩家等级 - 1到2级)，使用敌人ID作为种子保持一致
-        const diff = 1 + (enemy.id % 2) // 敌人1用1，敌人2用2
-        const actualLevel = Math.max(1, playerLevel - diff)
-        const pos = enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }
-        const message = enemyMessages[enemy.id]
+        const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
+        const message = mounted ? enemyMessages[enemy.id] : undefined
         return (
           <div
             key={enemy.id}
@@ -327,16 +317,16 @@ export default function GameMap({ game }: Props) {
               <div className="w-8 h-8 bg-red-500/60 rounded" />
             </div>
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-red-400 bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
-              {enemy.name} Lv.{actualLevel}
+              {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
             </div>
           </div>
         )
       })}
 
-      {/* 玩家标记 */}
+      {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
       <div
         className="absolute pointer-events-none transition-all duration-200"
-        style={{ left: `${playerPos.x}%`, top: `${playerPos.y}%` }}
+        style={{ left: mounted ? `${playerPos.x}%` : '15%', top: mounted ? `${playerPos.y}%` : '80%' }}
       >
         <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
@@ -348,6 +338,31 @@ export default function GameMap({ game }: Props) {
       <div className="absolute bottom-0 left-0 z-20 pointer-events-none">
         <img src="/home-left.png" alt="home-left" className="w-auto h-auto" />
       </div>
+
+      {/* 右下角：五个小图标自上而下（悬停见名称） */}
+      <div className="pointer-events-auto absolute bottom-4 right-4 z-40 flex flex-col items-center gap-1 rounded-xl border-2 border-yellow-500/50 bg-gray-900/90 p-1.5 shadow-lg backdrop-blur-sm">
+        {dockItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            title={item.label}
+            aria-label={item.label}
+            aria-pressed={dockPanel === item.id}
+            onClick={() => setDockPanel(dockPanel === item.id ? null : item.id)}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-[15px] leading-none transition-colors ${
+              dockPanel === item.id
+                ? 'border-amber-400 bg-amber-500/35 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.5)]'
+                : 'border-transparent bg-gray-800/90 text-gray-100 hover:bg-gray-700 hover:border-gray-600'
+            }`}
+          >
+            <span aria-hidden className="select-none">
+              {item.icon}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {dockPanel && <DockFeatureModal game={game} />}
 
       {/* 交互按钮 */}
       {showInteraction && nearbyEnemy && (
@@ -389,27 +404,32 @@ export default function GameMap({ game }: Props) {
             <div className="space-y-2 text-white">
               <div className="flex justify-between">
                 <span className="text-gray-400">等级</span>
-                <span className="font-bold text-yellow-400">Lv.{getEnemyPreviewLevel()}</span>
+                <span className="font-bold text-yellow-400">
+                  Lv.{enemyLevelRangeMin}～{enemyLevelRangeMax}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">类型</span>
                 <span className="font-bold text-red-400">恶魔族</span>
               </div>
+              <div className="text-xs text-gray-500 -mt-1 mb-1">
+                以下为 Lv.{getEnemyPreviewLevel()} 参考（成长较角色 +20%）
+              </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">HP</span>
-                <span className="font-bold text-green-400">{30 + getEnemyPreviewLevel() * 10}</span>
+                <span className="font-bold text-green-400">{getEnemyPreviewStats().maxHp}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">攻击</span>
-                <span className="font-bold text-red-400">{3 + getEnemyPreviewLevel() * 2}</span>
+                <span className="font-bold text-red-400">{getEnemyPreviewStats().atk}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">防御</span>
-                <span className="font-bold text-blue-400">{2 + getEnemyPreviewLevel() * 1}</span>
+                <span className="font-bold text-blue-400">{getEnemyPreviewStats().def}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">速度</span>
-                <span className="font-bold text-yellow-400">{2 + getEnemyPreviewLevel() * 1}</span>
+                <span className="font-bold text-yellow-400">{getEnemyPreviewStats().spd}</span>
               </div>
             </div>
             <button

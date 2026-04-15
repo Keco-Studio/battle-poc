@@ -1,0 +1,10 @@
+---
+description: 工作范围仅限 battle-poc，不碰 testable-rpg
+alwaysApply: true
+---
+
+# 项目范围
+
+- 默认**只关注本仓库中的 `battle-poc`**：读代码、改代码、跑测试、给建议都以此目录为准。
+- **不要**阅读、修改或引用同工作区里其他游戏工程（例如 `testable-rpg`），除非用户**明确点名**要动那些路径。
+- 若任务描述含糊，优先假设需求在 `battle-poc` 内解决。

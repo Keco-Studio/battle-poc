@@ -19,6 +19,8 @@ export default function CharacterPanel({ game }: Props) {
     setShowEquipment,
     setShowSkills,
     healWithGold,
+    autoFleeHpPercent,
+    setAutoFleeHpPercent,
   } = game
 
   const nextLevelExp = expForLevel(playerLevel)
@@ -108,6 +110,26 @@ export default function CharacterPanel({ game }: Props) {
               >
                 {playerHP >= totalStats.maxHp ? '满血状态' : `💰 ${healCost} 金币回复满血`}
               </button>
+              <div className="mt-3 pt-2 border-t border-blue-700/80">
+                <div className="flex justify-between items-center text-[10px] text-gray-300 mb-1">
+                  <span>自动逃跑血量</span>
+                  <span className="text-amber-200 font-mono">
+                    {autoFleeHpPercent === 0 ? '关闭' : `≤ ${autoFleeHpPercent}%`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={autoFleeHpPercent}
+                  onChange={(e) => setAutoFleeHpPercent(Number(e.target.value))}
+                  className="w-full h-1.5 accent-amber-400 cursor-pointer"
+                />
+                <p className="text-[9px] text-gray-500 mt-1 leading-snug">
+                  战斗中当前生命百分比不高于该值时自动逃跑（0 为关闭）
+                </p>
+              </div>
             </div>
 
             {/* 属性 */}
