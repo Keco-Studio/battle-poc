@@ -44,19 +44,25 @@ export interface Enemy {
   x: number
   y: number
   level: number
+  profile?: {
+    maxHp?: number | null
+    atk?: number | null
+    def?: number | null
+    spd?: number | null
+  }
 }
 
-// 模拟敌人数据
+// 默认敌人数据（网格坐标）
 export const initialEnemies: Enemy[] = [
-  { id: 1, name: '恶魔守卫', x: 30, y: 40, level: 3 },
-  { id: 2, name: '暗影刺客', x: 70, y: 25, level: 5 },
+  { id: 1, name: '恶魔守卫', x: 5, y: 5, level: 3 },
+  { id: 2, name: '暗影刺客', x: 10, y: 6, level: 5 },
 ]
 
-// 玩家初始位置
-export const PLAYER_START = { x: 15, y: 80 }
+// 玩家初始位置（网格坐标）
+export const PLAYER_START = { x: 8, y: 8 }
 
-// 交互范围
-export const INTERACTION_RANGE = 15
+// 交互范围（格）
+export const INTERACTION_RANGE = 2.5
 
 // 碰撞检测分辨率
 export const COLLISION_SCALE = 2
@@ -97,6 +103,10 @@ export const calcPlayerStats = (level: number) => ({
 
 /** 相对同等级角色基础四维，怪物整体更强（战斗成长用） */
 export const MONSTER_VS_PLAYER_STAT_MULT = 1.2
+export const BASIC_DAMAGE_MULTIPLIER = 1.24
+export const SKILL_DAMAGE_MULTIPLIER = 1.82
+export const DEFEND_DAMAGE_REDUCTION = 0.6
+export const DEFEND_SKILL_REDUCTION = 0.62
 
 export interface EnemyCombatStats {
   maxHp: number

@@ -1,31 +1,31 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { GAME_CONFIG } from './phaser/config';
 import { BattleScene } from './phaser/BattleScene';
-import type { CombatActor } from './engine/combat/CombatTypes';
+import type { BattleVisualState } from './phaser/battleVisualTypes';
 
-// 临时测试数据
-const TEST_PLAYER: CombatActor = {
-  id: 'player',
-  name: 'Hero',
-  side: 'player',
-  stats: { hp: 100, maxHp: 100, attack: 15, defense: 5, speed: 10, luck: 5 },
-  statusEffects: [],
-};
-
-const TEST_ENEMY: CombatActor = {
-  id: 'slime',
-  name: 'Slime',
-  side: 'enemy',
-  stats: { hp: 30, maxHp: 30, attack: 8, defense: 2, speed: 3, luck: 0 },
-  statusEffects: [],
+const DEMO_STATE: BattleVisualState = {
+  playerName: 'Hero',
+  enemyName: 'Slime',
+  playerHP: 100,
+  playerMaxHp: 100,
+  enemyHP: 30,
+  enemyMaxHp: 30,
+  isDefending: false,
+  battleFx: 'none',
+  heavyStrikePlaying: false,
+  autoFleeAnimating: false,
+  isGameOver: false,
+  battleResult: null,
+  floatTexts: [],
 };
 
 export function PhaserGame() {
   const gameRef = useRef<Phaser.Game | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const stateRef = useRef<BattleVisualState>(DEMO_STATE);
 
   useEffect(() => {
     if (!gameRef.current && containerRef.current) {
@@ -35,13 +35,11 @@ export function PhaserGame() {
       };
       gameRef.current = new Phaser.Game(config);
 
-      // 场景加载后启动并传递数据
       gameRef.current.events.once('ready', () => {
         if (gameRef.current) {
           const battleScene = new BattleScene();
           gameRef.current.scene.add('BattleScene', battleScene, true, {
-            player: TEST_PLAYER,
-            enemies: [TEST_ENEMY],
+            getState: () => stateRef.current,
           });
         }
       });
@@ -62,7 +60,7 @@ export function PhaserGame() {
       tabIndex={0}
       role="application"
       aria-label="Battle game canvas"
-      className="outline-none cursor-default select-none"
+      className="outline-none cursor-default select-none w-[1600px] h-[900px]"
       onPointerDown={(e) => {
         e.currentTarget.focus({ preventScroll: true });
       }}

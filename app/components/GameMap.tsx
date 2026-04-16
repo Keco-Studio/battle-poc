@@ -10,6 +10,16 @@ interface Props {
   game: GameState
 }
 
+type MapTileset = {
+  id: string
+  imagePath: string
+  publicImagePath: string | null
+  tileWidth: number
+  tileHeight: number
+  tileCount: number
+  columns: number
+}
+
 // 敌人消息
 const ENEMY_MESSAGES = [
   '我是魔王我很强！',
@@ -27,6 +37,7 @@ export default function GameMap({ game }: Props) {
     playerPos,
     setPlayerPos,
     enemies,
+    setEnemies,
     showInteraction,
     setShowInteraction,
     nearbyEnemy,
@@ -61,9 +72,29 @@ export default function GameMap({ game }: Props) {
 
   const [enemyPreviewLevel, setEnemyPreviewLevel] = useState(1)
   const keysRef = useRef<Record<string, boolean>>({ w: false, a: false, s: false, d: false })
-  /** 逻辑坐标（0–100），供键盘增量与点击 teleport 共用 */
-  const posRef = useRef({ x: playerPos.x, y: playerPos.y })
+  const mapViewportRef = useRef<HTMLDivElement | null>(null)
+  const mapCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null)
+  const [tilesetReady, setTilesetReady] = useState(false)
+  const [availableMaps, setAvailableMaps] = useState<Array<{ id: string; fileName: string }>>([])
+  const [selectedMapId, setSelectedMapId] = useState<string>('demo-project')
+  const [mapInfo, setMapInfo] = useState<{
+    width: number
+    height: number
+    ground: number[]
+    collision: number[]
+    mapId: string
+    tileset: MapTileset | null
+  }>({
+    width: 16,
+    height: 16,
+    ground: [],
+    collision: [],
+    mapId: 'fallback',
+    tileset: null,
+  })
 
   // 避免 SSR hydration 不匹配
   useEffect(() => {
@@ -74,6 +105,188 @@ export default function GameMap({ game }: Props) {
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
+
+  const isWalkable = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= mapInfo.width || y >= mapInfo.height) return false
+    const idx = y * mapInfo.width + x
+    return mapInfo.collision[idx] !== 1
+  }
+
+  const mapAspect = mapInfo.width / Math.max(1, mapInfo.height)
+  const viewAspect = viewportSize.width / Math.max(1, viewportSize.height)
+  const renderWidth =
+    viewAspect > mapAspect ? Math.floor(viewportSize.height * mapAspect) : Math.floor(viewportSize.width)
+  const renderHeight =
+    viewAspect > mapAspect ? Math.floor(viewportSize.height) : Math.floor(viewportSize.width / mapAspect)
+  const renderOffsetX = Math.max(0, Math.floor((viewportSize.width - renderWidth) / 2))
+  const renderOffsetY = Math.max(0, Math.floor((viewportSize.height - renderHeight) / 2))
+
+  const gridToScreen = (x: number, y: number) => ({
+    x: renderOffsetX + ((x + 0.5) / mapInfo.width) * renderWidth,
+    y: renderOffsetY + ((y + 0.5) / mapInfo.height) * renderHeight,
+  })
+
+  useEffect(() => {
+    let active = true
+    const loadCatalog = async () => {
+      try {
+        const res = await fetch('/api/maps')
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          maps: Array<{ id: string; fileName: string }>
+          defaultMapId: string | null
+        }
+        if (!active) return
+        setAvailableMaps(data.maps)
+        if (data.defaultMapId) {
+          setSelectedMapId(data.defaultMapId)
+        }
+      } catch (error) {
+        console.warn('load maps catalog failed:', error)
+      }
+    }
+    loadCatalog()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const loadMap = async () => {
+      try {
+        const res = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          width: number
+          height: number
+          ground: number[]
+          collision: number[]
+          mapId: string
+          tileset: MapTileset | null
+          playerSpawn: { x: number; y: number }
+          enemies: Array<{
+            id: number
+            name: string
+            x: number
+            y: number
+            level: number
+            profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
+          }>
+        }
+        if (!active) return
+        setMapInfo({
+          width: data.width,
+          height: data.height,
+          ground: data.ground,
+          collision: data.collision,
+          mapId: data.mapId,
+          tileset: data.tileset,
+        })
+        setPlayerPos({
+          x: Math.max(0, Math.min(data.width - 1, Math.round(data.playerSpawn.x))),
+          y: Math.max(0, Math.min(data.height - 1, Math.round(data.playerSpawn.y))),
+        })
+        if (data.enemies.length > 0) {
+          setEnemies(data.enemies)
+        }
+      } catch (error) {
+        console.warn('load airpg map failed:', error)
+      }
+    }
+    if (selectedMapId) loadMap()
+    return () => {
+      active = false
+    }
+  }, [selectedMapId, setEnemies, setPlayerPos])
+
+  useEffect(() => {
+    const viewport = mapViewportRef.current
+    if (!viewport) return
+    const update = () => {
+      const rect = viewport.getBoundingClientRect()
+      setViewportSize({ width: Math.floor(rect.width), height: Math.floor(rect.height) })
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const imagePath = mapInfo.tileset?.publicImagePath
+    if (!imagePath) {
+      setTilesetImage(null)
+      setTilesetReady(false)
+      return
+    }
+    const img = new Image()
+    img.src = imagePath
+    img.onload = () => {
+      setTilesetImage(img)
+      setTilesetReady(true)
+    }
+    img.onerror = () => {
+      setTilesetImage(null)
+      setTilesetReady(false)
+    }
+  }, [mapInfo.tileset?.publicImagePath])
+
+  useEffect(() => {
+    const canvas = mapCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const width = Math.max(1, viewportSize.width)
+    const height = Math.max(1, viewportSize.height)
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
+    ctx.clearRect(0, 0, width, height)
+    ctx.fillStyle = '#0b1220'
+    ctx.fillRect(0, 0, width, height)
+
+    const cellW = renderWidth / mapInfo.width
+    const cellH = renderHeight / mapInfo.height
+    const tileset = mapInfo.tileset
+    const useSprite = !!(tileset && tilesetImage && tilesetReady)
+
+    for (let y = 0; y < mapInfo.height; y++) {
+      for (let x = 0; x < mapInfo.width; x++) {
+        const idx = y * mapInfo.width + x
+        const tileId = mapInfo.ground[idx] ?? 0
+        const blocked = mapInfo.collision[idx] === 1
+        const dx = renderOffsetX + x * cellW
+        const dy = renderOffsetY + y * cellH
+        if (useSprite && tileId > 0 && tileset && tileId <= tileset.tileCount) {
+          const tile = tileId - 1
+          const sx = (tile % tileset.columns) * tileset.tileWidth
+          const sy = Math.floor(tile / tileset.columns) * tileset.tileHeight
+          ctx.imageSmoothingEnabled = false
+          ctx.drawImage(tilesetImage!, sx, sy, tileset.tileWidth, tileset.tileHeight, dx, dy, cellW, cellH)
+        } else {
+          if (tileId >= 40) ctx.fillStyle = 'rgba(71, 85, 105, 0.85)'
+          else if (tileId >= 9) ctx.fillStyle = 'rgba(6, 95, 70, 0.85)'
+          else ctx.fillStyle = 'rgba(20, 83, 45, 0.85)'
+          ctx.fillRect(dx, dy, cellW, cellH)
+        }
+        ctx.strokeStyle = blocked ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 0, 0, 0.18)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(dx, dy, cellW, cellH)
+      }
+    }
+  }, [
+    mapInfo,
+    renderHeight,
+    renderOffsetX,
+    renderOffsetY,
+    renderWidth,
+    tilesetImage,
+    tilesetReady,
+    viewportSize.height,
+    viewportSize.width,
+  ])
 
   // 初始化敌人位置
   useEffect(() => {
@@ -91,18 +304,21 @@ export default function GameMap({ game }: Props) {
         const next = { ...prev }
         enemies.forEach(enemy => {
           if (!next[enemy.id]) return
-          // 2x2范围内随机移动
-          const dx = (Math.random() - 0.5) * 4
-          const dy = (Math.random() - 0.5) * 4
-          const newX = Math.max(0, Math.min(100, next[enemy.id].x + dx))
-          const newY = Math.max(0, Math.min(100, next[enemy.id].y + dy))
-          next[enemy.id] = { x: newX, y: newY }
+          const candidates = [
+            { x: next[enemy.id].x + 1, y: next[enemy.id].y },
+            { x: next[enemy.id].x - 1, y: next[enemy.id].y },
+            { x: next[enemy.id].x, y: next[enemy.id].y + 1 },
+            { x: next[enemy.id].x, y: next[enemy.id].y - 1 },
+          ].filter(c => isWalkable(c.x, c.y))
+          if (candidates.length === 0) return
+          const pick = candidates[Math.floor(Math.random() * candidates.length)]
+          next[enemy.id] = pick
         })
         return next
       })
     }, 2000)
     return () => clearInterval(moveInterval)
-  }, [enemies])
+  }, [enemies, mapInfo.collision, mapInfo.height, mapInfo.width])
 
   // 敌人随机消息
   useEffect(() => {
@@ -124,7 +340,7 @@ export default function GameMap({ game }: Props) {
     return () => clearInterval(msgInterval)
   }, [enemies])
 
-  // 键盘移动：稳定「每秒速度」——用 Δt（秒）积分，不用帧数（帧率波动时仍匀速）
+  // 键盘移动：网格步进
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase()
@@ -139,58 +355,29 @@ export default function GameMap({ game }: Props) {
       keysRef.current[key] = false
     }
 
-    /** 地图 0–100 坐标下，与 160px/s 同量纲的每秒变化量（原 (160/1600)*100） */
-    const speedMapUnitsPerSec = (160 / 1600) * 100
-    /** 单帧最多按 1/30 秒积分，避免卡顿时 Δt 过大瞬移 */
-    const maxDtSec = 1 / 30
-
-    let lastTime = performance.now()
-    let rafId = 0
-    let active = true
-
-    const move = (time: number) => {
-      if (!active) return
-
-      const rawSec = (time - lastTime) / 1000
-      lastTime = time
-      const dt = Math.min(Math.max(rawSec, 0), maxDtSec)
-
-      let mx = 0
-      let my = 0
+    const move = () => {
       const k = keysRef.current
-      if (k.w) my -= 1
-      if (k.s) my += 1
-      if (k.a) mx -= 1
-      if (k.d) mx += 1
-
-      if (mx !== 0 || my !== 0) {
-        if (mx !== 0 && my !== 0) {
-          const inv = 1 / Math.SQRT2
-          mx *= inv
-          my *= inv
-        }
-        let nx = posRef.current.x + mx * speedMapUnitsPerSec * dt
-        let ny = posRef.current.y + my * speedMapUnitsPerSec * dt
-        nx = Math.max(0, Math.min(100, nx))
-        ny = Math.max(0, Math.min(100, ny))
-        posRef.current = { x: nx, y: ny }
-        setPlayerPos({ x: nx, y: ny })
-      }
-
-      rafId = requestAnimationFrame(move)
+      let nx = playerPos.x
+      let ny = playerPos.y
+      if (k.w) ny -= 1
+      else if (k.s) ny += 1
+      else if (k.a) nx -= 1
+      else if (k.d) nx += 1
+      if (nx === playerPos.x && ny === playerPos.y) return
+      if (!isWalkable(nx, ny)) return
+      setPlayerPos({ x: nx, y: ny })
     }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
-    rafId = requestAnimationFrame(move)
+    const intervalId = window.setInterval(move, 130)
 
     return () => {
-      active = false
-      cancelAnimationFrame(rafId)
+      window.clearInterval(intervalId)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [setPlayerPos])
+  }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos])
 
   // 检测附近敌人（使用动态位置）
   useEffect(() => {
@@ -211,9 +398,21 @@ export default function GameMap({ game }: Props) {
   // 点击地图移动（所有区域可达）
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    posRef.current = { x, y }
+    const localX = e.clientX - rect.left
+    const localY = e.clientY - rect.top
+    if (
+      localX < renderOffsetX ||
+      localY < renderOffsetY ||
+      localX > renderOffsetX + renderWidth ||
+      localY > renderOffsetY + renderHeight
+    ) {
+      return
+    }
+    const px = (localX - renderOffsetX) / Math.max(1, renderWidth)
+    const py = (localY - renderOffsetY) / Math.max(1, renderHeight)
+    const x = Math.min(mapInfo.width - 1, Math.max(0, Math.floor(px * mapInfo.width)))
+    const y = Math.min(mapInfo.height - 1, Math.max(0, Math.floor(py * mapInfo.height)))
+    if (!isWalkable(x, y)) return
     setPlayerPos({ x, y })
   }
 
@@ -228,6 +427,14 @@ export default function GameMap({ game }: Props) {
   }
 
   const getEnemyPreviewStats = () => {
+    if (nearbyEnemy?.profile?.maxHp || nearbyEnemy?.profile?.atk || nearbyEnemy?.profile?.def || nearbyEnemy?.profile?.spd) {
+      return {
+        maxHp: Math.max(1, Math.round(nearbyEnemy.profile.maxHp ?? calcEnemyStats(Math.max(1, playerLevel - 1)).maxHp)),
+        atk: Math.max(1, Math.round(nearbyEnemy.profile.atk ?? calcEnemyStats(Math.max(1, playerLevel - 1)).atk)),
+        def: Math.max(0, Math.round(nearbyEnemy.profile.def ?? calcEnemyStats(Math.max(1, playerLevel - 1)).def)),
+        spd: Math.max(1, Math.round(nearbyEnemy.profile.spd ?? calcEnemyStats(Math.max(1, playerLevel - 1)).spd)),
+      }
+    }
     const lv = !mounted ? 1 : Math.max(1, playerLevel - 1)
     return calcEnemyStats(lv)
   }
@@ -236,10 +443,12 @@ export default function GameMap({ game }: Props) {
     <main className="relative w-screen h-screen overflow-hidden">
       {/* 全屏地图背景 */}
       <div
-        className="absolute inset-0 bg-cover bg-center cursor-crosshair"
-        style={{ backgroundImage: "url('/home-bg.png')" }}
+        ref={mapViewportRef}
+        className="absolute inset-0 cursor-crosshair"
         onClick={handleMapClick}
-      />
+      >
+        <canvas ref={mapCanvasRef} className="h-full w-full" />
+      </div>
 
       {fleeSuccessMessage && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/45 px-4">
@@ -304,7 +513,10 @@ export default function GameMap({ game }: Props) {
           <div
             key={enemy.id}
             className="absolute pointer-events-none"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+            style={{
+              left: `${gridToScreen(pos.x, pos.y).x}px`,
+              top: `${gridToScreen(pos.x, pos.y).y}px`,
+            }}
           >
             {/* 消息气泡 */}
             {message && (
@@ -326,7 +538,10 @@ export default function GameMap({ game }: Props) {
       {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
       <div
         className="absolute pointer-events-none transition-all duration-200"
-        style={{ left: mounted ? `${playerPos.x}%` : '15%', top: mounted ? `${playerPos.y}%` : '80%' }}
+        style={{
+          left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%',
+          top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
+        }}
       >
         <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
@@ -337,6 +552,24 @@ export default function GameMap({ game }: Props) {
       {/* 左下角 home-left */}
       <div className="absolute bottom-0 left-0 z-20 pointer-events-none">
         <img src="/home-left.png" alt="home-left" className="w-auto h-auto" />
+      </div>
+
+      <div className="absolute top-4 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
+        地图: {mapInfo.mapId} · {mapInfo.width}x{mapInfo.height}（网格）{tilesetReady ? ' · 精灵图' : ' · 回退渲染'}
+      </div>
+      <div className="absolute top-16 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
+        <label className="mr-2">地图</label>
+        <select
+          className="rounded bg-slate-900 px-2 py-1 text-xs text-slate-100"
+          value={selectedMapId}
+          onChange={(e) => setSelectedMapId(e.target.value)}
+        >
+          {availableMaps.map((map) => (
+            <option key={map.id} value={map.id}>
+              {map.id}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* 右下角：五个小图标自上而下（悬停见名称） */}

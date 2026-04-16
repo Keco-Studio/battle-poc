@@ -1,6 +1,13 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { BattleFxKind, BattleVisualState } from '@/src/renderer/phaser/battleVisualTypes'
+
+const BattlePhaserCanvas = dynamic(
+  () => import('./BattlePhaserCanvas').then((m) => m.BattlePhaserCanvas),
+  { ssr: false, loading: () => <div className="absolute inset-0 bg-[#1a1a2e]" aria-hidden /> },
+)
 import { GameState } from '../hooks/useGameState'
 import {
   equipmentTypes,
@@ -8,9 +15,12 @@ import {
   Skill,
   BASIC_ATTACK,
   getSkillById,
-  calcEnemyStats,
   attackIntervalMsFromSpd,
   mitigatedPhysicalDamage,
+  BASIC_DAMAGE_MULTIPLIER,
+  SKILL_DAMAGE_MULTIPLIER,
+  DEFEND_DAMAGE_REDUCTION,
+  DEFEND_SKILL_REDUCTION,
 } from '../constants'
 
 /** 重击：撞击演出；防御：盾牌虚影依赖 isDefending */
@@ -73,7 +83,7 @@ type BattleSnap = {
 export default function BattlePanel({ game }: Props) {
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [droppedEquipment, setDroppedEquipment] = useState<{ name: string; icon: string } | null>(null)
-  const [battleFx, setBattleFx] = useState<'none' | 'player-hit' | 'enemy-hit' | 'player-skill'>('none')
+  const [battleFx, setBattleFx] = useState<BattleFxKind>('none')
   const [floatTexts, setFloatTexts] = useState<Array<{ id: number; text: string; side: 'left' | 'right' }>>([])
   const [battleTimeSec, setBattleTimeSec] = useState(0)
   const [, setCdUiTick] = useState(0)
@@ -81,6 +91,22 @@ export default function BattlePanel({ game }: Props) {
   const [showCenterBattleIcon, setShowCenterBattleIcon] = useState(true)
   /** 重击：玩家前冲 + 敌人受击 */
   const [heavyStrikePlaying, setHeavyStrikePlaying] = useState(false)
+
+  const battleVisualRef = useRef<BattleVisualState>({
+    playerName: '玩家',
+    enemyName: '敌人',
+    playerHP: 1,
+    playerMaxHp: 1,
+    enemyHP: 1,
+    enemyMaxHp: 1,
+    isDefending: false,
+    battleFx: 'none',
+    heavyStrikePlaying: false,
+    autoFleeAnimating: false,
+    isGameOver: false,
+    battleResult: null,
+    floatTexts: [],
+  })
 
   const floatIdRef = useRef(0)
   const isGameOverRef = useRef(false)
@@ -111,6 +137,7 @@ export default function BattlePanel({ game }: Props) {
     enemyHP,
     enemyMaxHp,
     enemyLevel,
+    enemyCombatStats,
     nearbyEnemy,
     showBattle,
     isGameOver,
@@ -151,6 +178,22 @@ export default function BattlePanel({ game }: Props) {
     nextAttackSkillId,
     skillCooldownEndAt,
     enemyLevel,
+  }
+
+  battleVisualRef.current = {
+    playerName: `玩家 Lv.${playerLevel}`,
+    enemyName: nearbyEnemy?.name ? `${nearbyEnemy.name} Lv.${enemyLevel}` : `敌人 Lv.${enemyLevel}`,
+    playerHP,
+    playerMaxHp: totalStats.maxHp,
+    enemyHP,
+    enemyMaxHp,
+    isDefending,
+    battleFx,
+    heavyStrikePlaying,
+    autoFleeAnimating,
+    isGameOver,
+    battleResult,
+    floatTexts,
   }
 
   useEffect(() => {
@@ -202,7 +245,7 @@ export default function BattlePanel({ game }: Props) {
     }, 900)
   }, [])
 
-  const flashFx = useCallback((kind: 'player-hit' | 'enemy-hit' | 'player-skill') => {
+  const flashFx = useCallback((kind: Exclude<BattleFxKind, 'none'>) => {
     setBattleFx(kind)
     window.setTimeout(() => setBattleFx('none'), 220)
   }, [])
@@ -310,13 +353,19 @@ export default function BattlePanel({ game }: Props) {
           if (skill.id === SKILL_HEAVY_STRIKE_ID) {
             triggerHeavyStrikeVfx()
           } else {
-            flashFx(skill.id === BASIC_ATTACK.id ? 'enemy-hit' : 'player-skill')
+            flashFx(skill.id === BASIC_ATTACK.id ? 'enemy-hit' : 'player-skill-offense')
           }
-          const enemyDef = calcEnemyStats(s.enemyLevel).def
+          const enemyDef = enemyCombatStats.def
           let totalDamage = 0
           for (let i = 0; i < hits; i++) {
-            const raw = Math.floor(s.totalStats.atk * skill.multiplier)
-            totalDamage += mitigatedPhysicalDamage(raw, enemyDef)
+            const raw =
+              skill.id === BASIC_ATTACK.id
+                ? (s.totalStats.atk - enemyDef * 0.5 + Math.random() * 2) * BASIC_DAMAGE_MULTIPLIER
+                : (s.totalStats.atk * Math.max(0.5, skill.multiplier) - enemyDef * 0.45 + Math.random() * 2.5) *
+                  SKILL_DAMAGE_MULTIPLIER
+            const defendingReduction = skill.id === BASIC_ATTACK.id ? DEFEND_DAMAGE_REDUCTION : DEFEND_SKILL_REDUCTION
+            const reduced = s.isDefending ? raw * defendingReduction : raw
+            totalDamage += mitigatedPhysicalDamage(Math.floor(reduced), enemyDef)
           }
           setEnemyHP((prev) => {
             const newHP = Math.max(0, prev - totalDamage)
@@ -328,7 +377,7 @@ export default function BattlePanel({ game }: Props) {
           pushFloat(`-${totalDamage}`, 'right')
           log = `${skill.name} 造成 ${totalDamage} 伤害`
         } else if (skill.type === 'heal') {
-          flashFx('player-skill')
+          flashFx('player-skill-support')
           const heal = Math.floor(s.totalStats.atk * skill.multiplier)
           setPlayerHP((prev) => {
             const next = Math.min(s.totalStats.maxHp, prev + heal)
@@ -338,7 +387,7 @@ export default function BattlePanel({ game }: Props) {
           })
           log = `${skill.name} 恢复生命`
         } else if (skill.type === 'defense') {
-          flashFx('player-skill')
+          flashFx('player-skill-support')
           defendingRef.current = true
           setIsDefending(true)
           log = `${skill.name} 准备防御`
@@ -351,10 +400,10 @@ export default function BattlePanel({ game }: Props) {
       }
 
       if (t >= nextEnemyAtkAtRef.current) {
-        const enemyCombat = calcEnemyStats(snapRef.current.enemyLevel)
+        const enemyCombat = enemyCombatStats
         nextEnemyAtkAtRef.current = t + enemyAttackIntervalMs(enemyCombat.spd)
 
-        const rawEnemyHit = enemyCombat.atk + Math.floor(Math.random() * 4)
+        const rawEnemyHit = (enemyCombat.atk - snapRef.current.totalStats.def * 0.5 + Math.random() * 2) * BASIC_DAMAGE_MULTIPLIER
         let damage = mitigatedPhysicalDamage(rawEnemyHit, snapRef.current.totalStats.def)
         let logMsg = `敌人攻击！`
         if (defendingRef.current) {
@@ -419,28 +468,55 @@ export default function BattlePanel({ game }: Props) {
   const atkPerSec = (1000 / playerAttackIntervalMs(totalStats.spd)).toFixed(2)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-auto p-3 transition-opacity duration-300 ease-out">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/home-bg.png')" }} />
       <div className="absolute inset-0 bg-black/50" />
 
-      <div className="relative w-[800px] h-[600px] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 rounded-3xl shadow-2xl overflow-hidden">
-        <div className="h-12 bg-gradient-to-b from-yellow-400 to-yellow-500 flex items-center justify-center border-b-4 border-orange-500 px-3">
+      <div className="relative w-[1360px] max-w-[min(1360px,calc(100vw-1.5rem))] min-h-[min(800px,calc(100vh-2rem))] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="h-12 shrink-0 bg-gradient-to-b from-yellow-400 to-yellow-500 flex items-center justify-center border-b-4 border-orange-500 px-3">
           <span className="text-orange-900 font-bold text-base">实时战斗 · {battleTimeSec}s</span>
         </div>
 
-        {/* 左上角：攻速 / 下一发，不占中间舞台 */}
-        <div className="pointer-events-none absolute left-2 top-14 z-30 flex max-w-[140px] flex-col gap-0.5 text-[10px] leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
-          <span>
-            攻速 <span className="font-mono text-cyan-200">{atkPerSec}</span>/s
-          </span>
-          {nextAttackSkillId !== null && (
-            <span className="truncate text-amber-200">
-              下一发：{getSkillById(nextAttackSkillId)?.name ?? '?'}
-            </span>
-          )}
-        </div>
+        <div className="relative w-full h-[720px] max-h-[calc(100vh-12rem)] shrink-0 bg-black/20">
+          <BattlePhaserCanvas stateRef={battleVisualRef} className="absolute inset-0 h-full w-full outline-none" />
 
-        <div className="relative flex min-h-[240px] items-center justify-between px-8 py-6">
+          <div className="pointer-events-none absolute left-3 top-3 z-30 flex max-w-[min(200px,42vw)] flex-col gap-1 rounded-lg bg-black/45 px-2 py-1.5 text-[11px] leading-tight text-white shadow-md backdrop-blur-sm">
+            <span className="font-semibold text-sky-200">玩家</span>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
+              <div
+                className="h-full rounded-full bg-green-500 transition-all"
+                style={{ width: `${(playerHP / totalStats.maxHp) * 100}%` }}
+              />
+            </div>
+            <span className="font-mono text-[10px] text-slate-200">
+              {playerHP}/{totalStats.maxHp}
+            </span>
+          </div>
+
+          <div className="pointer-events-none absolute right-3 top-3 z-30 flex max-w-[min(200px,42vw)] flex-col items-end gap-1 rounded-lg bg-black/45 px-2 py-1.5 text-[11px] leading-tight text-white shadow-md backdrop-blur-sm">
+            <span className="font-semibold text-rose-200">{nearbyEnemy?.name || '敌人'}</span>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
+              <div
+                className="h-full rounded-full bg-red-500 transition-all"
+                style={{ width: `${(enemyHP / Math.max(enemyMaxHp, 1)) * 100}%` }}
+              />
+            </div>
+            <span className="font-mono text-[10px] text-slate-200">
+              {enemyHP}/{enemyMaxHp}
+            </span>
+          </div>
+
+          <div className="pointer-events-none absolute left-3 top-[5.25rem] z-30 flex max-w-[160px] flex-col gap-0.5 text-[10px] leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+            <span>
+              攻速 <span className="font-mono text-cyan-200">{atkPerSec}</span>/s
+            </span>
+            {nextAttackSkillId !== null && (
+              <span className="truncate text-amber-200">
+                下一发：{getSkillById(nextAttackSkillId)?.name ?? '?'}
+              </span>
+            )}
+          </div>
+
           {autoFleeAnimating && (
             <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/35">
               <div className="rounded-2xl border-2 border-amber-300/80 bg-amber-950/90 px-6 py-3 text-center shadow-xl">
@@ -449,65 +525,6 @@ export default function BattlePanel({ game }: Props) {
               </div>
             </div>
           )}
-          <div
-            className={`text-center transition-transform duration-75 ${
-              battleFx === 'player-hit' && !autoFleeAnimating ? 'translate-x-1 scale-95 brightness-125' : ''
-            } ${autoFleeAnimating ? 'animate-battle-flee-escape' : ''}`}
-          >
-            <div className="bg-blue-500 text-white font-bold px-4 py-1 rounded-t-lg mb-2">玩家</div>
-            <div
-              className={`bg-blue-900/50 border-2 border-blue-400 rounded-xl p-3 w-36 relative min-h-[200px] ${
-                heavyStrikePlaying && !autoFleeAnimating ? 'animate-battle-charge' : ''
-              }`}
-            >
-              <div className="bg-yellow-400 text-orange-900 font-bold text-xs px-2 py-0.5 rounded-full mb-2">LV.{playerLevel}</div>
-              <div className="relative mx-auto h-24 w-24">
-                {autoFleeAnimating && (
-                  <span
-                    className="pointer-events-none absolute left-1/2 top-1/2 z-[2] text-3xl animate-flee-dust select-none"
-                    aria-hidden
-                  >
-                    💨
-                  </span>
-                )}
-                {isDefending && !autoFleeAnimating && (
-                  <div className="pointer-events-none absolute inset-[-6px] z-10 flex items-center justify-center rounded-full bg-sky-400/20 ring-2 ring-sky-300/50 animate-shield-ghost">
-                    <span
-                      className="select-none text-[3.75rem] leading-none opacity-[0.45] drop-shadow-[0_0_14px_rgba(125,211,252,0.8)]"
-                      aria-hidden
-                    >
-                      🛡️
-                    </span>
-                  </div>
-                )}
-                <img src="/player.png" alt="Player" className="relative z-[1] h-full w-full object-contain" />
-              </div>
-              <div className="mt-2">
-                <div className="flex justify-between text-xs text-white mb-1">
-                  <span>HP</span>
-                  <span>
-                    {playerHP}/{totalStats.maxHp}
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-700 rounded-full">
-                  <div
-                    className="h-full bg-green-500 rounded-full transition-all"
-                    style={{ width: `${(playerHP / totalStats.maxHp) * 100}%` }}
-                  />
-                </div>
-              </div>
-              {floatTexts
-                .filter((f) => f.side === 'left')
-                .map((f) => (
-                  <div
-                    key={f.id}
-                    className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 animate-bounce text-lg font-black text-amber-300 drop-shadow-md"
-                  >
-                    {f.text}
-                  </div>
-                ))}
-            </div>
-          </div>
 
           {showCenterBattleIcon && (
             <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
@@ -516,49 +533,9 @@ export default function BattlePanel({ game }: Props) {
               </div>
             </div>
           )}
-
-          <div
-            className={`text-center transition-transform duration-75 ${
-              battleFx === 'enemy-hit' ? '-translate-x-1 scale-95 brightness-125' : ''
-            }`}
-          >
-            <div className="bg-red-500 text-white font-bold px-4 py-1 rounded-t-lg mb-2">{nearbyEnemy?.name || '敌人'}</div>
-            <div
-              className={`bg-red-900/50 border-2 border-red-400 rounded-xl p-3 w-36 relative min-h-[200px] ${
-                heavyStrikePlaying ? 'animate-enemy-recoil' : ''
-              }`}
-            >
-              <div className="bg-red-400 text-white font-bold text-xs px-2 py-0.5 rounded-full mb-2">LV.{enemyLevel}</div>
-              <img src="/enemy.png" alt="Enemy" className="w-24 h-24 object-contain mx-auto" />
-              <div className="mt-2">
-                <div className="flex justify-between text-xs text-white mb-1">
-                  <span>HP</span>
-                  <span>
-                    {enemyHP}/{enemyMaxHp}
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-700 rounded-full">
-                  <div
-                    className="h-full bg-red-500 rounded-full transition-all"
-                    style={{ width: `${(enemyHP / enemyMaxHp) * 100}%` }}
-                  />
-                </div>
-              </div>
-              {floatTexts
-                .filter((f) => f.side === 'right')
-                .map((f) => (
-                  <div
-                    key={f.id}
-                    className="pointer-events-none absolute left-1/2 top-12 -translate-x-1/2 animate-bounce text-lg font-black text-red-300 drop-shadow-md"
-                  >
-                    {f.text}
-                  </div>
-                ))}
-            </div>
-          </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-yellow-500 to-yellow-400 border-t-4 border-orange-500 p-4">
+        <div className="relative shrink-0 bg-gradient-to-t from-yellow-500 to-yellow-400 border-t-4 border-orange-500 p-4">
           <div className="flex items-center justify-center gap-4 flex-wrap">
             {!isGameOver && (
               <button
@@ -614,14 +591,13 @@ export default function BattlePanel({ game }: Props) {
             </div>
           )}
         </div>
-      </div>
-
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 w-64 max-h-48 bg-black/70 rounded-lg p-2 overflow-y-auto">
-        {battleLog.map((log, idx) => (
-          <div key={idx} className="text-white text-xs mb-1">
-            {log}
-          </div>
-        ))}
+        <div className="absolute left-4 bottom-[calc(100%+0.75rem)] z-30 w-64 max-h-48 bg-black/70 rounded-lg p-2 overflow-y-auto">
+          {battleLog.map((log, idx) => (
+            <div key={idx} className="text-white text-xs mb-1">
+              {log}
+            </div>
+          ))}
+        </div>
       </div>
 
       {isGameOver && (
