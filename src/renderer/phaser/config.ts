@@ -1,16 +1,15 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 
 export const GAME_CONFIG: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 800,
-  height: 600,
+  width: 1600,
+  height: 900,
   backgroundColor: '#1a1a2e',
-  scene: [], // 手动启动场景并传递数据
+  scene: [],
   physics: {
     default: 'arcade',
     arcade: {
-      debug: true,
+      debug: false,
     },
   },
-  seed: [12345],
 };

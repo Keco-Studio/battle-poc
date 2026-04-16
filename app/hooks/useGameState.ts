@@ -11,6 +11,7 @@ import {
   equipmentTypes,
   initialEnemies,
   PLAYER_START,
+  EnemyCombatStats,
 } from '../constants'
 
 export interface EquippedItem {
@@ -114,10 +115,11 @@ export function useGameState() {
   const [enemyHP, setEnemyHP] = useState(0)
   const [enemyMaxHp, setEnemyMaxHp] = useState(0)
   const [enemyLevel, setEnemyLevel] = useState(1)
+  const [enemyCombatStats, setEnemyCombatStats] = useState<EnemyCombatStats>(() => calcEnemyStats(1))
 
   // 位置状态
   const [playerPos, setPlayerPos] = useState(() => ({ ...PLAYER_START }))
-  const enemies = initialEnemies
+  const [enemies, setEnemies] = useState(() => [...initialEnemies])
 
   // UI状态
   const [showInteraction, setShowInteraction] = useState(false)
@@ -264,14 +266,22 @@ export function useGameState() {
   // 开始战斗
   const startBattle = useCallback(() => {
     const eLevel = rollEnemyBattleLevel(playerLevel)
-    const eMaxHp = calcEnemyStats(eLevel).maxHp
+    const defaultStats = calcEnemyStats(eLevel)
+    const profile = nearbyEnemy?.profile
+    const mergedStats: EnemyCombatStats = {
+      maxHp: Math.max(1, Math.round(profile?.maxHp ?? defaultStats.maxHp)),
+      atk: Math.max(1, Math.round(profile?.atk ?? defaultStats.atk)),
+      def: Math.max(0, Math.round(profile?.def ?? defaultStats.def)),
+      spd: Math.max(1, Math.round(profile?.spd ?? defaultStats.spd)),
+    }
 
     setShowBattle(true)
     setBattleRound(1)
     setBattleLog(['战斗开始！'])
-    setEnemyHP(eMaxHp)
-    setEnemyMaxHp(eMaxHp)
+    setEnemyHP(mergedStats.maxHp)
+    setEnemyMaxHp(mergedStats.maxHp)
     setEnemyLevel(eLevel)
+    setEnemyCombatStats(mergedStats)
     setCurrentTurn('player')
     setSelectedSkill(null)
     setNextAttackSkillId(null)
@@ -281,7 +291,7 @@ export function useGameState() {
     setIsDefending(false)
     setFleeSuccessMessage(null)
     setDockPanel(null)
-  }, [playerLevel])
+  }, [nearbyEnemy?.profile, playerLevel])
 
   // 关闭战斗
   const closeBattle = useCallback(() => {
@@ -363,10 +373,12 @@ export function useGameState() {
     enemyMaxHp,
     setEnemyMaxHp,
     enemyLevel,
+    enemyCombatStats,
     // 位置
     playerPos,
     setPlayerPos,
     enemies,
+    setEnemies,
     // UI状态
     showInteraction,
     setShowInteraction,

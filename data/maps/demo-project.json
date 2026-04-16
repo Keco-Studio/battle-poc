@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "metadata": {
+    "name": "Demo Project",
+    "author": "AI RPG Maker",
+    "description": "Synced for battle-poc standalone",
+    "createdAt": "2026-03-18T07:27:08.805Z",
+    "updatedAt": "2026-03-18T07:27:08.805Z"
+  },
+  "config": {
+    "startingMap": "demo-map",
+    "playerSpawn": { "x": 8, "y": 8 },
+    "tileSize": 16,
+    "viewportSize": { "width": 16, "height": 12 }
+  },
+  "tilesets": {
+    "demo-tileset": {
+      "id": "demo-tileset",
+      "name": "Demo Tileset",
+      "imagePath": "maps/tilesets/dungeon-tileset.png",
+      "tileWidth": 16,
+      "tileHeight": 16,
+      "tileCount": 64,
+      "columns": 8
+    }
+  },
+  "maps": {
+    "demo-map": {
+      "id": "demo-map",
+      "name": "Demo Map",
+      "width": 16,
+      "height": 16,
+      "tilesetId": "demo-tileset",
+      "tileLayers": {
+        "ground": {
+          "name": "Ground",
+          "data": [
+            1,1,1,1,9,9,1,1,1,9,9,1,1,1,1,1,1,1,1,1,9,9,48,1,1,9,9,1,1,1,1,1,
+            1,1,1,1,9,9,48,1,1,9,9,1,1,1,1,1,1,1,1,1,9,9,48,1,1,9,9,1,1,1,1,1,
+            1,1,1,1,9,9,48,48,48,9,9,1,1,1,1,1,1,1,48,48,48,9,9,9,9,9,9,48,48,1,1,1,
+            1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,1,1,48,48,9,9,9,9,9,9,9,48,1,1,1,
+            1,1,1,1,1,1,1,9,9,9,9,9,9,48,48,1,1,1,1,1,1,48,48,48,9,9,48,48,48,9,9,1,
+            1,1,1,1,1,1,1,1,9,9,48,1,48,9,9,1,1,1,1,1,1,1,1,1,9,9,48,1,48,9,9,1,
+            1,1,1,1,1,1,1,1,9,9,1,1,1,9,9,1,1,1,1,1,1,1,1,1,9,9,1,1,1,1,1,1,
+            1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9
+          ],
+          "zIndex": 0,
+          "opacity": 1,
+          "visible": true
+        }
+      },
+      "collisionLayer": [
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+      ],
+      "entities": [
+        { "instanceId": "guard-1", "entityDefId": "guard-entity", "position": { "x": 5, "y": 5 } },
+        { "instanceId": "guard-2", "entityDefId": "guard-entity", "position": { "x": 4, "y": 8 } },
+        { "instanceId": "archer-1", "entityDefId": "archer-entity", "position": { "x": 10, "y": 6 } }
+      ],
+      "triggers": []
+    }
+  },
+  "entityDefs": {
+    "guard-entity": {
+      "id": "guard-entity",
+      "type": "npc",
+      "name": "Guard",
+      "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 },
+      "battleProfile": { "maxHp": 72, "atk": 8, "def": 3 }
+    },
+    "archer-entity": {
+      "id": "archer-entity",
+      "type": "npc",
+      "name": "Archer",
+      "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 },
+      "battleProfile": { "maxHp": 68, "atk": 7, "def": 2 }
+    }
+  },
+  "dialogues": {},
+  "quests": {}
+}
