@@ -1,0 +1,16 @@
+---
+description: 在 battle-poc 中改代码后必须运行 Vitest 验证
+alwaysApply: true
+---
+
+# 修改代码后的验证
+
+- 在本项目（`battle-poc`）中**生成或修改代码**后，在宣称完成、提交或结束任务前，必须在项目根目录执行：
+
+  ```bash
+  npx vitest run
+  ```
+
+- 若测试失败，先修复再继续；不要在未通过测试的情况下声称“已完成”。
+
+- 与 Phase 2 集成相关时，可参考 `docs/Battle-POC Phase 2 游戏集成任务.md`；`src/engine/` 下的代码**不得** import Phaser 或 DOM API。
