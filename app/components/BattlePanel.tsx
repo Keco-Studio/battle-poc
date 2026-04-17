@@ -1,3 +1,7 @@
+/**
+ * @deprecated 已由 GameMap 内嵌的 battle-core tick + MapBattlePhaserCanvas 替代。
+ * 保留文件供对照/回滚；验证通过后可手动删除。
+ */
 'use client'
 
 import dynamic from 'next/dynamic'
@@ -21,6 +25,7 @@ import {
   SKILL_DAMAGE_MULTIPLIER,
   DEFEND_DAMAGE_REDUCTION,
   DEFEND_SKILL_REDUCTION,
+  getBattleRewards,
 } from '../constants'
 
 /** 重击：撞击演出；防御：盾牌虚影依赖 isDefending */
@@ -261,8 +266,7 @@ export default function BattlePanel({ game }: Props) {
       isGameOverRef.current = true
       setIsGameOver(true)
       setBattleResult('win')
-      const expGain = enemyLevel * 2
-      const goldGain = enemyLevel * 2
+      const { exp: expGain, gold: goldGain } = getBattleRewards(enemyLevel)
       setGainedExp(expGain)
       setGainedGold(goldGain)
       setPlayerGold((prev) => prev + goldGain)
@@ -362,7 +366,7 @@ export default function BattlePanel({ game }: Props) {
               skill.id === BASIC_ATTACK.id
                 ? (s.totalStats.atk - enemyDef * 0.5 + Math.random() * 2) * BASIC_DAMAGE_MULTIPLIER
                 : (s.totalStats.atk * Math.max(0.5, skill.multiplier) - enemyDef * 0.45 + Math.random() * 2.5) *
-                  SKILL_DAMAGE_MULTIPLIER
+                SKILL_DAMAGE_MULTIPLIER
             const defendingReduction = skill.id === BASIC_ATTACK.id ? DEFEND_DAMAGE_REDUCTION : DEFEND_SKILL_REDUCTION
             const reduced = s.isDefending ? raw * defendingReduction : raw
             totalDamage += mitigatedPhysicalDamage(Math.floor(reduced), enemyDef)
@@ -558,13 +562,12 @@ export default function BattlePanel({ game }: Props) {
                   onMouseEnter={() => setHoveredSkill(skill)}
                   onMouseLeave={() => setHoveredSkill(null)}
                   disabled={locked}
-                  className={`relative w-16 h-14 rounded-xl flex flex-col items-center justify-center shadow-lg border-2 ${
-                    nextAttackSkillId === skill.id
+                  className={`relative w-16 h-14 rounded-xl flex flex-col items-center justify-center shadow-lg border-2 ${nextAttackSkillId === skill.id
                       ? 'bg-orange-500 border-orange-300 ring-2 ring-white'
                       : locked
                         ? 'bg-gray-600 border-gray-500 opacity-70'
                         : 'bg-blue-500 border-blue-300 hover:bg-blue-400'
-                  }`}
+                    }`}
                 >
                   <span className="text-xl">{skill.icon}</span>
                   <span className="text-xs text-white font-bold">{skill.name}</span>

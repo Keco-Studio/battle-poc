@@ -24,6 +24,22 @@ export interface BattleVisualState {
   floatTexts: ReadonlyArray<{ id: number; text: string; side: 'left' | 'right' }>
 }
 
+/** 大地图战斗：Phaser 精灵像素坐标（与 GameMap gridToScreen 一致） */
+export interface MapBattleLayout {
+  playerX: number
+  playerY: number
+  enemyX: number
+  enemyY: number
+}
+
+export type MapBattleVisualState = BattleVisualState & {
+  mapLayout: MapBattleLayout
+}
+
 export interface BattleSceneInitData {
   getState: () => BattleVisualState
+}
+
+export interface MapBattleSceneInitData {
+  getState: () => MapBattleVisualState
 }

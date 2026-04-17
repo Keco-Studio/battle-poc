@@ -6,8 +6,9 @@ import {
   mitigatedPhysicalDamage,
   BATTLE_ARMOR_K,
   rollEnemyBattleLevel,
-  MONSTER_VS_PLAYER_STAT_MULT,
   expForLevel,
+  getBattleRewards,
+  createEnemyEncounter,
   allSkills,
   equipmentTypes,
 } from '../app/constants'
@@ -15,7 +16,7 @@ import {
 describe('calcPlayerStats', () => {
   it('should calculate level 1 stats correctly', () => {
     const stats = calcPlayerStats(1)
-    expect(stats.maxHp).toBe(30)  // 30 + 0*10
+    expect(stats.maxHp).toBe(100)  // 100 + 0*30
     expect(stats.atk).toBe(5)      // 5 + 0*5
     expect(stats.def).toBe(3)      // 3 + 0*3
     expect(stats.spd).toBe(3)      // 3 + 0*3
@@ -23,7 +24,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 2 stats correctly', () => {
     const stats = calcPlayerStats(2)
-    expect(stats.maxHp).toBe(40)  // 30 + 1*10
+    expect(stats.maxHp).toBe(130)  // 100 + 1*30
     expect(stats.atk).toBe(10)     // 5 + 1*5
     expect(stats.def).toBe(6)      // 3 + 1*3
     expect(stats.spd).toBe(6)      // 3 + 1*3
@@ -31,7 +32,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 5 stats correctly', () => {
     const stats = calcPlayerStats(5)
-    expect(stats.maxHp).toBe(70)   // 30 + 4*10
+    expect(stats.maxHp).toBe(220)   // 100 + 4*30
     expect(stats.atk).toBe(25)     // 5 + 4*5
     expect(stats.def).toBe(15)     // 3 + 4*3
     expect(stats.spd).toBe(15)     // 3 + 4*3
@@ -39,29 +40,28 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 10 stats correctly', () => {
     const stats = calcPlayerStats(10)
-    expect(stats.maxHp).toBe(120)  // 30 + 9*10
+    expect(stats.maxHp).toBe(370)  // 100 + 9*30
     expect(stats.atk).toBe(50)     // 5 + 9*5
     expect(stats.def).toBe(30)     // 3 + 9*3
     expect(stats.spd).toBe(30)     // 3 + 9*3
   })
 })
 
-describe('calcEnemyStats (较同等级角色基础 +20%)', () => {
-  it('level 1: 四维为玩家 × 系数', () => {
-    const p = calcPlayerStats(1)
+describe('calcEnemyStats', () => {
+  it('level 1: 使用敌人独立基础值', () => {
     const e = calcEnemyStats(1)
-    expect(MONSTER_VS_PLAYER_STAT_MULT).toBe(1.2)
-    expect(e.maxHp).toBe(Math.round(p.maxHp * 1.2))
-    expect(e.atk).toBe(Math.round(p.atk * 1.2))
-    expect(e.def).toBe(Math.round(p.def * 1.2))
-    expect(e.spd).toBe(Math.round(p.spd * 1.2))
+    expect(e.maxHp).toBe(120)
+    expect(e.atk).toBe(6)
+    expect(e.def).toBe(3)
+    expect(e.spd).toBe(3)
   })
 
-  it('level 5: 与 calcPlayerStats(5) 成比例', () => {
-    const p = calcPlayerStats(5)
+  it('level 5: 使用敌人独立成长值', () => {
     const e = calcEnemyStats(5)
-    expect(e.maxHp).toBe(Math.round(p.maxHp * 1.2))
-    expect(e.atk).toBe(Math.round(p.atk * 1.2))
+    expect(e.maxHp).toBe(264)
+    expect(e.atk).toBe(30)
+    expect(e.def).toBe(15)
+    expect(e.spd).toBe(15)
   })
 })
 
@@ -86,6 +86,19 @@ describe('rollEnemyBattleLevel', () => {
         expect(e).toBeLessThanOrEqual(Math.max(1, p - 1))
       }
     }
+  })
+})
+
+describe('createEnemyEncounter', () => {
+  it('同一次遭遇会产出统一的等级与属性，并应用 profile 覆盖', () => {
+    const encounter = createEnemyEncounter(5, { maxHp: 999, def: 20 }, () => 0)
+    expect(encounter.level).toBe(4)
+    expect(encounter.stats).toEqual({
+      maxHp: 999,
+      atk: 24,
+      def: 20,
+      spd: 12,
+    })
   })
 })
 
@@ -127,36 +140,36 @@ describe('expForLevel', () => {
   })
 })
 
+describe('getBattleRewards', () => {
+  it('经验按敌人等级发放，金币保持双倍等级', () => {
+    expect(getBattleRewards(1)).toEqual({ exp: 1, gold: 2 })
+    expect(getBattleRewards(3)).toEqual({ exp: 3, gold: 6 })
+    expect(getBattleRewards(5)).toEqual({ exp: 5, gold: 10 })
+  })
+})
+
 describe('allSkills', () => {
-  it('should have 6 skills', () => {
-    expect(allSkills).toHaveLength(6)
+  it('should include domain catalog skills', () => {
+    expect(allSkills.length).toBeGreaterThan(10)
   })
 
-  it('should have correct skill IDs', () => {
+  it('should include defend action plus skill ids', () => {
     const ids = allSkills.map(s => s.id)
-    expect(ids).toEqual([1, 2, 3, 4, 5, 6])
+    expect(ids).toContain('defend')
+    expect(ids).toContain('arcane_bolt')
+    expect(ids).toContain('fireball')
+    expect(ids).toContain('focus_shot')
   })
 
-  it('should have skills unlocked at correct levels', () => {
-    const heavyStrike = allSkills.find(s => s.id === 1)
-    expect(heavyStrike?.unlockLevel).toBe(1)
-    expect(heavyStrike?.type).toBe('damage')
+  it('should map cast skills to domain core skill ids', () => {
+    const fireball = allSkills.find(s => s.id === 'fireball')
+    expect(fireball?.action).toBe('cast_skill')
+    expect(fireball?.coreSkillId).toBe('fireball')
+    expect(typeof fireball?.cooldownTicks).toBe('number')
 
-    const doubleStrike = allSkills.find(s => s.id === 3)
-    expect(doubleStrike?.unlockLevel).toBe(2)
-    expect(doubleStrike?.type).toBe('damage')
-    expect(doubleStrike?.hits).toBe(2)
-
-    const heal = allSkills.find(s => s.id === 4)
-    expect(heal?.unlockLevel).toBe(3)
-    expect(heal?.type).toBe('heal')
-
-    const powerStrike = allSkills.find(s => s.id === 5)
-    expect(powerStrike?.unlockLevel).toBe(5)
-
-    const counter = allSkills.find(s => s.id === 6)
-    expect(counter?.unlockLevel).toBe(7)
-    expect(counter?.type).toBe('counter')
+    const defend = allSkills.find(s => s.id === 'defend')
+    expect(defend?.action).toBe('defend')
+    expect(defend?.coreSkillId).toBeUndefined()
   })
 })
 

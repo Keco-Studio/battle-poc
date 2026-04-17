@@ -5,13 +5,15 @@ import {
   EquipmentType,
   calcPlayerStats,
   calcEnemyStats,
-  rollEnemyBattleLevel,
+  createEnemyEncounter,
   expForLevel,
   allSkills,
   equipmentTypes,
   initialEnemies,
   PLAYER_START,
   EnemyCombatStats,
+  getBattleRewards,
+  getDefaultCarriedSkillIds,
 } from '../constants'
 
 export interface EquippedItem {
@@ -42,6 +44,12 @@ export const DOCK_PANEL_IDS = [
 ] as const
 export type DockPanelId = (typeof DOCK_PANEL_IDS)[number]
 
+/** 大地图开战时的双方网格锚点（对齐 battle-core 实体坐标） */
+export type BattleGridAnchor = {
+  player: { x: number; y: number }
+  enemy: { x: number; y: number }
+}
+
 interface SavedState {
   playerLevel: number
   playerExp: number
@@ -52,6 +60,7 @@ interface SavedState {
   playerPos: { x: number; y: number }
   /** 0 = 关闭；1–100 表示当前生命百分比 ≤ 该值时战斗中自动逃跑 */
   autoFleeHpPercent?: number
+  carriedSkillIds?: string[]
 }
 
 const STORAGE_KEY = 'battle-game-save'
@@ -110,12 +119,28 @@ export function useGameState() {
   /** 返回地图后短暂显示（如逃跑成功），不写入存档 */
   const [fleeSuccessMessage, setFleeSuccessMessage] = useState<string | null>(null)
 
+  /** 每次 startBattle 自增，供大地图战斗重建 MapBattleController */
+  const [battleSessionNonce, setBattleSessionNonce] = useState(0)
+
+  /** 大地图战斗：双方格子位置；由 startBattle 传入 */
+  const [battleGridAnchor, setBattleGridAnchor] = useState<BattleGridAnchor | null>(null)
+  /** 地图战斗胜利结算时的装备掉落展示 */
+  const [battleLootDrop, setBattleLootDrop] = useState<{ name: string; icon: string } | null>(null)
+  /** 当前交战的地图敌人 id（仅该单位暂停随机游荡） */
+  const [combatEnemyId, setCombatEnemyId] = useState<number | null>(null)
+
   // 战斗状态
   const [playerHP, setPlayerHP] = useState(() => calcPlayerStats(1).maxHp)
+  const [playerMP, setPlayerMP] = useState(() => Math.floor(calcPlayerStats(1).maxHp / 2))
+  const [playerMaxMp, setPlayerMaxMp] = useState(() => Math.floor(calcPlayerStats(1).maxHp / 2))
   const [enemyHP, setEnemyHP] = useState(0)
   const [enemyMaxHp, setEnemyMaxHp] = useState(0)
   const [enemyLevel, setEnemyLevel] = useState(1)
   const [enemyCombatStats, setEnemyCombatStats] = useState<EnemyCombatStats>(() => calcEnemyStats(1))
+  const [enemyPreview, setEnemyPreview] = useState<{ level: number; stats: EnemyCombatStats }>(() => ({
+    level: 1,
+    stats: calcEnemyStats(1),
+  }))
 
   // 位置状态
   const [playerPos, setPlayerPos] = useState(() => ({ ...PLAYER_START }))
@@ -136,17 +161,18 @@ export function useGameState() {
   // 战斗相关
   const [battleLog, setBattleLog] = useState<string[]>([])
   const [currentTurn, setCurrentTurn] = useState<'player' | 'enemy'>('player')
-  const [selectedSkill, setSelectedSkill] = useState<number | null>(null)
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
   const [isGameOver, setIsGameOver] = useState(false)
   const [battleResult, setBattleResult] = useState<'win' | 'lose' | null>(null)
   const [isDefending, setIsDefending] = useState(false)
   const [battleRound, setBattleRound] = useState(1)
   /** 实时战斗：下一发自动攻击使用的技能 id，null 表示普通攻击 */
-  const [nextAttackSkillId, setNextAttackSkillId] = useState<number | null>(null)
+  const [nextAttackSkillId, setNextAttackSkillId] = useState<string | null>(null)
   /** 技能 id -> 冷却结束时间戳 (ms) */
-  const [skillCooldownEndAt, setSkillCooldownEndAt] = useState<Record<number, number>>({})
+  const [skillCooldownEndAt, setSkillCooldownEndAt] = useState<Record<string, number>>({})
   const [gainedExp, setGainedExp] = useState(0)
   const [gainedGold, setGainedGold] = useState(0)
+  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('hero', 6))
 
   // 基础属性
   const playerStats = calcPlayerStats(playerLevel)
@@ -169,6 +195,20 @@ export function useGameState() {
 
   const totalStats = getTotalStats()
 
+  useEffect(() => {
+    const nextMaxMp = Math.floor(totalStats.maxHp / 2)
+    setPlayerMaxMp(nextMaxMp)
+    setPlayerMP((prev) => Math.min(prev, nextMaxMp))
+  }, [totalStats.maxHp])
+
+  useEffect(() => {
+    if (!nearbyEnemy) {
+      setEnemyPreview({ level: 1, stats: calcEnemyStats(1) })
+      return
+    }
+    setEnemyPreview(createEnemyEncounter(playerLevel, nearbyEnemy.profile))
+  }, [nearbyEnemy, playerLevel])
+
   useLayoutEffect(() => {
     const saved = loadSavedState()
     if (saved) {
@@ -185,6 +225,11 @@ export function useGameState() {
       const maxHp = maxForLevel + ringBonus
       const hp = typeof saved.playerHP === 'number' ? saved.playerHP : maxHp
       setPlayerHP(Math.min(Math.max(0, hp), maxHp))
+      const maxMp = Math.floor(maxHp / 2)
+      setPlayerMaxMp(maxMp)
+      setPlayerMP(maxMp)
+      const savedCarry = Array.isArray(saved.carriedSkillIds) ? saved.carriedSkillIds : getDefaultCarriedSkillIds('hero', 6)
+      setCarriedSkillIds(savedCarry.slice(0, 6))
     }
     setStorageHydrated(true)
   }, [])
@@ -201,6 +246,7 @@ export function useGameState() {
       inventory,
       playerPos,
       autoFleeHpPercent,
+      carriedSkillIds,
     })
   }, [
     storageHydrated,
@@ -212,12 +258,22 @@ export function useGameState() {
     inventory,
     playerPos,
     autoFleeHpPercent,
+    carriedSkillIds,
   ])
 
   // 获取已解锁技能
   const getAvailableSkills = useCallback(() => {
-    return allSkills.filter(s => s.unlockLevel <= playerLevel)
-  }, [playerLevel])
+    const unlocked = allSkills.filter(s => s.unlockLevel <= playerLevel)
+    const carried = carriedSkillIds
+      .map((id) => unlocked.find((s) => s.id === id))
+      .filter((s): s is NonNullable<typeof s> => !!s)
+    return carried
+  }, [playerLevel, carriedSkillIds])
+
+  const updateCarriedSkillIds = useCallback((ids: string[]) => {
+    const dedup = Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)))
+    setCarriedSkillIds(dedup.slice(0, 6))
+  }, [])
 
   // 升级处理
   const tryLevelUp = useCallback((exp: number) => {
@@ -233,6 +289,9 @@ export function useGameState() {
       setPlayerLevel(newLevel)
       const stats = calcPlayerStats(newLevel)
       setPlayerHP(stats.maxHp)
+      const nextMaxMp = Math.floor(stats.maxHp / 2)
+      setPlayerMaxMp(nextMaxMp)
+      setPlayerMP(nextMaxMp)
     }
     return { exp: newExp, level: newLevel }
   }, [playerLevel])
@@ -263,35 +322,34 @@ export function useGameState() {
     setPlayerGold(prev => prev + 1)
   }, [])
 
-  // 开始战斗
-  const startBattle = useCallback(() => {
-    const eLevel = rollEnemyBattleLevel(playerLevel)
-    const defaultStats = calcEnemyStats(eLevel)
-    const profile = nearbyEnemy?.profile
-    const mergedStats: EnemyCombatStats = {
-      maxHp: Math.max(1, Math.round(profile?.maxHp ?? defaultStats.maxHp)),
-      atk: Math.max(1, Math.round(profile?.atk ?? defaultStats.atk)),
-      def: Math.max(0, Math.round(profile?.def ?? defaultStats.def)),
-      spd: Math.max(1, Math.round(profile?.spd ?? defaultStats.spd)),
-    }
+  // 开始战斗（可选 anchor：大地图战斗传入双方格子坐标）
+  const startBattle = useCallback(
+    (anchor?: BattleGridAnchor) => {
+      const encounter = nearbyEnemy ? enemyPreview : createEnemyEncounter(playerLevel)
 
-    setShowBattle(true)
-    setBattleRound(1)
-    setBattleLog(['战斗开始！'])
-    setEnemyHP(mergedStats.maxHp)
-    setEnemyMaxHp(mergedStats.maxHp)
-    setEnemyLevel(eLevel)
-    setEnemyCombatStats(mergedStats)
-    setCurrentTurn('player')
-    setSelectedSkill(null)
-    setNextAttackSkillId(null)
-    setSkillCooldownEndAt({})
-    setIsGameOver(false)
-    setBattleResult(null)
-    setIsDefending(false)
-    setFleeSuccessMessage(null)
-    setDockPanel(null)
-  }, [nearbyEnemy?.profile, playerLevel])
+      setShowBattle(true)
+      setBattleRound(1)
+      setBattleLog(['战斗开始！（battle-core tick）'])
+      setEnemyHP(encounter.stats.maxHp)
+      setEnemyMaxHp(encounter.stats.maxHp)
+      setEnemyLevel(encounter.level)
+      setEnemyCombatStats(encounter.stats)
+      setCurrentTurn('player')
+      setSelectedSkill(null)
+      setNextAttackSkillId(null)
+      setSkillCooldownEndAt({})
+      setIsGameOver(false)
+      setBattleResult(null)
+      setIsDefending(false)
+      setFleeSuccessMessage(null)
+      setBattleLootDrop(null)
+      setDockPanel(null)
+      setBattleGridAnchor(anchor ?? null)
+      setCombatEnemyId(nearbyEnemy?.id ?? null)
+      setBattleSessionNonce((n) => n + 1)
+    },
+    [enemyPreview, nearbyEnemy, playerLevel],
+  )
 
   // 关闭战斗
   const closeBattle = useCallback(() => {
@@ -305,11 +363,16 @@ export function useGameState() {
     setBattleResult(null)
     setIsDefending(false)
     setBattleRound(1)
+    setBattleGridAnchor(null)
+    setBattleLootDrop(null)
+    setCombatEnemyId(null)
   }, [])
 
-  // 逃跑
+  // 逃跑（大地图：玩家血量不变；敌方显示血量回满供下次遭遇）
   const handleFlee = useCallback((opts?: { successMessage?: string }) => {
     if (opts?.successMessage) setFleeSuccessMessage(opts.successMessage)
+    setEnemyHP(enemyPreview.stats.maxHp)
+    setEnemyMaxHp(enemyPreview.stats.maxHp)
     setShowBattle(false)
     setBattleLog([])
     setCurrentTurn('player')
@@ -320,15 +383,50 @@ export function useGameState() {
     setBattleResult(null)
     setIsDefending(false)
     setBattleRound(1)
-    setPlayerPos({
-      x: PLAYER_START.x + (Math.random() * 10 - 5),
-      y: PLAYER_START.y + (Math.random() * 10 - 5),
-    })
-  }, [])
+    setBattleGridAnchor(null)
+    setBattleLootDrop(null)
+    setCombatEnemyId(null)
+  }, [enemyPreview.stats.maxHp, setEnemyHP, setEnemyMaxHp])
 
   const dismissFleeSuccessMessage = useCallback(() => {
     setFleeSuccessMessage(null)
   }, [])
+
+  /** 地图战斗：胜利结算（经验金币与可选掉落） */
+  const completeMapBattleVictory = useCallback(
+    (closingLog: string) => {
+      setIsGameOver(true)
+      setBattleResult('win')
+      const { exp: expGain, gold: goldGain } = getBattleRewards(enemyLevel)
+      setGainedExp(expGain)
+      setGainedGold(goldGain)
+      setPlayerGold((prev) => prev + goldGain)
+      if (Math.random() < 0.1) {
+        const types: EquipmentType[] = ['weapon', 'ring', 'armor', 'shoes']
+        const randomType = types[Math.floor(Math.random() * types.length)]
+        const eq = equipmentTypes[randomType]
+        setInventory((prev) => [...prev, { type: randomType, name: eq.name, icon: eq.icon }])
+        setBattleLootDrop({ name: eq.name, icon: eq.icon })
+        setBattleLog((prev) => [...prev, `运气不错！获得了${eq.icon}${eq.name}！`])
+      }
+      const afterLevelUp = tryLevelUp(playerExp + expGain)
+      setPlayerExp(afterLevelUp.exp)
+      setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
+      if (afterLevelUp.level > playerLevel) {
+        setBattleLog((prev) => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
+      }
+    },
+    [enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
+  )
+
+  /** 地图战斗：失败 */
+  const completeMapBattleDefeat = useCallback(() => {
+    setIsGameOver(true)
+    setBattleResult('lose')
+    setPlayerGold(0)
+    setPlayerHP(totalStats.maxHp)
+    setPlayerMP(playerMaxMp)
+  }, [playerMaxMp, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
 
   const closeDockPanel = useCallback(() => {
     setDockPanel(null)
@@ -353,12 +451,20 @@ export function useGameState() {
     setPlayerGold,
     playerHP,
     setPlayerHP,
+    playerMP,
+    setPlayerMP,
+    playerMaxMp,
+    setPlayerMaxMp,
     playerStats,
     totalStats,
     autoFleeHpPercent,
     setAutoFleeHpPercent,
     fleeSuccessMessage,
     dismissFleeSuccessMessage,
+    battleGridAnchor,
+    battleSessionNonce,
+    battleLootDrop,
+    combatEnemyId,
     // 装备
     equippedGear,
     setEquippedGear,
@@ -373,7 +479,10 @@ export function useGameState() {
     enemyMaxHp,
     setEnemyMaxHp,
     enemyLevel,
+    setEnemyLevel,
     enemyCombatStats,
+    setEnemyCombatStats,
+    enemyPreview,
     // 位置
     playerPos,
     setPlayerPos,
@@ -422,6 +531,8 @@ export function useGameState() {
     setGainedExp,
     gainedGold,
     setGainedGold,
+    carriedSkillIds,
+    setCarriedSkillIds: updateCarriedSkillIds,
     // 方法
     getAvailableSkills,
     tryLevelUp,
@@ -429,6 +540,8 @@ export function useGameState() {
     closeBattle,
     handleFlee,
     healWithGold,
+    completeMapBattleVictory,
+    completeMapBattleDefeat,
   }
 }
 

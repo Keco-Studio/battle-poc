@@ -72,15 +72,13 @@
       "id": "guard-entity",
       "type": "npc",
       "name": "Guard",
-      "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 },
-      "battleProfile": { "maxHp": 72, "atk": 8, "def": 3 }
+      "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 }
     },
     "archer-entity": {
       "id": "archer-entity",
       "type": "npc",
       "name": "Archer",
-      "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 },
-      "battleProfile": { "maxHp": 68, "atk": 7, "def": 2 }
+      "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 }
     }
   },
   "dialogues": {},

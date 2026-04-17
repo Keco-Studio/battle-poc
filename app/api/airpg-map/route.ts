@@ -70,7 +70,7 @@ export async function GET(request: Request) {
           columns: number
         }
       >
-      entityDefs?: Record<string, { name?: string; battleProfile?: { maxHp?: number; atk?: number; def?: number } }>
+      entityDefs?: Record<string, { name?: string; battleProfile?: { maxHp?: number; atk?: number; def?: number; spd?: number } }>
     }
 
     const mapId = project.config?.startingMap
@@ -87,6 +87,7 @@ export async function GET(request: Request) {
       const maxHp = def?.battleProfile?.maxHp ?? null
       const atk = def?.battleProfile?.atk ?? null
       const defStat = def?.battleProfile?.def ?? null
+      const spd = def?.battleProfile?.spd ?? null
       return {
         id: index + 1,
         name: def?.name ?? entity.entityDefId,
@@ -97,7 +98,7 @@ export async function GET(request: Request) {
           maxHp,
           atk,
           def: defStat,
-          spd: atk !== null ? Math.max(1, Math.round(atk * 0.45)) : null,
+          spd,
         },
       }
     })
@@ -110,14 +111,14 @@ export async function GET(request: Request) {
       collision: map.collisionLayer ?? [],
       tileset: tileset
         ? {
-            id: tileset.id,
-            imagePath: tileset.imagePath,
-            publicImagePath,
-            tileWidth: tileset.tileWidth,
-            tileHeight: tileset.tileHeight,
-            tileCount: tileset.tileCount,
-            columns: tileset.columns,
-          }
+          id: tileset.id,
+          imagePath: tileset.imagePath,
+          publicImagePath,
+          tileWidth: tileset.tileWidth,
+          tileHeight: tileset.tileHeight,
+          tileCount: tileset.tileCount,
+          columns: tileset.columns,
+        }
         : null,
       playerSpawn: project.config?.playerSpawn ?? { x: 0, y: 0 },
       enemies,
