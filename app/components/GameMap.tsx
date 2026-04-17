@@ -20,6 +20,36 @@ type MapTileset = {
   columns: number
 }
 
+const ROTATION_KEYS = [
+  'north',
+  'south',
+  'east',
+  'west',
+  'north-east',
+  'north-west',
+  'south-east',
+  'south-west',
+] as const
+
+type RotationKey = (typeof ROTATION_KEYS)[number]
+
+const DEFAULT_DIRECTION: RotationKey = 'south'
+
+const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
+const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
+
+const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
+  if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
+  if (dx > 0 && dy < 0) return 'north-east'
+  if (dx < 0 && dy < 0) return 'north-west'
+  if (dx > 0 && dy > 0) return 'south-east'
+  if (dx < 0 && dy > 0) return 'south-west'
+  if (dx > 0) return 'east'
+  if (dx < 0) return 'west'
+  if (dy < 0) return 'north'
+  return 'south'
+}
+
 // 敌人消息
 const ENEMY_MESSAGES = [
   '我是魔王我很强！',
@@ -105,6 +135,8 @@ export default function GameMap({ game }: Props) {
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
+  const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
+  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
 
   const isWalkable = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= mapInfo.width || y >= mapInfo.height) return false
@@ -291,10 +323,13 @@ export default function GameMap({ game }: Props) {
   // 初始化敌人位置
   useEffect(() => {
     const initial: Record<number, { x: number; y: number }> = {}
+    const facings: Record<number, RotationKey> = {}
     enemies.forEach(e => {
       initial[e.id] = { x: e.x, y: e.y }
+      facings[e.id] = ROTATION_KEYS[Math.abs(e.id) % ROTATION_KEYS.length]
     })
     setEnemyPositions(initial)
+    setEnemyFacings(facings)
   }, [enemies])
 
   // 敌人随机移动
@@ -302,18 +337,24 @@ export default function GameMap({ game }: Props) {
     const moveInterval = setInterval(() => {
       setEnemyPositions(prev => {
         const next = { ...prev }
+        const facingUpdates: Record<number, RotationKey> = {}
         enemies.forEach(enemy => {
           if (!next[enemy.id]) return
+          const from = next[enemy.id]
           const candidates = [
-            { x: next[enemy.id].x + 1, y: next[enemy.id].y },
-            { x: next[enemy.id].x - 1, y: next[enemy.id].y },
-            { x: next[enemy.id].x, y: next[enemy.id].y + 1 },
-            { x: next[enemy.id].x, y: next[enemy.id].y - 1 },
+            { x: from.x + 1, y: from.y },
+            { x: from.x - 1, y: from.y },
+            { x: from.x, y: from.y + 1 },
+            { x: from.x, y: from.y - 1 },
           ].filter(c => isWalkable(c.x, c.y))
           if (candidates.length === 0) return
           const pick = candidates[Math.floor(Math.random() * candidates.length)]
           next[enemy.id] = pick
+          facingUpdates[enemy.id] = resolveDirectionByDelta(pick.x - from.x, pick.y - from.y)
         })
+        if (Object.keys(facingUpdates).length > 0) {
+          setEnemyFacings(prevFacing => ({ ...prevFacing, ...facingUpdates }))
+        }
         return next
       })
     }, 2000)
@@ -365,6 +406,7 @@ export default function GameMap({ game }: Props) {
       else if (k.d) nx += 1
       if (nx === playerPos.x && ny === playerPos.y) return
       if (!isWalkable(nx, ny)) return
+      setPlayerFacing(resolveDirectionByDelta(nx - playerPos.x, ny - playerPos.y))
       setPlayerPos({ x: nx, y: ny })
     }
 
@@ -413,6 +455,7 @@ export default function GameMap({ game }: Props) {
     const x = Math.min(mapInfo.width - 1, Math.max(0, Math.floor(px * mapInfo.width)))
     const y = Math.min(mapInfo.height - 1, Math.max(0, Math.floor(py * mapInfo.height)))
     if (!isWalkable(x, y)) return
+    setPlayerFacing(resolveDirectionByDelta(x - playerPos.x, y - playerPos.y))
     setPlayerPos({ x, y })
   }
 
@@ -525,9 +568,16 @@ export default function GameMap({ game }: Props) {
                 <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
               </div>
             )}
-            <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center animate-pulse">
-              <div className="w-8 h-8 bg-red-500/60 rounded" />
-            </div>
+            <img
+              src={toEnemySpritePath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)}
+              alt={enemy.name}
+              className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+              onError={(e) => {
+                const target = e.currentTarget
+                target.onerror = null
+                target.src = toEnemySpritePath(DEFAULT_DIRECTION)
+              }}
+            />
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-red-400 bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
               {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
             </div>
@@ -543,7 +593,16 @@ export default function GameMap({ game }: Props) {
           top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
         }}
       >
-        <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
+        <img
+          src={toPlayerSpritePath(playerFacing)}
+          alt="你"
+          className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+          onError={(e) => {
+            const target = e.currentTarget
+            target.onerror = null
+            target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
+          }}
+        />
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
           你
         </div>
