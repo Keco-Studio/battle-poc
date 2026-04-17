@@ -20,6 +20,37 @@ type MapTileset = {
   columns: number
 }
 
+const ROTATION_KEYS = [
+  'north',
+  'south',
+  'east',
+  'west',
+  'north-east',
+  'north-west',
+  'south-east',
+  'south-west',
+] as const
+
+type RotationKey = (typeof ROTATION_KEYS)[number]
+
+const DEFAULT_DIRECTION: RotationKey = 'south'
+
+const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
+const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
+const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
+
+const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
+  if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
+  if (dx > 0 && dy < 0) return 'north-east'
+  if (dx < 0 && dy < 0) return 'north-west'
+  if (dx > 0 && dy > 0) return 'south-east'
+  if (dx < 0 && dy > 0) return 'south-west'
+  if (dx > 0) return 'east'
+  if (dx < 0) return 'west'
+  if (dy < 0) return 'north'
+  return 'south'
+}
+
 // 敌人消息
 const ENEMY_MESSAGES = [
   '我是魔王我很强！',
@@ -71,7 +102,16 @@ export default function GameMap({ game }: Props) {
   }, [fleeSuccessMessage, dismissFleeSuccessMessage])
 
   const [enemyPreviewLevel, setEnemyPreviewLevel] = useState(1)
-  const keysRef = useRef<Record<string, boolean>>({ w: false, a: false, s: false, d: false })
+  const keysRef = useRef<Record<string, boolean>>({
+    w: false,
+    a: false,
+    s: false,
+    d: false,
+    arrowup: false,
+    arrowdown: false,
+    arrowleft: false,
+    arrowright: false,
+  })
   const mapViewportRef = useRef<HTMLDivElement | null>(null)
   const mapCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -105,6 +145,10 @@ export default function GameMap({ game }: Props) {
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
+  const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
+  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
+  const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
+  const lastKeyboardMoveAtRef = useRef(0)
 
   const isWalkable = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= mapInfo.width || y >= mapInfo.height) return false
@@ -291,32 +335,72 @@ export default function GameMap({ game }: Props) {
   // 初始化敌人位置
   useEffect(() => {
     const initial: Record<number, { x: number; y: number }> = {}
+    const facings: Record<number, RotationKey> = {}
     enemies.forEach(e => {
       initial[e.id] = { x: e.x, y: e.y }
+      facings[e.id] = ROTATION_KEYS[Math.abs(e.id) % ROTATION_KEYS.length]
     })
     setEnemyPositions(initial)
+    setEnemyFacings(facings)
+    enemyTargetsRef.current = { ...initial }
   }, [enemies])
 
-  // 敌人随机移动
+  // 敌人持续平滑移动（不再一阵一阵跳格）
   useEffect(() => {
+    const tickMs = 80
+    const speedCellPerSec = 0.95
     const moveInterval = setInterval(() => {
       setEnemyPositions(prev => {
         const next = { ...prev }
+        const facingUpdates: Record<number, RotationKey> = {}
+        const nextTargets = { ...enemyTargetsRef.current }
         enemies.forEach(enemy => {
-          if (!next[enemy.id]) return
-          const candidates = [
-            { x: next[enemy.id].x + 1, y: next[enemy.id].y },
-            { x: next[enemy.id].x - 1, y: next[enemy.id].y },
-            { x: next[enemy.id].x, y: next[enemy.id].y + 1 },
-            { x: next[enemy.id].x, y: next[enemy.id].y - 1 },
-          ].filter(c => isWalkable(c.x, c.y))
-          if (candidates.length === 0) return
-          const pick = candidates[Math.floor(Math.random() * candidates.length)]
-          next[enemy.id] = pick
+          const from = next[enemy.id] || { x: enemy.x, y: enemy.y }
+          let target = nextTargets[enemy.id] || from
+
+          let dx = target.x - from.x
+          let dy = target.y - from.y
+          let distance = Math.hypot(dx, dy)
+
+          // 到达目标后，选择下一个相邻可通行网格作为巡逻目标
+          if (distance < 0.02) {
+            const baseX = Math.round(from.x)
+            const baseY = Math.round(from.y)
+            const candidates = [
+              { x: baseX + 1, y: baseY },
+              { x: baseX - 1, y: baseY },
+              { x: baseX, y: baseY + 1 },
+              { x: baseX, y: baseY - 1 },
+            ].filter(c => isWalkable(c.x, c.y))
+
+            if (candidates.length > 0) {
+              target = candidates[Math.floor(Math.random() * candidates.length)]
+              nextTargets[enemy.id] = target
+              dx = target.x - from.x
+              dy = target.y - from.y
+              distance = Math.hypot(dx, dy)
+            }
+          }
+
+          if (distance <= 0) {
+            next[enemy.id] = from
+            return
+          }
+
+          const step = (speedCellPerSec * tickMs) / 1000
+          const move = Math.min(step, distance)
+          const nx = from.x + (dx / distance) * move
+          const ny = from.y + (dy / distance) * move
+          next[enemy.id] = { x: nx, y: ny }
+          facingUpdates[enemy.id] = resolveDirectionByDelta(nx - from.x, ny - from.y)
         })
+        if (Object.keys(facingUpdates).length > 0) {
+          setEnemyFacings(prevFacing => ({ ...prevFacing, ...facingUpdates }))
+        }
+        enemyTargetsRef.current = nextTargets
         return next
       })
-    }, 2000)
+    }, tickMs)
     return () => clearInterval(moveInterval)
   }, [enemies, mapInfo.collision, mapInfo.height, mapInfo.width])
 
@@ -340,42 +424,52 @@ export default function GameMap({ game }: Props) {
     return () => clearInterval(msgInterval)
   }, [enemies])
 
-  // 键盘移动：网格步进
+  // 键盘移动：按键事件直接步进（更稳定）
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase()
-      if (!(key in keysRef.current)) return
-      if (e.repeat) return
-      keysRef.current[key] = true
-    }
+    const CONTROL_KEYS = new Set([
+      'w',
+      'a',
+      's',
+      'd',
+      'arrowup',
+      'arrowdown',
+      'arrowleft',
+      'arrowright',
+    ])
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase()
-      if (!(key in keysRef.current)) return
-      keysRef.current[key] = false
-    }
-
-    const move = () => {
-      const k = keysRef.current
-      let nx = playerPos.x
-      let ny = playerPos.y
-      if (k.w) ny -= 1
-      else if (k.s) ny += 1
-      else if (k.a) nx -= 1
-      else if (k.d) nx += 1
-      if (nx === playerPos.x && ny === playerPos.y) return
+    const moveByDelta = (dx: number, dy: number) => {
+      if (dx === 0 && dy === 0) return
+      const nx = playerPos.x + dx
+      const ny = playerPos.y + dy
       if (!isWalkable(nx, ny)) return
+      setPlayerFacing(resolveDirectionByDelta(dx, dy))
       setPlayerPos({ x: nx, y: ny })
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    const intervalId = window.setInterval(move, 130)
+    const keyToDelta = (key: string): { dx: number; dy: number } => {
+      if (key === 'w' || key === 'arrowup') return { dx: 0, dy: -1 }
+      if (key === 's' || key === 'arrowdown') return { dx: 0, dy: 1 }
+      if (key === 'a' || key === 'arrowleft') return { dx: -1, dy: 0 }
+      if (key === 'd' || key === 'arrowright') return { dx: 1, dy: 0 }
+      return { dx: 0, dy: 0 }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      if (!CONTROL_KEYS.has(key)) return
+      e.preventDefault()
+      const now = Date.now()
+      // 允许长按连走，同时限制最大步频避免过快
+      if (now - lastKeyboardMoveAtRef.current < 90) return
+      lastKeyboardMoveAtRef.current = now
+      const { dx, dy } = keyToDelta(key)
+      moveByDelta(dx, dy)
+    }
+
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
 
     return () => {
-      window.clearInterval(intervalId)
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('keydown', handleKeyDown, { capture: true })
     }
   }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos])
 
@@ -413,6 +507,7 @@ export default function GameMap({ game }: Props) {
     const x = Math.min(mapInfo.width - 1, Math.max(0, Math.floor(px * mapInfo.width)))
     const y = Math.min(mapInfo.height - 1, Math.max(0, Math.floor(py * mapInfo.height)))
     if (!isWalkable(x, y)) return
+    setPlayerFacing(resolveDirectionByDelta(x - playerPos.x, y - playerPos.y))
     setPlayerPos({ x, y })
   }
 
@@ -525,9 +620,16 @@ export default function GameMap({ game }: Props) {
                 <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
               </div>
             )}
-            <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center animate-pulse">
-              <div className="w-8 h-8 bg-red-500/60 rounded" />
-            </div>
+            <img
+              src={toEnemyGifPath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)}
+              alt={enemy.name}
+              className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+              onError={(e) => {
+                const target = e.currentTarget
+                target.onerror = null
+                target.src = toEnemySpritePath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)
+              }}
+            />
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-red-400 bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
               {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
             </div>
@@ -543,7 +645,16 @@ export default function GameMap({ game }: Props) {
           top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
         }}
       >
-        <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
+        <img
+          src={toPlayerSpritePath(playerFacing)}
+          alt="你"
+          className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+          onError={(e) => {
+            const target = e.currentTarget
+            target.onerror = null
+            target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
+          }}
+        />
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
           你
         </div>
