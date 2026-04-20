@@ -34,6 +34,13 @@ export interface TotalStats {
   spd: number
 }
 
+export interface ChatMessage {
+  id: string
+  text: string
+  isSelf: boolean
+  timestamp: number
+}
+
 /** 地图右下角功能入口对应的弹窗 */
 export const DOCK_PANEL_IDS = [
   'achievements',
@@ -58,12 +65,11 @@ interface SavedState {
   equippedGear: Record<EquipmentType, EquippedItem | null>
   inventory: InventoryItem[]
   playerPos: { x: number; y: number }
-  /** 0 = 关闭；1–100 表示当前生命百分比 ≤ 该值时战斗中自动逃跑 */
-  autoFleeHpPercent?: number
   carriedSkillIds?: string[]
 }
 
 const STORAGE_KEY = 'battle-game-save'
+const CHAT_STORAGE_KEY = 'battle-chat-messages'
 
 function loadSavedState(): SavedState | null {
   if (typeof window === 'undefined') return null
@@ -84,6 +90,27 @@ function saveState(state: SavedState) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch (e) {
     console.warn('Failed to save state:', e)
+  }
+}
+
+function loadChatMessages(): ChatMessage[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY)
+    if (!saved) return []
+    const parsed = JSON.parse(saved)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((msg) => ({
+        id: String(msg?.id ?? ''),
+        text: String(msg?.text ?? ''),
+        isSelf: Boolean(msg?.isSelf),
+        timestamp: Number(msg?.timestamp ?? Date.now()),
+      }))
+      .filter((msg) => msg.id && msg.text)
+  } catch (e) {
+    console.warn('Failed to load chat messages:', e)
+    return []
   }
 }
 
@@ -112,9 +139,6 @@ export function useGameState() {
     ...DEFAULT_GEAR,
   }))
   const [inventory, setInventory] = useState<InventoryItem[]>([])
-
-  /** 自动逃跑：0 关闭；1–100 为血量百分比阈值（≤ 即逃） */
-  const [autoFleeHpPercent, setAutoFleeHpPercent] = useState(0)
 
   /** 返回地图后短暂显示（如逃跑成功），不写入存档 */
   const [fleeSuccessMessage, setFleeSuccessMessage] = useState<string | null>(null)
@@ -157,6 +181,7 @@ export function useGameState() {
 
   /** 地图右下角：成就 / 日志 / 聊天 / 战斗系统 / 角色登录 */
   const [dockPanel, setDockPanel] = useState<DockPanelId | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   // 战斗相关
   const [battleLog, setBattleLog] = useState<string[]>([])
@@ -219,11 +244,6 @@ export function useGameState() {
       setEquippedGear(saved.equippedGear ?? { ...DEFAULT_GEAR })
       setInventory(Array.isArray(saved.inventory) ? saved.inventory : [])
       setPlayerPos(saved.playerPos ?? { ...PLAYER_START })
-      {
-        const raw = Math.max(0, saved.autoFleeHpPercent ?? 0)
-        // 曾存成 100 时与「≤100%」逻辑冲突，按关闭处理
-        setAutoFleeHpPercent(raw >= 100 ? 0 : Math.min(99, raw))
-      }
       const maxForLevel = calcPlayerStats(lv).maxHp
       const ringBonus = saved.equippedGear?.ring ? lv * equipmentTypes.ring.bonus : 0
       const maxHp = maxForLevel + ringBonus
@@ -238,6 +258,10 @@ export function useGameState() {
     setStorageHydrated(true)
   }, [])
 
+  useLayoutEffect(() => {
+    setChatMessages(loadChatMessages())
+  }, [])
+
   // 自动保存（避免首帧用默认值覆盖 localStorage）
   useEffect(() => {
     if (!storageHydrated) return
@@ -249,7 +273,6 @@ export function useGameState() {
       equippedGear,
       inventory,
       playerPos,
-      autoFleeHpPercent,
       carriedSkillIds,
     })
   }, [
@@ -261,9 +284,17 @@ export function useGameState() {
     equippedGear,
     inventory,
     playerPos,
-    autoFleeHpPercent,
     carriedSkillIds,
   ])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages))
+    } catch (e) {
+      console.warn('Failed to save chat messages:', e)
+    }
+  }, [chatMessages])
 
   // 获取已解锁技能
   const getAvailableSkills = useCallback(() => {
@@ -372,13 +403,16 @@ export function useGameState() {
     setCombatEnemyId(null)
   }, [])
 
-  // 逃跑（大地图：玩家血量不变；敌方显示血量回满供下次遭遇）
-  const handleFlee = useCallback((opts?: { successMessage?: string }) => {
+  /**
+   * 仅在 battle-core 已以 `battle_ended.reason === 'flee_success'` 结束本场后调用：
+   * 关闭战斗 UI、重置大地图敌人显示血量（供下次遭遇），不替代引擎内的 `flee` 命令。
+   */
+  const finalizeMapBattleFleeSuccess = useCallback((opts?: { successMessage?: string; clearBattleLog?: boolean }) => {
     if (opts?.successMessage) setFleeSuccessMessage(opts.successMessage)
     setEnemyHP(enemyPreview.stats.maxHp)
     setEnemyMaxHp(enemyPreview.stats.maxHp)
     setShowBattle(false)
-    setBattleLog([])
+    if (opts?.clearBattleLog !== false) setBattleLog([])
     setCurrentTurn('player')
     setSelectedSkill(null)
     setNextAttackSkillId(null)
@@ -391,6 +425,9 @@ export function useGameState() {
     setBattleLootDrop(null)
     setCombatEnemyId(null)
   }, [enemyPreview.stats.maxHp, setEnemyHP, setEnemyMaxHp])
+
+  /** @deprecated 与 finalizeMapBattleFleeSuccess 相同；保留旧名称供遗留组件引用 */
+  const handleFlee = finalizeMapBattleFleeSuccess
 
   const dismissFleeSuccessMessage = useCallback(() => {
     setFleeSuccessMessage(null)
@@ -436,14 +473,34 @@ export function useGameState() {
     setDockPanel(null)
   }, [])
 
-  // 金币回复
+  const pushChatMessage = useCallback((text: string, isSelf: boolean) => {
+    const normalized = text.trim()
+    if (!normalized) return
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        text: normalized,
+        isSelf,
+        timestamp: Date.now(),
+      },
+    ])
+  }, [])
+
+  const sendChatMessage = useCallback((text: string) => {
+    pushChatMessage(text, true)
+  }, [pushChatMessage])
+
+  const sendBotChatMessage = useCallback((text: string) => {
+    pushChatMessage(text, false)
+  }, [pushChatMessage])
+
+  // 免费回复满血
   const healWithGold = useCallback(() => {
-    const cost = playerLevel * 3
-    if (playerGold >= cost && playerHP < totalStats.maxHp) {
-      setPlayerGold(prev => prev - cost)
+    if (playerHP < totalStats.maxHp) {
       setPlayerHP(totalStats.maxHp)
     }
-  }, [playerGold, playerHP, playerLevel, totalStats.maxHp])
+  }, [playerHP, totalStats.maxHp])
 
   return {
     // 玩家状态
@@ -461,8 +518,6 @@ export function useGameState() {
     setPlayerMaxMp,
     playerStats,
     totalStats,
-    autoFleeHpPercent,
-    setAutoFleeHpPercent,
     fleeSuccessMessage,
     dismissFleeSuccessMessage,
     battleGridAnchor,
@@ -510,6 +565,10 @@ export function useGameState() {
     dockPanel,
     setDockPanel,
     closeDockPanel,
+    chatMessages,
+    setChatMessages,
+    sendChatMessage,
+    sendBotChatMessage,
     // 战斗
     battleLog,
     setBattleLog,
@@ -542,6 +601,7 @@ export function useGameState() {
     tryLevelUp,
     startBattle,
     closeBattle,
+    finalizeMapBattleFleeSuccess,
     handleFlee,
     healWithGold,
     completeMapBattleVictory,

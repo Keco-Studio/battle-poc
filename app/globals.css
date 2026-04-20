@@ -2,14 +2,268 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 :root {
   --background: #0a0a0f;
   --foreground: #ededed;
+  /* OpenClaw brand tokens */
+  --oc-orange: #f97316;
+  --oc-orange-soft: #fed7aa;
+  --oc-emerald: #10b981;
+  --oc-rose: #ef4444;
+  --oc-ink: #0f172a;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
+}
+
+/* === Shared UI utilities aligned with OpenClaw design === */
+
+/* Press Start 2P 像素字体：用于胜利/失败/CTA 等街机风标题 */
+.font-arcade {
+  font-family: 'Press Start 2P', system-ui, sans-serif;
+  letter-spacing: 0.08em;
+}
+
+/* 白色现代卡片：Battle history / Chat / Character 面板共用底 */
+.oc-card {
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow:
+    0 24px 60px -20px rgba(15, 23, 42, 0.35),
+    0 8px 20px -12px rgba(15, 23, 42, 0.2);
+}
+
+/* 彩色渐变边框（登录卡片 / 突出卡片）*/
+.oc-rainbow-border {
+  position: relative;
+  border-radius: 1.25rem;
+  background: #fff;
+}
+
+.oc-rainbow-border::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 1.4rem;
+  background: linear-gradient(135deg,
+      #f472b6 0%,
+      #fb923c 25%,
+      #fde047 50%,
+      #34d399 75%,
+      #a78bfa 100%);
+  z-index: -1;
+}
+
+/* 状态 pill：Won / Failed */
+.oc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.oc-pill-win {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.oc-pill-lose {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Dock 方形按钮（右下角导航）：深色圆角方块 + 活动时橙色+绿色描边，对齐图 1/2 */
+.oc-dock-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 6px 14px -6px rgba(15, 23, 42, 0.45);
+  transition: transform 0.12s ease, background-color 0.15s ease;
+}
+
+.oc-dock-btn:hover {
+  background: #1f2937;
+  transform: translateY(-1px);
+}
+
+.oc-dock-btn-active {
+  background: #f97316;
+  box-shadow:
+    0 0 0 2px #34d399,
+    0 8px 18px -6px rgba(249, 115, 22, 0.55);
+}
+
+/* 像素风主按钮：CONTINUE / ENTER WORLD / BATTLE AGAIN */
+.oc-arcade-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 1rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  font-family: 'Press Start 2P', system-ui, sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  color: #fff;
+  background: #0f172a;
+  border: 2px solid #0f172a;
+  box-shadow: 0 4px 0 0 #020617;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.oc-arcade-btn:hover {
+  transform: translateY(1px);
+  box-shadow: 0 3px 0 0 #020617;
+}
+
+.oc-arcade-btn:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.oc-arcade-btn-primary {
+  background: #22c55e;
+  border-color: #16a34a;
+  box-shadow: 0 4px 0 0 #166534;
+}
+
+.oc-arcade-btn-primary:hover {
+  box-shadow: 0 3px 0 0 #166534;
+}
+
+.oc-arcade-btn-danger {
+  background: #ef4444;
+  border-color: #b91c1c;
+  box-shadow: 0 4px 0 0 #7f1d1d;
+}
+
+.oc-arcade-btn-danger:hover {
+  box-shadow: 0 3px 0 0 #7f1d1d;
+}
+
+.oc-arcade-btn-cta {
+  background: #f97316;
+  border-color: #c2410c;
+  box-shadow: 0 4px 0 0 #7c2d12;
+}
+
+.oc-arcade-btn-cta:hover {
+  box-shadow: 0 3px 0 0 #7c2d12;
+}
+
+/* 胜利/失败标题光晕 */
+.oc-title-victory {
+  color: #22c55e;
+  text-shadow:
+    0 0 12px rgba(34, 197, 94, 0.55),
+    0 3px 0 #14532d;
+}
+
+.oc-title-defeat {
+  color: #ef4444;
+  text-shadow:
+    0 0 12px rgba(239, 68, 68, 0.55),
+    0 3px 0 #7f1d1d;
+}
+
+/* 失败红色遮罩 */
+.oc-defeat-vignette {
+  background: radial-gradient(ellipse at center,
+      rgba(127, 29, 29, 0.35) 0%,
+      rgba(127, 29, 29, 0.78) 100%);
+}
+
+/* 悬停 Dock 标签气泡（左侧冒出，带箭头） */
+.oc-dock-tooltip {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px -8px rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.oc-dock-tooltip::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #fff;
+}
+
+.oc-dock-btn-wrap:hover .oc-dock-tooltip {
+  opacity: 1;
+}
+
+/* 居中浮动面板：Battle history / log / battle_system / Profile / 角色 / 装备 / 技能 */
+.oc-floating-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 55;
+  width: 720px;
+  height: 460px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (max-width: 820px) {
+  .oc-floating-panel {
+    width: 92vw;
+    height: min(520px, 78vh);
+  }
+}
+
+/* Chat 侧栏：作为真正的右侧侧边栏，直接替换右侧原黑色区域
+   - 占满屏幕高度、贴最右侧，无浮窗圆角/阴影
+   - 右侧预留空间给 Dock 图标（Dock z-index 更高会叠在上面） */
+.oc-chat-panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 45;
+  width: min(380px, 30vw);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  padding-right: 3.5rem;
+  /* 留出 Dock 栏位置 */
+  box-shadow: -8px 0 24px -14px rgba(15, 23, 42, 0.2);
+}
+
+@media (max-width: 720px) {
+  .oc-chat-panel {
+    width: min(320px, 75vw);
+  }
 }
 
 @keyframes confetti-fall {
@@ -84,7 +338,7 @@ body {
   animation: shield-pulse 1.4s ease-in-out infinite;
 }
 
-/* 自动逃跑：角色向左侧撤离 */
+/* 战斗撤离类动画（遗留工具类，当前主流程用 battle-core flee） */
 @keyframes battle-flee-escape {
   0% {
     transform: translateX(0) scale(1);
@@ -138,4 +392,154 @@ body {
 
 .animate-map-hp-float {
   animation: map-hp-float 1s ease-out forwards;
+}
+
+@keyframes battle-step-fx {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.45);
+    filter: blur(0);
+  }
+
+  65% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.2);
+    filter: blur(1px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.6);
+    filter: blur(2px);
+  }
+}
+
+.oc-battle-step-fx {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  animation: battle-step-fx 0.38s ease-out forwards;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+}
+
+.oc-battle-step-fx-player {
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.95) 0%, rgba(59, 130, 246, 0.4) 58%, rgba(59, 130, 246, 0) 100%);
+}
+
+.oc-battle-step-fx-enemy {
+  background: radial-gradient(circle, rgba(251, 113, 133, 0.95) 0%, rgba(239, 68, 68, 0.45) 58%, rgba(239, 68, 68, 0) 100%);
+}
+
+@keyframes projectile-flight {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--proj-rot)) scale(0.95);
+  }
+
+  100% {
+    opacity: 0.95;
+    transform: translate(calc(-50% + var(--proj-dx)), calc(-50% + var(--proj-dy))) rotate(var(--proj-rot)) scale(1);
+  }
+}
+
+.oc-projectile {
+  position: absolute;
+  transform-origin: 50% 50%;
+  animation-name: projectile-flight;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.oc-projectile-arrow {
+  width: 20px;
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.95) 0%, rgba(148, 163, 184, 0.9) 100%);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.65);
+}
+
+.oc-projectile-fireball {
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(254, 240, 138, 1) 0%, rgba(249, 115, 22, 0.95) 55%, rgba(220, 38, 38, 0.85) 100%);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.75);
+}
+
+.oc-projectile-arcane {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(216, 180, 254, 1) 0%, rgba(168, 85, 247, 0.92) 60%, rgba(91, 33, 182, 0.88) 100%);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.75);
+}
+
+.oc-projectile-generic {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(186, 230, 253, 1) 0%, rgba(56, 189, 248, 0.9) 70%, rgba(14, 116, 144, 0.8) 100%);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+@keyframes impact-hit {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.7);
+  }
+}
+
+@keyframes impact-dodge {
+  0% {
+    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + 16px), calc(-50% - 8px)) scale(1.25);
+  }
+}
+
+.oc-impact {
+  position: absolute;
+}
+
+.oc-impact-hit-player,
+.oc-impact-hit-enemy {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  animation: impact-hit 0.32s ease-out forwards;
+}
+
+.oc-impact-hit-player {
+  background: radial-gradient(circle, rgba(191, 219, 254, 0.95) 0%, rgba(59, 130, 246, 0.45) 60%, rgba(59, 130, 246, 0) 100%);
+}
+
+.oc-impact-hit-enemy {
+  background: radial-gradient(circle, rgba(253, 164, 175, 0.95) 0%, rgba(239, 68, 68, 0.5) 60%, rgba(239, 68, 68, 0) 100%);
+}
+
+.oc-impact-dodge-player,
+.oc-impact-dodge-enemy {
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(226, 232, 240, 0.55);
+  border-radius: 9999px;
+  animation: impact-dodge 0.42s ease-out forwards;
+}
+
+.oc-impact-dodge-player {
+  box-shadow: 0 0 12px rgba(148, 163, 184, 0.45);
+}
+
+.oc-impact-dodge-enemy {
+  box-shadow: 0 0 12px rgba(244, 114, 182, 0.45);
 }

@@ -16,7 +16,6 @@ const DEMO_STATE: BattleVisualState = {
   isDefending: false,
   battleFx: 'none',
   heavyStrikePlaying: false,
-  autoFleeAnimating: false,
   isGameOver: false,
   battleResult: null,
   floatTexts: [],

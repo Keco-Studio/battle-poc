@@ -1,5 +1,6 @@
 'use client'
 
+import { X, Swords, ArrowLeft } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import { EquipmentType, equipmentTypes } from '../constants'
 
@@ -19,93 +20,137 @@ export default function EquipmentPanel({ game }: Props) {
     sellItem,
   } = game
 
-  const hasAnyEquipment = equippedGear.weapon || equippedGear.ring || equippedGear.armor || equippedGear.shoes
+  const hasAnyEquipment =
+    equippedGear.weapon || equippedGear.ring || equippedGear.armor || equippedGear.shoes
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 装备面板 - 800x600 */}
-      <div className="relative w-[800px] h-[600px] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-        {/* 标题栏 */}
-        <div className="bg-gradient-to-b from-yellow-400 to-yellow-500 h-12 flex items-center justify-center shrink-0">
-          <span className="text-orange-900 font-bold text-lg">装 备 系 统</span>
+    <div className="oc-floating-panel oc-card" role="dialog" aria-modal="false">
+      <div className="flex h-full min-h-0 flex-col">
+        {/* 头部 */}
+        <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
+            <Swords size={18} strokeWidth={2.4} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-bold text-slate-900">Equipment</div>
+            <div className="truncate text-[11px] text-slate-500">
+              Lv.{playerLevel} · 背包 {inventory.length} 件
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowEquipment(false)
+              setShowCharacter(true)
+            }}
+            aria-label="返回角色"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            title="返回"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowEquipment(false)}
+            aria-label="关闭"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="flex-1 flex">
-          {/* 左侧: 已装备 */}
-          <div className="w-1/2 p-4 flex flex-col gap-4">
-            <div className="text-white font-bold text-center mb-2">
+        {/* 600x380：左列 已装备 / 右列 背包 */}
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden p-4">
+          {/* 已装备 */}
+          <div className="flex min-h-0 flex-col">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
               已装备 {hasAnyEquipment ? '' : '(空)'}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {(['weapon', 'ring', 'armor', 'shoes'] as EquipmentType[]).map(type => (
-                <button
-                  key={type}
-                  onClick={() => unequipItem(type)}
-                  className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 ${equippedGear[type]
-                      ? 'bg-yellow-900/50 border-yellow-400 hover:bg-yellow-800/50 cursor-pointer'
-                      : 'bg-gray-800/50 border-gray-600 border-dashed'
+            <div className="grid grid-cols-2 gap-2">
+              {(['weapon', 'ring', 'armor', 'shoes'] as EquipmentType[]).map((type) => {
+                const gear = equippedGear[type]
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => gear && unequipItem(type)}
+                    disabled={!gear}
+                    className={`flex flex-col items-center gap-1 rounded-xl border p-2 transition-colors ${
+                      gear
+                        ? 'border-orange-300 bg-orange-50 hover:bg-orange-100'
+                        : 'cursor-not-allowed border-dashed border-slate-300 bg-slate-50'
                     }`}
-                >
-                  <div className="text-3xl">{equippedGear[type] ? equippedGear[type]!.icon : ''}</div>
-                  <div className="text-white text-xs font-bold">
-                    {equippedGear[type] ? equippedGear[type]!.name : equipmentTypes[type].name}
-                  </div>
-                  {equippedGear[type] && (
-                    <>
-                      <div className="text-yellow-400 text-[10px]">点击卸下</div>
-                      <div className="text-green-400 text-[10px]">
-                        +{playerLevel * equipmentTypes[type].bonus} {equipmentTypes[type].stat.toUpperCase()}
+                  >
+                    <div className="text-2xl">{gear ? gear.icon : equipmentTypes[type].icon}</div>
+                    <div className="truncate text-[11px] font-bold text-slate-900">
+                      {gear ? gear.name : equipmentTypes[type].name}
+                    </div>
+                    {gear ? (
+                      <div className="text-[10px] font-bold text-emerald-600">
+                        +{playerLevel * equipmentTypes[type].bonus}{' '}
+                        {equipmentTypes[type].stat.toUpperCase()}
                       </div>
-                    </>
-                  )}
-                </button>
-              ))}
+                    ) : (
+                      <div className="text-[10px] text-slate-400">空</div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
 
-          {/* 右侧: 背包 */}
-          <div className="w-1/2 p-4 flex flex-col gap-4">
-            <div className="text-white font-bold text-center mb-2">
+          {/* 背包 */}
+          <div className="flex min-h-0 flex-col">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
               背包 ({inventory.length})
             </div>
-            <div className="grid grid-cols-4 gap-2 flex-1 content-start">
-              {inventory.length === 0 && (
-                <div className="col-span-4 text-gray-500 text-center text-sm">暂无装备</div>
-              )}
-              {inventory.map((item, idx) => (
-                <div key={idx} className="relative p-2 rounded-lg bg-blue-900/50 border border-blue-500 flex flex-col items-center gap-1">
-                  <div className="text-2xl">{item.icon}</div>
-                  <div className="text-white text-[10px]">{item.name}</div>
-                  <div className="text-green-400 text-[8px]">
-                    +{playerLevel * equipmentTypes[item.type].bonus} {equipmentTypes[item.type].stat.toUpperCase()}
-                  </div>
-                  <div className="flex gap-1 mt-1">
-                    <button
-                      onClick={() => equipItem(item, idx)}
-                      className="px-2 py-0.5 bg-green-600 hover:bg-green-500 rounded text-white text-[10px]"
-                    >
-                      装备
-                    </button>
-                    <button
-                      onClick={() => sellItem(idx)}
-                      className="px-2 py-0.5 bg-yellow-600 hover:bg-yellow-500 rounded text-white text-[10px]"
-                    >
-                      出售
-                    </button>
-                  </div>
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              {inventory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center text-[12px] text-slate-400">
+                  暂无装备
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {inventory.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-white p-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="text-xl">{item.icon}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[11px] font-bold text-slate-900">
+                            {item.name}
+                          </div>
+                          <div className="text-[10px] font-bold text-emerald-600">
+                            +{playerLevel * equipmentTypes[item.type].bonus}{' '}
+                            {equipmentTypes[item.type].stat.toUpperCase()}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => equipItem(item, idx)}
+                          className="flex-1 rounded-md bg-emerald-500 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-400"
+                        >
+                          装备
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sellItem(idx)}
+                          className="flex-1 rounded-md bg-amber-500 py-0.5 text-[10px] font-bold text-white hover:bg-amber-400"
+                        >
+                          出售
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        {/* 返回按钮 */}
-        <button
-          onClick={() => { setShowEquipment(false); setShowCharacter(true); }}
-          className="absolute bottom-3 right-3 px-4 py-1.5 bg-blue-500 hover:bg-blue-400 rounded-lg text-white font-bold text-sm border-2 border-blue-300"
-        >
-          返回
-        </button>
       </div>
     </div>
   )

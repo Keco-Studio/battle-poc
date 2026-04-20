@@ -1,5 +1,6 @@
 'use client'
 
+import { X, Sparkles, ArrowLeft, Lock } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import { allSkills } from '../constants'
 
@@ -8,7 +9,15 @@ interface Props {
 }
 
 export default function SkillsPanel({ game }: Props) {
-  const { playerLevel, setShowSkills, setShowCharacter, getAvailableSkills, carriedSkillIds, setCarriedSkillIds } = game
+  const {
+    playerLevel,
+    setShowSkills,
+    setShowCharacter,
+    getAvailableSkills,
+    carriedSkillIds,
+    setCarriedSkillIds,
+  } = game
+
   const carriedSkills = getAvailableSkills()
   const unlockedSkills = allSkills.filter((skill) => skill.unlockLevel <= playerLevel)
 
@@ -23,64 +32,99 @@ export default function SkillsPanel({ game }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* 技能面板 - 800x600 */}
-      <div className="relative w-[800px] h-[600px] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-        {/* 标题栏 */}
-        <div className="bg-gradient-to-b from-yellow-400 to-yellow-500 h-12 flex items-center justify-center shrink-0">
-          <span className="text-orange-900 font-bold text-lg">技 能 系 统</span>
+    <div className="oc-floating-panel oc-card" role="dialog" aria-modal="false">
+      <div className="flex h-full min-h-0 flex-col">
+        {/* 头部 */}
+        <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
+            <Sparkles size={18} strokeWidth={2.4} className="text-violet-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[15px] font-bold text-slate-900">Skills</div>
+            <div className="truncate text-[11px] text-slate-500">
+              携带 {carriedSkills.length}/6 · 已解锁 {unlockedSkills.length}/{allSkills.length}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowSkills(false)
+              setShowCharacter(true)
+            }}
+            aria-label="返回角色"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            title="返回"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSkills(false)}
+            aria-label="关闭"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="flex-1 p-4 overflow-hidden flex flex-col">
-          <div className="text-yellow-400 text-sm mb-3 text-center shrink-0">
-            携带中 ({carriedSkills.length}/6) · 已解锁 ({unlockedSkills.length}/{allSkills.length})
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-3 pb-2">
-            {allSkills.map(skill => {
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="grid grid-cols-3 gap-2">
+            {allSkills.map((skill) => {
               const unlocked = skill.unlockLevel <= playerLevel
               const checked = carriedSkillIds.includes(skill.id)
               const disabledByLimit = !checked && carriedSkillIds.length >= 6
               return (
                 <div
                   key={skill.id}
-                  className={`rounded-xl p-4 text-center ${
-                    unlocked
-                      ? 'bg-blue-800/50 border-2 border-blue-500'
-                      : 'bg-gray-800/50 border-2 border-gray-600 opacity-50'
+                  className={`relative flex flex-col gap-1.5 rounded-xl border p-3 transition-colors ${
+                    !unlocked
+                      ? 'border-slate-200 bg-slate-50 opacity-70'
+                      : checked
+                        ? 'border-orange-300 bg-orange-50'
+                        : 'border-slate-200 bg-white'
                   }`}
                 >
-                  <div className="text-4xl mb-2">{unlocked ? skill.icon : '🔒'}</div>
-                  <div className={`text-white font-bold mb-1 ${unlocked ? '' : 'text-gray-500'}`}>
-                    {skill.name}
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg text-xl ${
+                        unlocked ? 'bg-white ring-1 ring-slate-200' : 'bg-slate-200 text-slate-400'
+                      }`}
+                    >
+                      {unlocked ? skill.icon : <Lock size={16} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-bold text-slate-900">
+                        {skill.name}
+                      </div>
+                      {!unlocked && (
+                        <div className="text-[10px] font-bold text-rose-500">
+                          需要 Lv.{skill.unlockLevel}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-gray-400 text-xs mb-2">{skill.desc}</div>
-                  {!unlocked && <div className="text-red-400 text-xs">需要 Lv.{skill.unlockLevel}</div>}
+                  <div className="text-[11px] leading-snug text-slate-500">{skill.desc}</div>
                   {unlocked && (
-                    <label className={`mt-1 flex items-center justify-center gap-2 text-xs ${disabledByLimit ? 'text-gray-400' : 'text-green-300'}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={disabledByLimit}
-                        onChange={() => toggleCarry(skill.id)}
-                      />
-                      {checked ? '已携带' : disabledByLimit ? '携带已满(6)' : '携带'}
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => toggleCarry(skill.id)}
+                      disabled={disabledByLimit}
+                      className={`mt-1 rounded-md py-1 text-[11px] font-bold transition-colors ${
+                        checked
+                          ? 'bg-orange-500 text-white hover:bg-orange-400'
+                          : disabledByLimit
+                            ? 'cursor-not-allowed bg-slate-100 text-slate-400'
+                            : 'bg-slate-900 text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      {checked ? '已携带' : disabledByLimit ? '携带已满 (6)' : '携带'}
+                    </button>
                   )}
                 </div>
               )
             })}
           </div>
-          </div>
         </div>
-
-        {/* 返回按钮 */}
-        <button
-          onClick={() => { setShowSkills(false); setShowCharacter(true); }}
-          className="absolute bottom-3 right-3 px-4 py-1.5 bg-blue-500 hover:bg-blue-400 rounded-lg text-white font-bold text-sm border-2 border-blue-300"
-        >
-          返回
-        </button>
       </div>
     </div>
   )
