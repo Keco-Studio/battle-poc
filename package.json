@@ -11,6 +11,7 @@
     "generate:demo-tileset": "node scripts/generate-dungeon-tileset-from-sprite.mjs"
   },
   "dependencies": {
+    "lucide-react": "^1.8.0",
     "next": "15.1.0",
     "phaser": "^3.80.1",
     "react": "^19.0.0",

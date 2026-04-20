@@ -30,7 +30,6 @@ export class BattleScene extends Phaser.Scene {
   private animBusyUntil = 0;
   private enemyDeathPlayed = false;
   private playerDeathPlayed = false;
-  private fleeTweenStarted = false;
 
   private static readonly PLAYER_PATROL_SPEED = 78;
   private static readonly ENEMY_PATROL_SPEED = 110;
@@ -41,7 +40,6 @@ export class BattleScene extends Phaser.Scene {
     this.animBusyUntil = 0
     this.enemyDeathPlayed = false
     this.playerDeathPlayed = false
-    this.fleeTweenStarted = false
     this.lastBattleFx = 'none'
     this.processedFloatIds.clear()
   }
@@ -353,7 +351,6 @@ export class BattleScene extends Phaser.Scene {
 
   private updatePatrol(dt: number, state: BattleVisualState): void {
     if (state.isGameOver) return;
-    if (state.autoFleeAnimating) return;
     if (this.time.now < this.animBusyUntil) return;
 
     const now = this.time.now;
@@ -369,23 +366,6 @@ export class BattleScene extends Phaser.Scene {
 
     this.moveToward(this.player, this.playerTarget.x, this.playerTarget.y, BattleScene.PLAYER_PATROL_SPEED, dt, ZONE.player);
     this.moveToward(this.enemy, this.enemyTarget.x, this.enemyTarget.y, BattleScene.ENEMY_PATROL_SPEED, dt, ZONE.enemy);
-  }
-
-  private handleFlee(state: BattleVisualState): void {
-    if (!state.autoFleeAnimating) {
-      this.fleeTweenStarted = false;
-      return;
-    }
-    if (this.fleeTweenStarted) return;
-    this.fleeTweenStarted = true;
-    this.tweens.add({
-      targets: this.player,
-      x: ZONE.player.xMin - 120,
-      angle: 18,
-      alpha: 0.25,
-      duration: 1000,
-      ease: 'Cubic.easeIn',
-    });
   }
 
   private handleDeath(state: BattleVisualState): void {
@@ -424,11 +404,7 @@ export class BattleScene extends Phaser.Scene {
     this.processNewFloats(state);
     this.syncFx(state);
     this.syncShield(state);
-    this.handleFlee(state);
-
-    if (!state.autoFleeAnimating) {
-      this.updatePatrol(dt, state);
-    }
+    this.updatePatrol(dt, state);
 
     this.syncLabels(state);
     this.handleDeath(state);

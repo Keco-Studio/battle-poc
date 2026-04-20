@@ -18,7 +18,6 @@ export interface BattleVisualState {
   isDefending: boolean
   battleFx: BattleFxKind
   heavyStrikePlaying: boolean
-  autoFleeAnimating: boolean
   isGameOver: boolean
   battleResult: 'win' | 'lose' | null
   floatTexts: ReadonlyArray<{ id: number; text: string; side: 'left' | 'right' }>

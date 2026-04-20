@@ -1,13 +1,13 @@
-import { BattleTickEngine } from '@/src/battle-core/engine/tick-engine'
-import { enqueueBattleCommand } from '@/src/battle-core/engine/command-processor'
-import type { BattleCommand } from '@/src/battle-core/domain/types/command-types'
-import type { BattleEntity } from '@/src/battle-core/domain/entities/battle-entity'
-import type { BattleSession } from '@/src/battle-core/domain/entities/battle-session'
+import { BattleTickEngine } from '../battle-core/engine/tick-engine'
+import { enqueueBattleCommand } from '../battle-core/engine/command-processor'
+import type { BattleCommand } from '../battle-core/domain/types/command-types'
+import type { BattleEntity } from '../battle-core/domain/entities/battle-entity'
+import type { BattleSession } from '../battle-core/domain/entities/battle-session'
 import { createMapBattleSession, newCommandId, type MapBattleStartConfig } from './createMapBattleSession'
 import { getPocBattleUiOutcome } from './battleOutcome'
-import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '@/app/constants'
-import { getBattleSkillDefinition } from '@/src/battle-core/content/skills/basic-skill-catalog'
-import { BATTLE_BALANCE } from '@/src/battle-core/config/battle-balance'
+import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '../../app/constants'
+import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
+import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
 import { clampDashDestination } from './walkability'
 
 const MELEE_RANGE = 1.6
@@ -129,6 +129,7 @@ export class MapBattleController {
     executeAtTick: number
     nextAttackSkillId: string | null
     pendingFlee: boolean
+    pendingFleeSource?: 'manual' | 'auto' | null
     onClearQueuedSkill?: () => void
     onSkillCooldown?: (skillId: string, cooldownMs: number) => void
   }): MapBattleStepResult {
@@ -143,6 +144,7 @@ export class MapBattleController {
     }
 
     if (input.pendingFlee) {
+      const fleeReason = input.pendingFleeSource === 'auto' ? 'auto_flee' : 'manual_flee'
       const cmd: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -151,7 +153,7 @@ export class MapBattleController {
         action: 'flee',
         targetId: this.session.right.id,
       }
-      this.enqueueIntentCommand(cmd, 'flee_and_reset', 'manual_flee')
+      this.enqueueIntentCommand(cmd, 'flee_and_reset', fleeReason)
     } else {
       const dist = distBetween(this.session)
 
@@ -408,7 +410,12 @@ export class MapBattleController {
       // 无法沿直线接近：不 return，继续尝试施法/普攻分支（避免贴墙时整局空转）
     }
 
-    if (mode === 'flee_and_reset' && actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
+    const playerHasManualQueuedSkill = chosen !== BASIC_ATTACK.id
+    if (
+      mode === 'flee_and_reset' &&
+      !playerHasManualQueuedSkill &&
+      actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost
+    ) {
       const dodge: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -502,6 +509,18 @@ export class MapBattleController {
       return
     }
 
+    // 兜底：技能条里可能存在当前 map-battle 不可执行的条目（无 coreSkillId 或 action 不匹配）。
+    // 若直接 return 会导致 nextAttackSkillId 长期不清空，玩家回合持续空转“看起来打不出伤害”。
+    const fallback: BattleCommand = {
+      commandId: newCommandId(),
+      sessionId: this.session.id,
+      actorId: actor.id,
+      tick: executeAtTick,
+      action: 'basic_attack',
+      targetId: target.id,
+    }
+    this.enqueueIntentCommand(fallback, mode, 'player_basic_attack_fallback')
+    input.onClearQueuedSkill?.()
     return
   }
 

@@ -1,17 +1,44 @@
 'use client'
 
 import { useState } from 'react'
-import { X, User } from 'lucide-react'
+import { User, Lock, LogIn, Sparkles } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 
 interface Props {
   game: GameState
 }
 
+/** 四个像素小机器人头像（装饰用）*/
+function PixelBot({ hue }: { hue: string }) {
+  return (
+    <div
+      aria-hidden
+      className="h-6 w-6 rounded-md p-[2px]"
+      style={{ backgroundColor: hue, imageRendering: 'pixelated' }}
+    >
+      <div className="grid h-full w-full grid-cols-4 grid-rows-4 gap-[1px]">
+        {[1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 0, 1, 1, 0].map((v, i) => (
+          <span
+            key={i}
+            className={
+              v === 0
+                ? 'bg-transparent'
+                : v === 2
+                  ? 'bg-slate-900'
+                  : 'bg-white/60'
+            }
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function LoginPanel({ game }: Props) {
-  const { login } = game
-  const [username, setUsername] = useState('')
+  const { login, setShowLogin } = game
+  const [username, setUsername] = useState('kaokao@kecostudio.com')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
   const handleLogin = () => {
@@ -25,82 +52,104 @@ export default function LoginPanel({ game }: Props) {
       return
     }
     if (username.trim().length < 2) {
-      setError('账号至少2个字符')
+      setError('账号至少 2 个字符')
       return
     }
     if (password.trim().length < 4) {
-      setError('密码至少4个字符')
+      setError('密码至少 4 个字符')
       return
     }
     login(username)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleLogin()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="relative w-[800px] h-[600px] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 flex flex-col overflow-hidden">
-        {/* 标题栏 */}
-        <div className="bg-gradient-to-b from-yellow-400 to-yellow-500 h-14 flex items-center justify-center shrink-0 relative">
-          <span className="text-orange-900 font-bold text-lg">登 录</span>
-          <button
-            onClick={() => game.setShowLogin(false)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-red-500 hover:bg-red-400 border-2 border-red-300 flex items-center justify-center"
-          >
-            <X size={18} className="text-white" />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4">
+      <div className="oc-rainbow-border w-[360px] max-w-full p-7">
+        {/* 装饰像素机器人 */}
+        <div className="mb-3 flex items-center justify-center gap-2">
+          <PixelBot hue="#34d399" />
+          <PixelBot hue="#f59e0b" />
+          <PixelBot hue="#ef4444" />
+          <PixelBot hue="#a78bfa" />
         </div>
 
-        {/* 登录表单 */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
-          {/* 头像占位 */}
-          <div className="w-24 h-24 bg-purple-900 border-4 border-purple-400 rounded-full flex items-center justify-center">
-            <User size={48} className="text-purple-300" />
-          </div>
+        <div className="mb-1 flex items-center justify-center gap-1 text-[16px] font-bold text-slate-900">
+          <Sparkles size={14} className="text-orange-500" />
+          OpenClaw World
+        </div>
+        <div className="mb-6 text-center text-[12px] text-slate-500">
+          AI Agents Living &amp; Thriving
+        </div>
 
-          {/* 账号输入 */}
-          <div className="w-64">
-            <label className="text-yellow-400 text-sm font-bold mb-1 block">账号</label>
-            <input
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="输入账号..."
-              className="w-full bg-gray-800 border-4 border-l-gray-400 border-t-gray-400 border-r-gray-600 border-b-gray-600 px-4 py-3 text-white focus:border-yellow-400 focus:outline-none pixel-font"
-            />
-          </div>
+        <label className="mb-4 block">
+          <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
+            <User size={12} /> Username
+          </span>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="输入账号"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+          />
+        </label>
 
-          {/* 密码输入 */}
-          <div className="w-64">
-            <label className="text-yellow-400 text-sm font-bold mb-1 block">密码</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="输入密码..."
-              className="w-full bg-gray-800 border-4 border-l-gray-400 border-t-gray-400 border-r-gray-600 border-b-gray-600 px-4 py-3 text-white focus:border-yellow-400 focus:outline-none pixel-font"
-            />
-          </div>
+        <label className="mb-2 block">
+          <span className="mb-1 flex items-center justify-between text-[11px] font-bold text-slate-700">
+            <span className="flex items-center gap-1">
+              <Lock size={12} /> Password
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="font-bold text-slate-400 hover:text-slate-600"
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </span>
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="输入密码"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+          />
+        </label>
 
-          {/* 错误提示 */}
-          {error && (
-            <div className="text-red-400 text-sm font-bold">{error}</div>
-          )}
+        {error && (
+          <div className="mb-2 text-center text-[11px] font-bold text-rose-500">{error}</div>
+        )}
 
-          {/* 登录按钮 */}
+        <button type="button" onClick={handleLogin} className="oc-arcade-btn oc-arcade-btn-cta mt-4">
+          ENTER WORLD
+        </button>
+
+        <div className="mt-3 text-center">
           <button
-            onClick={handleLogin}
-            className="w-64 mt-4 py-3 bg-yellow-500 hover:bg-yellow-400 border-4 border-l-yellow-300 border-t-yellow-300 border-r-yellow-600 border-b-yellow-600 text-orange-900 font-bold text-lg pixel-font shadow-[4px_4px_0_rgba(0,0,0,0.5)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+            type="button"
+            onClick={() => setShowLogin(false)}
+            className="text-[12px] font-bold text-slate-500 hover:text-slate-700"
           >
-            登 录
+            Continue as Guest
           </button>
         </div>
       </div>
+
+      {/* 右下角的关闭占位（小按钮，对齐图 7 的右下小方块） */}
+      <button
+        type="button"
+        onClick={() => setShowLogin(false)}
+        aria-label="跳过登录"
+        className="oc-dock-btn absolute bottom-6 right-6"
+      >
+        <LogIn size={18} />
+      </button>
     </div>
   )
 }

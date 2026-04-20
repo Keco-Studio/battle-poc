@@ -15,7 +15,6 @@ export class MapBattleScene extends Phaser.Scene {
   private lastBattleFx: BattleFxKind = 'none'
   private enemyDeathPlayed = false
   private playerDeathPlayed = false
-  private fleeTweenStarted = false
 
   constructor() {
     super({ key: 'MapBattleScene' })
@@ -30,7 +29,6 @@ export class MapBattleScene extends Phaser.Scene {
     this.getState = data.getState
     this.enemyDeathPlayed = false
     this.playerDeathPlayed = false
-    this.fleeTweenStarted = false
     this.lastBattleFx = 'none'
     this.processedFloatIds.clear()
 
@@ -149,22 +147,6 @@ export class MapBattleScene extends Phaser.Scene {
     this.enemyNameLabel.setPosition(L.enemyX, L.enemyY - 72)
   }
 
-  private handleFlee(state: MapBattleVisualState): void {
-    if (!state.autoFleeAnimating) {
-      this.fleeTweenStarted = false
-      return
-    }
-    if (this.fleeTweenStarted) return
-    this.fleeTweenStarted = true
-    this.tweens.add({
-      targets: this.player,
-      x: this.player.x - 80,
-      alpha: 0.35,
-      duration: 900,
-      ease: 'Cubic.easeIn',
-    })
-  }
-
   private handleDeath(state: MapBattleVisualState): void {
     if (state.enemyHP <= 0 && !this.enemyDeathPlayed) {
       this.enemyDeathPlayed = true
@@ -197,7 +179,6 @@ export class MapBattleScene extends Phaser.Scene {
     this.processNewFloats(state)
     this.syncFx(state)
     this.syncShield(state)
-    this.handleFlee(state)
     this.handleDeath(state)
   }
 }

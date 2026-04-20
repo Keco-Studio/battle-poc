@@ -9,7 +9,6 @@ export function getPocBattleUiOutcome(session: BattleSession): 'ongoing' | 'win'
   if (reason === 'flee_success') return 'fled'
   if (reason === 'right_defeated' && session.result === 'left_win') return 'win'
   if (reason === 'left_defeated' && session.result === 'right_win') return 'lose'
-  if (reason === 'flee_captured' && session.result === 'right_win') return 'lose'
 
   if (session.result === 'left_win') return 'win'
   if (session.result === 'right_win') return 'lose'

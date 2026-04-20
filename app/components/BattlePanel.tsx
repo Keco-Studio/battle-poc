@@ -1,6 +1,6 @@
 /**
- * @deprecated 已由 GameMap 内嵌的 battle-core tick + MapBattlePhaserCanvas 替代。
- * 保留文件供对照/回滚；验证通过后可手动删除。
+ * @deprecated 已由 GameMap 内嵌 battle-core tick（MapBattleController + flee 命令）替代。
+ * 保留供对照/回滚；验证通过后可手动删除。
  */
 'use client'
 
@@ -107,7 +107,6 @@ export default function BattlePanel({ game }: Props) {
     isDefending: false,
     battleFx: 'none',
     heavyStrikePlaying: false,
-    autoFleeAnimating: false,
     isGameOver: false,
     battleResult: null,
     floatTexts: [],
@@ -119,11 +118,6 @@ export default function BattlePanel({ game }: Props) {
   const nextEnemyAtkAtRef = useRef(0)
   /** 与防御技能同步，避免同一 tick 内敌人读不到刚设置的防御 */
   const defendingRef = useRef(false)
-  /** 本场战斗是否已触发过自动逃跑（避免重复） */
-  const autoFleeConsumedRef = useRef(false)
-  /** 自动逃跑演出期间暂停战斗逻辑 */
-  const pauseBattleForFleeRef = useRef(false)
-  const [autoFleeAnimating, setAutoFleeAnimating] = useState(false)
   const snapRef = useRef<BattleSnap>({
     enemyHP: 0,
     playerHP: 0,
@@ -172,7 +166,6 @@ export default function BattlePanel({ game }: Props) {
     skillCooldownEndAt,
     setSkillCooldownEndAt,
     setSelectedSkill,
-    autoFleeHpPercent,
   } = game
 
   snapRef.current = {
@@ -195,7 +188,6 @@ export default function BattlePanel({ game }: Props) {
     isDefending,
     battleFx,
     heavyStrikePlaying,
-    autoFleeAnimating,
     isGameOver,
     battleResult,
     floatTexts,
@@ -208,24 +200,6 @@ export default function BattlePanel({ game }: Props) {
   useEffect(() => {
     isGameOverRef.current = isGameOver
   }, [isGameOver])
-
-  useEffect(() => {
-    if (showBattle) {
-      autoFleeConsumedRef.current = false
-      pauseBattleForFleeRef.current = false
-      setAutoFleeAnimating(false)
-    }
-  }, [showBattle])
-
-  useEffect(() => {
-    if (!autoFleeAnimating) return
-    const t = window.setTimeout(() => {
-      pauseBattleForFleeRef.current = false
-      setAutoFleeAnimating(false)
-      handleFlee({ successMessage: '逃跑成功！已安全撤离战场。' })
-    }, 1100)
-    return () => window.clearTimeout(t)
-  }, [autoFleeAnimating, handleFlee])
 
   /** 技能冷却遮罩需要周期性重绘 */
   useEffect(() => {
@@ -333,7 +307,6 @@ export default function BattlePanel({ game }: Props) {
 
     const id = window.setInterval(() => {
       if (isGameOverRef.current) return
-      if (pauseBattleForFleeRef.current) return
       const t = Date.now()
       const s = snapRef.current
 
@@ -418,24 +391,7 @@ export default function BattlePanel({ game }: Props) {
         }
         flashFx('player-hit')
         pushFloat(`-${damage}`, 'left')
-        setPlayerHP((prev) => {
-          const next = Math.max(0, prev - damage)
-          const maxHp = snapRef.current.totalStats.maxHp
-          const threshold = autoFleeHpPercent
-          if (
-            !autoFleeConsumedRef.current &&
-            threshold > 0 &&
-            threshold < 100 &&
-            maxHp > 0 &&
-            next > 0 &&
-            (next / maxHp) * 100 <= threshold + 1e-6
-          ) {
-            autoFleeConsumedRef.current = true
-            pauseBattleForFleeRef.current = true
-            setAutoFleeAnimating(true)
-          }
-          return next
-        })
+        setPlayerHP((prev) => Math.max(0, prev - damage))
         setBattleLog((prev) => [...prev, `${logMsg} ${damage} 伤害`])
       }
     }, 40)
@@ -457,8 +413,6 @@ export default function BattlePanel({ game }: Props) {
     setNextAttackSkillId,
     setPlayerHP,
     triggerHeavyStrikeVfx,
-    autoFleeHpPercent,
-    handleFlee,
   ])
 
   const queueSkill = (skill: Skill) => {
@@ -522,15 +476,6 @@ export default function BattlePanel({ game }: Props) {
             )}
           </div>
 
-          {autoFleeAnimating && (
-            <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/35">
-              <div className="rounded-2xl border-2 border-amber-300/80 bg-amber-950/90 px-6 py-3 text-center shadow-xl">
-                <div className="text-2xl mb-1">💨</div>
-                <div className="text-amber-100 font-bold text-sm">自动撤离中…</div>
-              </div>
-            </div>
-          )}
-
           {showCenterBattleIcon && (
             <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
               <div className="bg-orange-500/95 text-white font-black text-2xl px-5 py-2.5 rounded-xl border-4 border-yellow-400 shadow-lg animate-pulse">
@@ -546,8 +491,7 @@ export default function BattlePanel({ game }: Props) {
               <button
                 type="button"
                 onClick={() => handleFlee({ successMessage: '逃跑成功！已离开战斗。' })}
-                disabled={autoFleeAnimating}
-                className="px-4 py-2 bg-gray-500 hover:bg-gray-400 rounded-lg text-white font-bold text-sm border-2 border-gray-300 disabled:opacity-50"
+                className="px-4 py-2 bg-gray-500 hover:bg-gray-400 rounded-lg text-white font-bold text-sm border-2 border-gray-300"
               >
                 逃跑
               </button>

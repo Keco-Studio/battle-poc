@@ -52,7 +52,7 @@ export function processBattleCommands(session: BattleSession): CommandProcessorR
   const executable = session.commandQueue.filter((command) => command.tick <= currentTick)
   const pending = session.commandQueue.filter((command) => command.tick > currentTick)
   if (executable.length === 0) {
-    const withChase = resolveChaseByTimeout(session)
+    const withChase = resolveChaseByTimeout(resolveChaseByPosition(session))
     return {
       session: {
         ...withChase,
@@ -105,7 +105,7 @@ function applySingleCommand(
   session: BattleSession,
   command: BattleCommand
 ): { session: BattleSession; applied: boolean } {
-  session = resolveChaseByTimeout(session)
+  session = resolveChaseByTimeout(resolveChaseByPosition(session))
   if (session.result !== 'ongoing') {
     return {
       session: appendEvent(session, 'command_rejected', {
@@ -187,7 +187,7 @@ function applySingleCommand(
       action: command.action,
       targetId: target.id
     })
-    const withResult = resolveChaseByCapture(applyVictoryIfNeeded(withActionEvent))
+    const withResult = resolveChaseByPosition(applyVictoryIfNeeded(withActionEvent))
     return { session: withResult, applied: true }
   }
 
@@ -211,19 +211,19 @@ function applySingleCommand(
     const withShieldEvent =
       gainedShield > 0
         ? appendEvent(withDefend, 'shield_gained', {
-            actorId: actor.id,
-            amount: gainedShield,
-            shield: nextActor.resources.shield,
-            maxShield: nextActor.resources.maxShield
-          })
+          actorId: actor.id,
+          amount: gainedShield,
+          shield: nextActor.resources.shield,
+          maxShield: nextActor.resources.maxShield
+        })
         : withDefend
     return {
-      session: resolveChaseByCapture(
+      session: resolveChaseByPosition(
         appendEvent(withShieldEvent, 'action_executed', {
-        commandId: command.commandId,
-        actorId: actor.id,
-        action: command.action
-      })
+          commandId: command.commandId,
+          actorId: actor.id,
+          action: command.action
+        })
       ),
       applied: true
     }
@@ -278,7 +278,7 @@ function applySingleCommand(
         y: safeY
       }
     }
-    const movedSession = resolveChaseByCapture(updateEntity(session, nextActor))
+    const movedSession = resolveChaseByPosition(updateEntity(session, nextActor))
     return {
       session: appendEvent(movedSession, 'action_executed', {
         commandId: command.commandId,
@@ -386,12 +386,16 @@ function applySingleCommand(
     }
     const movedSession = updateEntity(session, nextActor)
     const hpRatio = actor.resources.maxHp > 0 ? actor.resources.hp / actor.resources.maxHp : 1
-    const atEdge =
-      actor.team === 'left'
-        ? nextActor.position.x <= session.mapBounds.minX + 0.7
-        : nextActor.position.x >= session.mapBounds.maxX - 0.7
-    const fleeChance = atEdge ? (hpRatio < 0.3 ? 0.9 : 0.55) : 0.05
-    const fleeSucceed = Math.random() < fleeChance
+    const atEdge = isAtMapEdge(nextActor.position, session.mapBounds)
+    const chaserAfterMove = getOpponent(movedSession, actor.id)
+    const distanceAfterMove = chaserAfterMove ? getDistance(nextActor, chaserAfterMove) : Number.POSITIVE_INFINITY
+    const alreadyEscapedByDistance = distanceAfterMove >= 3.0
+    const fleeReason = typeof command.metadata?.reason === 'string' ? command.metadata.reason : ''
+    const isAutoFlee = fleeReason === 'auto_flee'
+    const nonEdgeFleeChance = isAutoFlee ? 0.5 : 0.3
+    const fleeChance = atEdge ? (hpRatio < 0.3 ? 0.9 : 0.55) : nonEdgeFleeChance
+    const deterministicSuccess = atEdge || alreadyEscapedByDistance
+    const fleeSucceed = deterministicSuccess || Math.random() < fleeChance
     const withAction = appendEvent(movedSession, 'action_executed', {
       commandId: command.commandId,
       actorId: actor.id,
@@ -582,7 +586,7 @@ function applySingleCommand(
       nextSession = applyFreezeToEntity(nextSession, latestTarget, actor.id, skill.applyFreezeTicks)
     }
     return {
-      session: resolveChaseByCapture(applyVictoryIfNeeded(nextSession)),
+      session: resolveChaseByPosition(applyVictoryIfNeeded(nextSession)),
       applied: true
     }
   }
@@ -615,6 +619,19 @@ function ensureSpacingWithOpponent(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max))
+}
+
+function isAtMapEdge(
+  position: { x: number; y: number },
+  bounds: BattleSession['mapBounds'],
+  threshold = 0.7
+): boolean {
+  return (
+    position.x <= bounds.minX + threshold ||
+    position.x >= bounds.maxX - threshold ||
+    position.y <= bounds.minY + threshold ||
+    position.y >= bounds.maxY - threshold
+  )
 }
 
 function isActorControlled(actor: BattleEntity, currentTick: number): boolean {
@@ -847,7 +864,7 @@ function updateEntity(session: BattleSession, entity: BattleEntity): BattleSessi
   return session
 }
 
-function resolveChaseByCapture(session: BattleSession): BattleSession {
+function resolveChaseByPosition(session: BattleSession): BattleSession {
   if (session.result !== 'ongoing') return session
   if (session.chaseState.status !== 'flee_pending') return session
   const runnerId = session.chaseState.runnerId
@@ -856,13 +873,38 @@ function resolveChaseByCapture(session: BattleSession): BattleSession {
   const runner = getEntityById(session, runnerId)
   const chaser = getEntityById(session, chaserId)
   if (!runner || !chaser || !runner.alive || !chaser.alive) return session
+  if (isAtMapEdge(runner.position, session.mapBounds) || getDistance(runner, chaser) >= 3.0) {
+    const result = runner.team === 'left' ? 'left_win' : 'right_win'
+    const withResolved = appendEvent(
+      {
+        ...session,
+        result,
+        chaseState: {
+          status: 'none'
+        }
+      },
+      'chase_resolved',
+      {
+        type: 'escaped',
+        runnerId,
+        chaserId,
+        expireTick: Number(session.chaseState.expireTick || session.tick),
+        escapedBy: isAtMapEdge(runner.position, session.mapBounds) ? 'edge' : 'distance',
+        distance: Number(getDistance(runner, chaser).toFixed(2)),
+        result
+      }
+    )
+    return appendEvent(withResolved, 'battle_ended', {
+      result,
+      reason: 'flee_success',
+      escapedBy: runnerId
+    })
+  }
   const distance = getDistance(runner, chaser)
-  if (distance > 1.9) return session
-  const result = runner.team === 'left' ? 'right_win' : 'left_win'
-  const withResolved = appendEvent(
+  if (distance > 1.5) return session
+  return appendEvent(
     {
       ...session,
-      result,
       chaseState: {
         status: 'none'
       }
@@ -872,16 +914,9 @@ function resolveChaseByCapture(session: BattleSession): BattleSession {
       type: 'captured',
       runnerId,
       chaserId,
-      distance: Number(distance.toFixed(2)),
-      result
+      distance: Number(distance.toFixed(2))
     }
   )
-  return appendEvent(withResolved, 'battle_ended', {
-    result,
-    reason: 'flee_captured',
-    escapedBy: runnerId,
-    capturedBy: chaserId
-  })
 }
 
 function resolveChaseByTimeout(session: BattleSession): BattleSession {
@@ -895,12 +930,9 @@ function resolveChaseByTimeout(session: BattleSession): BattleSession {
   const runner = getEntityById(session, runnerId)
   const chaser = chaserId ? getEntityById(session, chaserId) : undefined
   if (!runner) return session
-  const atEscapeEdge =
-    runner.team === 'left'
-      ? runner.position.x <= session.mapBounds.minX + 0.7
-      : runner.position.x >= session.mapBounds.maxX - 0.7
+  const atEscapeEdge = isAtMapEdge(runner.position, session.mapBounds)
   const distanceFromChaser = chaser ? getDistance(runner, chaser) : Number.POSITIVE_INFINITY
-  const escapedByDistance = distanceFromChaser >= 5.2
+  const escapedByDistance = distanceFromChaser >= 3.0
   if (!atEscapeEdge && !escapedByDistance) {
     return appendEvent(
       {

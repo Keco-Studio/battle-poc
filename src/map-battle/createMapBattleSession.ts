@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { BattleEntity } from '@/src/battle-core/domain/entities/battle-entity'
-import { createBattleSession, type BattleSession } from '@/src/battle-core/domain/entities/battle-session'
-import type { TotalStats } from '@/app/hooks/useGameState'
-import type { EnemyCombatStats } from '@/app/constants'
+import type { BattleEntity } from '../battle-core/domain/entities/battle-entity'
+import { createBattleSession, type BattleSession } from '../battle-core/domain/entities/battle-session'
+import type { TotalStats } from '../../app/hooks/useGameState'
+import type { EnemyCombatStats } from '../../app/constants'
 
 const PLAYER_CORE_SKILLS = [
   'backstab',
