@@ -110,7 +110,7 @@ export interface EquipmentInfo {
 }
 
 /** 与 ai-rpg-poc `EntityDef.visualId` 对齐：地图上用独立角色图渲染 */
-export type MapCharacterVisualId = 'warriorBlue' | 'archerGreen'
+export type MapCharacterVisualId = 'warriorBlue' | 'archerGreen' | `pixellab:${string}`
 
 // 敌人数据
 export interface Enemy {

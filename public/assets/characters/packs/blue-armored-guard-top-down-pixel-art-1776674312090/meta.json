@@ -1,0 +1,28 @@
+{
+  "id": "blue-armored-guard-top-down-pixel-art-1776674312090",
+  "description": "blue armored guard, top-down pixel art",
+  "view": "low top-down",
+  "imageSize": {
+    "width": 64,
+    "height": 64
+  },
+  "directions": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+  ],
+  "framesPerDirection": 1,
+  "layout": {
+    "rows": 8,
+    "cols": 1
+  },
+  "files": {
+    "previewPng": "assets/characters/blue-armored-guard-top-down-pixel-art-1776674312090.png",
+    "sheetPng": "assets/characters/packs/blue-armored-guard-top-down-pixel-art-1776674312090/sheet.png"
+  }
+}

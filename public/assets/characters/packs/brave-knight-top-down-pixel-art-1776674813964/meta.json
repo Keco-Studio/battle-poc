@@ -1,0 +1,28 @@
+{
+  "id": "brave-knight-top-down-pixel-art-1776674813964",
+  "description": "Brave knight, top-down pixel art",
+  "view": "low top-down",
+  "imageSize": {
+    "width": 64,
+    "height": 64
+  },
+  "directions": [
+    "south",
+    "south-west",
+    "west",
+    "north-west",
+    "north",
+    "north-east",
+    "east",
+    "south-east"
+  ],
+  "framesPerDirection": 4,
+  "layout": {
+    "rows": 8,
+    "cols": 4
+  },
+  "files": {
+    "previewPng": "assets/characters/brave-knight-top-down-pixel-art-1776674813964.png",
+    "sheetPng": "assets/characters/packs/brave-knight-top-down-pixel-art-1776674813964/sheet.png"
+  }
+}
