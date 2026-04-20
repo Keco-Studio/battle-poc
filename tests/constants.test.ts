@@ -100,6 +100,13 @@ describe('createEnemyEncounter', () => {
       spd: 12,
     })
   })
+
+  it('profile.maxHp 低于按等级血量时不会把怪压成演示血皮', () => {
+    const encounter = createEnemyEncounter(13, { maxHp: 72, atk: 8, def: 3, spd: 3 }, () => 0)
+    const base = calcEnemyStats(encounter.level)
+    expect(encounter.stats.maxHp).toBeGreaterThanOrEqual(base.maxHp)
+    expect(encounter.stats.maxHp).toBeGreaterThan(200)
+  })
 })
 
 describe('mitigatedPhysicalDamage（平滑承伤）', () => {

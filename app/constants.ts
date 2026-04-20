@@ -109,6 +109,9 @@ export interface EquipmentInfo {
   bonus: number
 }
 
+/** 与 ai-rpg-poc `EntityDef.visualId` 对齐：地图上用独立角色图渲染 */
+export type MapCharacterVisualId = 'warriorBlue' | 'archerGreen'
+
 // 敌人数据
 export interface Enemy {
   id: number
@@ -117,6 +120,10 @@ export interface Enemy {
   y: number
   level: number
   profile?: EnemyStatProfile
+  /** 有值时用 Warrior / Archer 精灵图；`null` 表示强制只用瓦块图 */
+  visualId?: MapCharacterVisualId | null
+  /** 无有效 `visualId` 时：地图 tileset 的 1-based 瓦块索引（与地块 layer 约定一致） */
+  mapSpriteTileIndex?: number
 }
 
 export interface EnemyStatProfile {
@@ -128,8 +135,8 @@ export interface EnemyStatProfile {
 
 // 默认敌人数据（网格坐标）
 export const initialEnemies: Enemy[] = [
-  { id: 1, name: '恶魔守卫', x: 5, y: 5, level: 3 },
-  { id: 2, name: '暗影刺客', x: 10, y: 6, level: 5 },
+  { id: 1, name: '恶魔守卫', x: 5, y: 5, level: 3, visualId: 'warriorBlue' },
+  { id: 2, name: '暗影刺客', x: 10, y: 6, level: 5, visualId: 'warriorBlue' },
 ]
 
 // 玩家初始位置（网格坐标）
@@ -227,8 +234,14 @@ export function mergeEnemyStats(
   baseStats: EnemyCombatStats,
   profile?: EnemyStatProfile,
 ): EnemyCombatStats {
+  const profileHp = profile?.maxHp
+  /** 地图 JSON 常带演示用低 maxHp；与按等级算的 base 取较大值，避免高等级玩家两刀秒怪 */
+  const maxHp =
+    profileHp == null
+      ? Math.max(1, Math.round(baseStats.maxHp))
+      : Math.max(1, Math.round(Math.max(baseStats.maxHp, profileHp)))
   return {
-    maxHp: Math.max(1, Math.round(profile?.maxHp ?? baseStats.maxHp)),
+    maxHp,
     atk: Math.max(1, Math.round(profile?.atk ?? baseStats.atk)),
     def: Math.max(0, Math.round(profile?.def ?? baseStats.def)),
     spd: Math.max(1, Math.round(profile?.spd ?? baseStats.spd)),

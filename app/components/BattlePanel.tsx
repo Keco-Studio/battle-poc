@@ -425,6 +425,7 @@ export default function BattlePanel({ game }: Props) {
           if (
             !autoFleeConsumedRef.current &&
             threshold > 0 &&
+            threshold < 100 &&
             maxHp > 0 &&
             next > 0 &&
             (next / maxHp) * 100 <= threshold + 1e-6

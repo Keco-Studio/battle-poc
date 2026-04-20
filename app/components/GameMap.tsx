@@ -1,5 +1,6 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameState } from '../hooks/useGameState'
 import {
@@ -7,13 +8,15 @@ import {
   BASIC_ATTACK,
   getSkillById,
   createEnemyEncounter,
-  randomRespawnEnemyName,
   type Skill,
   type Enemy,
+  type MapCharacterVisualId,
 } from '../constants'
+import { mapCharacterIdleStyle, mapTileSpriteStyle } from '../lib/mapEntitySpriteStyles'
 import type { DockPanelId } from '../hooks/useGameState'
 import DockFeatureModal from './DockFeatureModal'
 import { MapBattleController } from '@/src/map-battle/MapBattleController'
+import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '@/src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '@/src/map-battle/walkability'
 
 /** 脱离战斗：双方沿连线方向各退几格（可走则移动） */
@@ -22,7 +25,7 @@ function disengageGridPositions(
   enemy: { x: number; y: number },
   mapW: number,
   mapH: number,
-  isWalkable: (x: number, y: number) => boolean,
+  isWalkable: (x: number, y: number, role: 'playerStep' | 'enemyStep') => boolean,
 ): { player: { x: number; y: number }; enemy: { x: number; y: number } } {
   let dx = player.x - enemy.x
   let dy = player.y - enemy.y
@@ -42,11 +45,11 @@ function disengageGridPositions(
   py = Math.max(0, Math.min(mapH - 1, py))
   ex = Math.max(0, Math.min(mapW - 1, ex))
   ey = Math.max(0, Math.min(mapH - 1, ey))
-  if (!isWalkable(px, py)) {
+  if (!isWalkable(px, py, 'playerStep')) {
     px = player.x
     py = player.y
   }
-  if (!isWalkable(ex, ey)) {
+  if (!isWalkable(ex, ey, 'enemyStep')) {
     ex = enemy.x
     ey = enemy.y
   }
@@ -71,7 +74,37 @@ type MapTileset = {
   columns: number
 }
 
-const BASE_BATTLE_TICK_MS = 115
+function resolveEnemyMapSpriteStyle(
+  enemy: Enemy,
+  tileset: MapTileset | null,
+  cellPx: number,
+): CSSProperties {
+  // 敌人不应使用弓手立绘（与主角区分）；旧存档若带 archerGreen 也回落到战士
+  if (enemy.visualId === 'archerGreen') {
+    return mapCharacterIdleStyle('warriorBlue', cellPx)
+  }
+  if (enemy.visualId === 'warriorBlue') {
+    return mapCharacterIdleStyle('warriorBlue', cellPx)
+  }
+  const ti = enemy.mapSpriteTileIndex
+  if (ti && tileset?.publicImagePath) {
+    return mapTileSpriteStyle(
+      {
+        imageUrl: tileset.publicImagePath,
+        columns: tileset.columns,
+        tileWidth: tileset.tileWidth,
+        tileHeight: tileset.tileHeight,
+        tileCount: tileset.tileCount,
+        tileIndex: ti,
+      },
+      cellPx,
+    )
+  }
+  return mapCharacterIdleStyle('warriorBlue', cellPx)
+}
+
+/** battle-core 地图战 tick 间隔（越大越慢） */
+const BASE_BATTLE_TICK_MS = 260
 
 type BattleSpeedMultiplier = 0.5 | 1 | 2
 
@@ -83,7 +116,8 @@ type MapFloatText = {
   offsetX: number
 }
 
-const BATTLE_MOVE_TRANSITION_MS = 110
+/** 地图上与战斗同步的格子位移动画时长 */
+const BATTLE_MOVE_TRANSITION_MS = 220
 
 type TacticalMode = 'aggressive_finish' | 'kite_and_cast' | 'flee_and_reset' | 'steady_trade'
 
@@ -239,6 +273,8 @@ export default function GameMap({ game }: Props) {
     mapId: 'fallback',
     tileset: null,
   })
+  /** 地图 JSON `config.playerVisualId`，缺省为弓手 */
+  const [playerMapVisual, setPlayerMapVisual] = useState<MapCharacterVisualId>('archerGreen')
 
   // 避免 SSR hydration 不匹配
   useEffect(() => {
@@ -250,11 +286,55 @@ export default function GameMap({ game }: Props) {
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
 
-  const isWalkable = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= mapInfo.width || y >= mapInfo.height) return false
-    const idx = y * mapInfo.width + x
-    return mapInfo.collision[idx] !== 1
+  const enemiesRef = useRef(enemies)
+  enemiesRef.current = enemies
+  const enemyPositionsRef = useRef(enemyPositions)
+  enemyPositionsRef.current = enemyPositions
+
+  type ActorWalkOpts = {
+    ignoreEnemyIds?: number[]
+    ignorePlayerOnCell?: { x: number; y: number }
   }
+
+  const isWalkable = useCallback(
+    (x: number, y: number, actorOpts?: ActorWalkOpts) => {
+      if (
+        !isDemoDungeonCellWalkable({
+          x,
+          y,
+          mapW: mapInfo.width,
+          mapH: mapInfo.height,
+          collision: mapInfo.collision,
+          ground: mapInfo.ground,
+          tilesetId: mapInfo.tileset?.id ?? null,
+        })
+      ) {
+        return false
+      }
+      const ipc = actorOpts?.ignorePlayerOnCell
+      const ignorePlayerHere = ipc && Math.round(ipc.x) === x && Math.round(ipc.y) === y
+      if (!ignorePlayerHere && Math.round(playerPos.x) === x && Math.round(playerPos.y) === y) {
+        return false
+      }
+      for (const e of enemies) {
+        if (actorOpts?.ignoreEnemyIds?.includes(e.id)) continue
+        const p = enemyPositions[e.id] ?? { x: e.x, y: e.y }
+        if (Math.round(p.x) === x && Math.round(p.y) === y) return false
+      }
+      return true
+    },
+    [
+      mapInfo.width,
+      mapInfo.height,
+      mapInfo.collision,
+      mapInfo.ground,
+      mapInfo.tileset?.id,
+      playerPos.x,
+      playerPos.y,
+      enemies,
+      enemyPositions,
+    ],
+  )
 
   const mapAspect = mapInfo.width / Math.max(1, mapInfo.height)
   const viewAspect = viewportSize.width / Math.max(1, viewportSize.height)
@@ -264,6 +344,8 @@ export default function GameMap({ game }: Props) {
     viewAspect > mapAspect ? Math.floor(viewportSize.height) : Math.floor(viewportSize.width / mapAspect)
   const renderOffsetX = Math.max(0, Math.floor((viewportSize.width - renderWidth) / 2))
   const renderOffsetY = Math.max(0, Math.floor((viewportSize.height - renderHeight) / 2))
+  const mapCellDisplayPx =
+    Math.min(renderWidth / Math.max(1, mapInfo.width), renderHeight / Math.max(1, mapInfo.height)) * 0.92
 
   const gridToScreen = (x: number, y: number) => ({
     x: renderOffsetX + ((x + 0.5) / mapInfo.width) * renderWidth,
@@ -287,6 +369,8 @@ export default function GameMap({ game }: Props) {
   nextAttackSkillRef.current = nextAttackSkillId
 
   const [battleTimeSec, setBattleTimeSec] = useState(0)
+  /** 结算用：battle-core 已推进的 tick（墙钟不足 1s 时仍可读） */
+  const [lastBattleTickCount, setLastBattleTickCount] = useState(0)
   const [battleSpeed, setBattleSpeed] = useState<BattleSpeedMultiplier>(1)
   const battleSpeedRef = useRef<BattleSpeedMultiplier>(1)
   battleSpeedRef.current = battleSpeed
@@ -337,6 +421,7 @@ export default function GameMap({ game }: Props) {
           mapId: string
           tileset: MapTileset | null
           playerSpawn: { x: number; y: number }
+          playerVisualId?: MapCharacterVisualId
           enemies: Array<{
             id: number
             name: string
@@ -344,6 +429,8 @@ export default function GameMap({ game }: Props) {
             y: number
             level: number
             profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
+            visualId?: MapCharacterVisualId | null
+            mapSpriteTileIndex?: number
           }>
         }
         if (!active) return
@@ -355,10 +442,17 @@ export default function GameMap({ game }: Props) {
           mapId: data.mapId,
           tileset: data.tileset,
         })
-        setPlayerPos({
-          x: Math.max(0, Math.min(data.width - 1, Math.round(data.playerSpawn.x))),
-          y: Math.max(0, Math.min(data.height - 1, Math.round(data.playerSpawn.y))),
-        })
+        const spawn = snapGridSpawnToWalkable(
+          data.playerSpawn.x,
+          data.playerSpawn.y,
+          data.width,
+          data.height,
+          data.collision,
+          data.ground,
+          data.tileset?.id ?? null,
+        )
+        setPlayerPos(spawn)
+        setPlayerMapVisual(data.playerVisualId === 'warriorBlue' ? 'warriorBlue' : 'archerGreen')
         if (data.enemies.length > 0) {
           setEnemies(data.enemies)
         }
@@ -428,7 +522,15 @@ export default function GameMap({ game }: Props) {
       for (let x = 0; x < mapInfo.width; x++) {
         const idx = y * mapInfo.width + x
         const tileId = mapInfo.ground[idx] ?? 0
-        const blocked = mapInfo.collision[idx] === 1
+        const blocked = !isDemoDungeonCellWalkable({
+          x,
+          y,
+          mapW: mapInfo.width,
+          mapH: mapInfo.height,
+          collision: mapInfo.collision,
+          ground: mapInfo.ground,
+          tilesetId: mapInfo.tileset?.id ?? null,
+        })
         const dx = renderOffsetX + x * cellW
         const dy = renderOffsetY + y * cellH
         if (useSprite && tileId > 0 && tileset && tileId <= tileset.tileCount) {
@@ -471,10 +573,10 @@ export default function GameMap({ game }: Props) {
 
   // 敌人随机移动；仅「当前交战」的那只由 battle session 驱动，其余照常走
   useEffect(() => {
-    const moveInterval = setInterval(() => {
-      setEnemyPositions(prev => {
+    const moveInterval = window.setInterval(() => {
+      setEnemyPositions((prev) => {
         const next = { ...prev }
-        enemies.forEach(enemy => {
+        enemies.forEach((enemy) => {
           if (showBattle && combatEnemyId !== null && enemy.id === combatEnemyId) return
           if (!next[enemy.id]) return
           const candidates = [
@@ -482,7 +584,7 @@ export default function GameMap({ game }: Props) {
             { x: next[enemy.id].x - 1, y: next[enemy.id].y },
             { x: next[enemy.id].x, y: next[enemy.id].y + 1 },
             { x: next[enemy.id].x, y: next[enemy.id].y - 1 },
-          ].filter(c => isWalkable(c.x, c.y))
+          ].filter((c) => isWalkable(c.x, c.y, { ignoreEnemyIds: [enemy.id] }))
           if (candidates.length === 0) return
           const pick = candidates[Math.floor(Math.random() * candidates.length)]
           next[enemy.id] = pick
@@ -490,8 +592,8 @@ export default function GameMap({ game }: Props) {
         return next
       })
     }, 2000)
-    return () => clearInterval(moveInterval)
-  }, [enemies, mapInfo.collision, mapInfo.height, mapInfo.width, showBattle, combatEnemyId])
+    return () => window.clearInterval(moveInterval)
+  }, [enemies, isWalkable, showBattle, combatEnemyId])
 
   // 敌人随机消息
   useEffect(() => {
@@ -572,9 +674,27 @@ export default function GameMap({ game }: Props) {
     autoFleeConsumedMapRef.current = false
     pendingMapFleeRef.current = false
 
+    /** 交战双方走位仍由 battle-core 处理；此处仅把「未参战」的野怪格当成地形外的阻挡，避免穿怪 */
     const isWalkableForBattle = (gx: number, gy: number) => {
-      if (gx < 0 || gy < 0 || gx >= mapInfo.width || gy >= mapInfo.height) return false
-      return mapInfo.collision[gy * mapInfo.width + gx] !== 1
+      if (
+        !isDemoDungeonCellWalkable({
+          x: gx,
+          y: gy,
+          mapW: mapInfo.width,
+          mapH: mapInfo.height,
+          collision: mapInfo.collision,
+          ground: mapInfo.ground,
+          tilesetId: mapInfo.tileset?.id ?? null,
+        })
+      ) {
+        return false
+      }
+      for (const er of enemiesRef.current) {
+        if (er.id === combatEnemyId) continue
+        const p = enemyPositionsRef.current[er.id] ?? { x: er.x, y: er.y }
+        if (Math.round(p.x) === gx && Math.round(p.y) === gy) return false
+      }
+      return true
     }
 
     const cfg = {
@@ -596,11 +716,12 @@ export default function GameMap({ game }: Props) {
     const ctrl = new MapBattleController(cfg)
     mapBattleControllerRef.current = ctrl
     setBattleTimeSec(0)
+    setLastBattleTickCount(0)
     setFloatTexts([])
 
     let battleTimer = 0
     let cdTimer = 0
-    let tickTimeout: ReturnType<typeof window.setTimeout> | undefined
+    let tickTimeout: number | undefined
 
     const clearTimers = () => {
       window.clearInterval(battleTimer)
@@ -629,8 +750,10 @@ export default function GameMap({ game }: Props) {
 
       const maxHp = c.session.left.resources.maxHp
       const hp = c.session.left.resources.hp
+      // 阈值为 100 时「当前血量% ≤100」恒成立，会导致开战首帧就自动逃跑；仅 1–99 生效
       if (
         autoFleeHpPercent > 0 &&
+        autoFleeHpPercent < 100 &&
         maxHp > 0 &&
         hp > 0 &&
         (hp / maxHp) * 100 <= autoFleeHpPercent + 1e-6 &&
@@ -689,14 +812,16 @@ export default function GameMap({ game }: Props) {
         const ev = s.events[i]
         if (ev.type === 'command_received') {
           const actorId = typeof ev.payload.actorId === 'string' ? ev.payload.actorId : ''
-          const action = actionLabel(ev.payload.action)
+          const actStr = actionLabel(ev.payload.action)
           const md = (ev.payload.metadata ?? {}) as Record<string, unknown>
           const strategy = strategyLabel(md.strategy)
           const reason = reasonLabel(md.reason)
           const actorName = actorId === 'poc-player' ? '玩家' : '敌方'
-          const parts = [`${actorName}${action}`]
+          const head = `${actorName}${actStr}`
+          const parts = [head]
           if (strategy) parts.push(`[${strategy}]`)
-          if (reason) parts.push(`· ${reason}`)
+          // metadata.reason 与「玩家+行动名」同文案时不重复拼接（否则「玩家普通攻击 · 玩家普通攻击」）
+          if (reason && reason !== head) parts.push(`· ${reason}`)
           setBattleLog((prev) => [...prev, parts.join(' ')])
         }
         if (ev.type === 'damage_applied') {
@@ -735,6 +860,7 @@ export default function GameMap({ game }: Props) {
       mapBattleEndedRef.current = true
       clearTimers()
       mapBattleControllerRef.current = null
+      setLastBattleTickCount(Math.max(0, s.tick))
 
       if (ui === 'win') {
         pendingRespawnEnemyIdRef.current = combatEnemyId
@@ -744,7 +870,16 @@ export default function GameMap({ game }: Props) {
       } else if (ui === 'fled') {
         const p0 = { x: Math.round(s.left.position.x), y: Math.round(s.left.position.y) }
         const e0 = { x: Math.round(s.right.position.x), y: Math.round(s.right.position.y) }
-        const sep = disengageGridPositions(p0, e0, mapInfo.width, mapInfo.height, isWalkable)
+        const sep = disengageGridPositions(
+          p0,
+          e0,
+          mapInfo.width,
+          mapInfo.height,
+          (gx, gy, role) =>
+            role === 'playerStep'
+              ? isWalkable(gx, gy, { ignoreEnemyIds: combatEnemyId != null ? [combatEnemyId] : [] })
+              : isWalkable(gx, gy, { ignorePlayerOnCell: { x: Math.round(p0.x), y: Math.round(p0.y) } }),
+        )
         setPlayerPos(sep.player)
         setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
         handleFlee({ successMessage: '成功脱离战斗。' })
@@ -769,6 +904,8 @@ export default function GameMap({ game }: Props) {
     mapInfo.width,
     mapInfo.height,
     mapInfo.collision,
+    mapInfo.ground,
+    mapInfo.tileset?.id,
   ])
 
   // 检测附近敌人（使用动态位置）
@@ -812,20 +949,27 @@ export default function GameMap({ game }: Props) {
       }
       const sx = spawn.x
       const sy = spawn.y
-      const nextEnemy: Enemy = {
-        id: defeatedId,
-        name: randomRespawnEnemyName(),
-        x: sx,
-        y: sy,
-        level: enc.level,
-        profile: {
-          maxHp: enc.stats.maxHp,
-          atk: enc.stats.atk,
-          def: enc.stats.def,
-          spd: enc.stats.spd,
-        },
-      }
-      setEnemies((prev) => prev.map((e) => (e.id === defeatedId ? nextEnemy : e)))
+      setEnemies((prev) =>
+        prev.map((e) => {
+          if (e.id !== defeatedId) return e
+          const nextEnemy: Enemy = {
+            id: defeatedId,
+            name: e.name,
+            x: sx,
+            y: sy,
+            level: enc.level,
+            profile: {
+              maxHp: enc.stats.maxHp,
+              atk: enc.stats.atk,
+              def: enc.stats.def,
+              spd: enc.stats.spd,
+            },
+            visualId: e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
+            mapSpriteTileIndex: e.mapSpriteTileIndex,
+          }
+          return nextEnemy
+        }),
+      )
       setEnemyPositions((prev) => ({ ...prev, [defeatedId]: { x: sx, y: sy } }))
       setEnemyHP(enc.stats.maxHp)
       setEnemyMaxHp(enc.stats.maxHp)
@@ -866,7 +1010,7 @@ export default function GameMap({ game }: Props) {
     [isGameOver, skillCooldownEndAt, setNextAttackSkillId, setBattleLog],
   )
 
-  // 点击地图移动（所有区域可达）
+  // 点击地图移动（可走格内）
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (showBattle) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -893,13 +1037,113 @@ export default function GameMap({ game }: Props) {
 
   return (
     <main className="relative w-screen h-screen overflow-hidden">
-      {/* 全屏地图背景 */}
+      {/* 全屏地图：画布与角色同一视口、同一坐标系，避免「浮在地图外一层」 */}
       <div
         ref={mapViewportRef}
         className="absolute inset-0 cursor-crosshair"
         onClick={handleMapClick}
       >
-        <canvas ref={mapCanvasRef} className="h-full w-full" />
+        <canvas ref={mapCanvasRef} className="absolute inset-0 z-0 block h-full w-full" />
+        <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+      {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
+      {enemies.map(enemy => {
+        const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
+        const message = mounted ? enemyMessages[enemy.id] : undefined
+        const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
+        const enemyTransitionStyle = inBattle
+          ? {
+            transitionProperty: 'left, top',
+            transitionDuration: `${BATTLE_MOVE_TRANSITION_MS}ms`,
+            transitionTimingFunction: 'linear',
+            willChange: 'left, top',
+          }
+          : undefined
+        return (
+          <div
+            key={enemy.id}
+            className="absolute pointer-events-none z-20"
+            style={{
+              left: `${gridToScreen(pos.x, pos.y).x}px`,
+              top: `${gridToScreen(pos.x, pos.y).y}px`,
+              transform: 'translate(-50%, -50%)',
+              ...enemyTransitionStyle,
+            }}
+          >
+            {/* 消息气泡 */}
+            {message && (
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
+                {message}
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
+              </div>
+            )}
+            <div
+              className="shadow-lg shadow-black/40 ring-1 ring-white/10"
+              style={resolveEnemyMapSpriteStyle(enemy, mapInfo.tileset, mapCellDisplayPx)}
+            />
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
+              {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
+      <div
+        className="absolute pointer-events-none z-30"
+        style={{
+          left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%',
+          top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
+          transform: mounted ? 'translate(-50%, -50%)' : undefined,
+          transitionProperty: 'left, top',
+          transitionDuration: showBattle ? `${BATTLE_MOVE_TRANSITION_MS}ms` : '120ms',
+          transitionTimingFunction: showBattle ? 'linear' : 'ease-out',
+          willChange: 'left, top',
+        }}
+      >
+        {mounted && (
+          <div
+            className="shadow-lg shadow-black/40 ring-1 ring-sky-300/25"
+            style={mapCharacterIdleStyle(playerMapVisual, mapCellDisplayPx)}
+          />
+        )}
+        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
+          你
+        </div>
+      </div>
+
+      {/* 战斗飘字（伤害 / 治疗），与网格角色对齐 */}
+      {showBattle && combatEnemyId !== null && (
+        <div className="pointer-events-none absolute inset-0 z-[26] overflow-hidden">
+          {floatTexts.map((h) => {
+            const foe = enemies.find((e) => e.id === combatEnemyId)
+            const grid =
+              h.target === 'player'
+                ? playerPos
+                : enemyPositions[combatEnemyId] || (foe ? { x: foe.x, y: foe.y } : playerPos)
+            const screen = gridToScreen(grid.x, grid.y)
+            const colorClass =
+              h.variant === 'heal'
+                ? 'text-emerald-300'
+                : h.target === 'player'
+                  ? 'text-sky-400'
+                  : 'text-red-500'
+            return (
+              <div
+                key={h.id}
+                className={`animate-map-hp-float absolute text-sm font-black tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.85)] ${colorClass}`}
+                style={{
+                  left: screen.x + h.offsetX,
+                  top: screen.y - 40,
+                }}
+              >
+                {h.text}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+        </div>
       </div>
 
       {fleeSuccessMessage && (
@@ -956,112 +1200,6 @@ export default function GameMap({ game }: Props) {
           </div>
           <div className="text-yellow-300 text-xs">💰 {playerGold} 金币</div>
         </div>
-      </div>
-
-      {/* 出生点标记 */}
-      <div
-        className="absolute bottom-0 left-0 pointer-events-none"
-        style={{ left: '15%', bottom: '20%' }}
-      >
-        <div className="w-20 h-20 border-2 border-orange-500/50 rounded-full animate-pulse" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs text-orange-400 bg-black/50 px-2 py-1 rounded">出生点</span>
-        </div>
-      </div>
-
-      {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
-      {enemies.map(enemy => {
-        const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
-        const message = mounted ? enemyMessages[enemy.id] : undefined
-        const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
-        const enemyTransitionStyle = inBattle
-          ? {
-            transitionProperty: 'left, top',
-            transitionDuration: `${BATTLE_MOVE_TRANSITION_MS}ms`,
-            transitionTimingFunction: 'linear',
-            willChange: 'left, top',
-          }
-          : undefined
-        return (
-          <div
-            key={enemy.id}
-            className="absolute pointer-events-none"
-            style={{
-              left: `${gridToScreen(pos.x, pos.y).x}px`,
-              top: `${gridToScreen(pos.x, pos.y).y}px`,
-              ...enemyTransitionStyle,
-            }}
-          >
-            {/* 消息气泡 */}
-            {message && (
-              <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
-                {message}
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
-              </div>
-            )}
-            <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center animate-pulse">
-              <div className="w-8 h-8 bg-red-500/60 rounded" />
-            </div>
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-red-400 bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
-              {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
-            </div>
-          </div>
-        )
-      })}
-
-      {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%',
-          top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
-          transitionProperty: 'left, top',
-          transitionDuration: showBattle ? `${BATTLE_MOVE_TRANSITION_MS}ms` : '120ms',
-          transitionTimingFunction: showBattle ? 'linear' : 'ease-out',
-          willChange: 'left, top',
-        }}
-      >
-        <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg shadow-blue-500/50" />
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white bg-black/70 px-2 py-0.5 rounded whitespace-nowrap">
-          你
-        </div>
-      </div>
-
-      {/* 战斗飘字（伤害 / 治疗），与网格角色对齐 */}
-      {showBattle && combatEnemyId !== null && (
-        <div className="pointer-events-none absolute inset-0 z-[26] overflow-hidden">
-          {floatTexts.map((h) => {
-            const foe = enemies.find((e) => e.id === combatEnemyId)
-            const grid =
-              h.target === 'player'
-                ? playerPos
-                : enemyPositions[combatEnemyId] || (foe ? { x: foe.x, y: foe.y } : playerPos)
-            const screen = gridToScreen(grid.x, grid.y)
-            const colorClass =
-              h.variant === 'heal'
-                ? 'text-emerald-300'
-                : h.target === 'player'
-                  ? 'text-sky-400'
-                  : 'text-red-500'
-            return (
-              <div
-                key={h.id}
-                className={`animate-map-hp-float absolute text-sm font-black tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.85)] ${colorClass}`}
-                style={{
-                  left: screen.x + h.offsetX,
-                  top: screen.y - 40,
-                }}
-              >
-                {h.text}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* 左下角 home-left */}
-      <div className="absolute bottom-0 left-0 z-20 pointer-events-none">
-        <img src="/home-left.png" alt="home-left" className="w-auto h-auto" />
       </div>
 
       <div className="absolute top-4 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
@@ -1129,7 +1267,10 @@ export default function GameMap({ game }: Props) {
                     {sp}×
                   </button>
                 ))}
-                <span className="font-mono text-slate-300">{battleTimeSec}s</span>
+                <span className="font-mono text-slate-300">
+                  {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
+                  {lastBattleTickCount > 0 ? ` · ${lastBattleTickCount}t` : ''}
+                </span>
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -1200,7 +1341,11 @@ export default function GameMap({ game }: Props) {
                 {battleResult === 'win' ? '胜利！' : '失败...'}
               </div>
               <div className="mb-2 rounded-lg bg-white/40 p-2 text-sm text-orange-950">
-                时长 <span className="font-mono font-bold">{battleTimeSec}s</span>
+                时长{' '}
+                <span className="font-mono font-bold">
+                  {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
+                  {lastBattleTickCount > 0 ? `（${lastBattleTickCount} tick）` : ''}
+                </span>
               </div>
               {battleResult === 'win' && (
                 <div className="mb-2 rounded-lg bg-white/40 p-2 text-xs text-orange-950">

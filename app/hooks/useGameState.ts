@@ -172,7 +172,7 @@ export function useGameState() {
   const [skillCooldownEndAt, setSkillCooldownEndAt] = useState<Record<string, number>>({})
   const [gainedExp, setGainedExp] = useState(0)
   const [gainedGold, setGainedGold] = useState(0)
-  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('hero', 6))
+  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('archer', 6))
 
   // 基础属性
   const playerStats = calcPlayerStats(playerLevel)
@@ -219,7 +219,11 @@ export function useGameState() {
       setEquippedGear(saved.equippedGear ?? { ...DEFAULT_GEAR })
       setInventory(Array.isArray(saved.inventory) ? saved.inventory : [])
       setPlayerPos(saved.playerPos ?? { ...PLAYER_START })
-      setAutoFleeHpPercent(Math.min(100, Math.max(0, saved.autoFleeHpPercent ?? 0)))
+      {
+        const raw = Math.max(0, saved.autoFleeHpPercent ?? 0)
+        // 曾存成 100 时与「≤100%」逻辑冲突，按关闭处理
+        setAutoFleeHpPercent(raw >= 100 ? 0 : Math.min(99, raw))
+      }
       const maxForLevel = calcPlayerStats(lv).maxHp
       const ringBonus = saved.equippedGear?.ring ? lv * equipmentTypes.ring.bonus : 0
       const maxHp = maxForLevel + ringBonus
@@ -228,7 +232,7 @@ export function useGameState() {
       const maxMp = Math.floor(maxHp / 2)
       setPlayerMaxMp(maxMp)
       setPlayerMP(maxMp)
-      const savedCarry = Array.isArray(saved.carriedSkillIds) ? saved.carriedSkillIds : getDefaultCarriedSkillIds('hero', 6)
+      const savedCarry = Array.isArray(saved.carriedSkillIds) ? saved.carriedSkillIds : getDefaultCarriedSkillIds('archer', 6)
       setCarriedSkillIds(savedCarry.slice(0, 6))
     }
     setStorageHydrated(true)

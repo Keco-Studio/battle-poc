@@ -31,11 +31,12 @@ export default function SkillsPanel({ game }: Props) {
           <span className="text-orange-900 font-bold text-lg">技 能 系 统</span>
         </div>
 
-        <div className="flex-1 p-4">
-          <div className="text-yellow-400 text-sm mb-3 text-center">
+        <div className="flex-1 p-4 overflow-hidden flex flex-col">
+          <div className="text-yellow-400 text-sm mb-3 text-center shrink-0">
             携带中 ({carriedSkills.length}/6) · 已解锁 ({unlockedSkills.length}/{allSkills.length})
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-3 gap-3 pb-2">
             {allSkills.map(skill => {
               const unlocked = skill.unlockLevel <= playerLevel
               const checked = carriedSkillIds.includes(skill.id)
@@ -69,6 +70,7 @@ export default function SkillsPanel({ game }: Props) {
                 </div>
               )
             })}
+          </div>
           </div>
         </div>
 
