@@ -17,6 +17,7 @@ import DockFeatureModal from './DockFeatureModal'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
+import { mapCharacterIdleStyle, mapTileSpriteStyle } from '../lib/mapEntitySpriteStyles'
 
 /** 脱离战斗：双方沿连线方向各退几格（可走则移动） */
 function disengageGridPositions(
@@ -73,6 +74,64 @@ type MapTileset = {
   columns: number
 }
 
+function EnemyMapAvatar({
+  enemy,
+  facing,
+  tileset,
+}: {
+  enemy: Enemy
+  facing: RotationKey
+  tileset: MapTileset | null
+}) {
+  if (enemy.visualId) {
+    return (
+      <div
+        className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+        style={mapCharacterIdleStyle(enemy.visualId, 48)}
+        role="img"
+        aria-label={enemy.name}
+      />
+    )
+  }
+  const idx = enemy.mapSpriteTileIndex
+  const ts = tileset
+  if (ts && typeof idx === 'number' && idx > 0) {
+    const imageUrl = ts.publicImagePath ?? ts.imagePath
+    if (imageUrl.startsWith('/') || imageUrl.startsWith('http')) {
+      return (
+        <div
+          className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+          style={mapTileSpriteStyle(
+            {
+              imageUrl,
+              columns: ts.columns,
+              tileWidth: ts.tileWidth,
+              tileHeight: ts.tileHeight,
+              tileCount: ts.tileCount,
+              tileIndex: idx,
+            },
+            48,
+          )}
+          role="img"
+          aria-label={enemy.name}
+        />
+      )
+    }
+  }
+  return (
+    <img
+      src={toEnemyGifPath(facing)}
+      alt={enemy.name}
+      className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+      onError={(e) => {
+        const target = e.currentTarget
+        target.onerror = null
+        target.src = toEnemySpritePath(facing)
+      }}
+    />
+  )
+}
+
 const ROTATION_KEYS = [
   'north',
   'south',
@@ -88,7 +147,6 @@ type RotationKey = (typeof ROTATION_KEYS)[number]
 
 const DEFAULT_DIRECTION: RotationKey = 'south'
 
-const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
 const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
 const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
 
@@ -103,9 +161,6 @@ const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   if (dy < 0) return 'north'
   return 'south'
 }
-
-// translate-416 的 resolveEnemyMapSpriteStyle 保留在历史中；
-// 本次按需求 A：大地图角色使用 main 的朝向 GIF/PNG 素材。
 
 /** battle-core 地图战 tick 间隔（越大越慢） */
 const BASE_BATTLE_TICK_MS = 340
@@ -351,7 +406,6 @@ export default function GameMap({ game }: Props) {
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
   const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
-  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
   const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
   const lastKeyboardMoveAtRef = useRef(0)
 
@@ -795,7 +849,6 @@ export default function GameMap({ game }: Props) {
       const ny = playerPos.y + stepDy
       if (!isWalkable(nx, ny)) return
 
-      setPlayerFacing(resolveDirectionByDelta(stepDx, stepDy))
       setPlayerPos({ x: nx, y: ny })
     }
 
@@ -808,7 +861,7 @@ export default function GameMap({ game }: Props) {
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
       window.removeEventListener('keyup', handleKeyUp, { capture: true })
     }
-  }, [isWalkable, playerPos.x, playerPos.y, setPlayerFacing, setPlayerPos, showBattle])
+  }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos, showBattle])
 
   // battle-core tick：仅在地图上更新交战双方格子坐标（无 Phaser、无全屏遮罩）
   // 必须用 combatEnemyId 而非 nearbyEnemy：拉扯后双方距离会超过 INTERACTION_RANGE，
@@ -1327,7 +1380,6 @@ export default function GameMap({ game }: Props) {
     const x = Math.min(mapInfo.width - 1, Math.max(0, Math.floor(px * mapInfo.width)))
     const y = Math.min(mapInfo.height - 1, Math.max(0, Math.floor(py * mapInfo.height)))
     if (!isWalkable(x, y)) return
-    setPlayerFacing(resolveDirectionByDelta(x - playerPos.x, y - playerPos.y))
     setPlayerPos({ x, y })
   }
 
@@ -1375,15 +1427,10 @@ export default function GameMap({ game }: Props) {
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
                   </div>
                 )}
-                <img
-                  src={toEnemyGifPath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)}
-                  alt={enemy.name}
-                  className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
-                  onError={(e) => {
-                    const target = e.currentTarget
-                    target.onerror = null
-                    target.src = toEnemySpritePath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)
-                  }}
+                <EnemyMapAvatar
+                  enemy={enemy}
+                  facing={enemyFacings[enemy.id] || DEFAULT_DIRECTION}
+                  tileset={mapInfo.tileset}
                 />
                 <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
                   {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
@@ -1405,24 +1452,20 @@ export default function GameMap({ game }: Props) {
               willChange: 'left, top',
             }}
           >
-            <img
-              src={toPlayerSpritePath(playerFacing)}
-              alt="你"
+            <div
               className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-              onError={(e) => {
-                const target = e.currentTarget
-                target.onerror = null
-                target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
-              }}
+              style={mapCharacterIdleStyle(playerMapVisual, 32)}
+              role="img"
+              aria-label="你"
             />
             <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
               你
             </div>
           </div>
 
-          {/* 战斗飘字（伤害 / 治疗），与网格角色对齐 */}
+          {/* 战斗飘字（伤害 / 治疗），与网格角色对齐；z 高于玩家/敌人标记，避免投射物被遮挡 */}
           {showBattle && combatEnemyId !== null && (
-            <div className="pointer-events-none absolute inset-0 z-[26] overflow-hidden">
+            <div className="pointer-events-none absolute inset-0 z-[40] overflow-hidden">
               {projectileFx.map((fx) => {
                 const start = gridToScreen(fx.startX, fx.startY)
                 const end = gridToScreen(fx.startX + fx.deltaX, fx.startY + fx.deltaY)
