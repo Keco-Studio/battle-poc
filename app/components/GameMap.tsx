@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trophy, ScrollText, MessageSquare, Swords, User } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import {
@@ -149,6 +149,37 @@ const DEFAULT_DIRECTION: RotationKey = 'south'
 
 const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
 const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
+
+const toPixelLabPreviewPath = (visualId: string) =>
+  `/assets/characters/${encodeURIComponent(visualId.slice('pixellab:'.length))}.png`
+
+type PixelLabPackMeta = {
+  id: string
+  imageSize: { width: number; height: number }
+  framesPerDirection: number
+  layout?: { rows?: number; cols?: number }
+}
+
+type PixelLabPackRuntime = {
+  id: string
+  frameW: number
+  frameH: number
+  rows: number
+  cols: number
+  sheetUrl: string
+}
+
+const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
+  // ai-rpg-poc pack order: south, south-west, west, north-west, north, north-east, east, south-east
+  south: 0,
+  'south-west': 1,
+  west: 2,
+  'north-west': 3,
+  north: 4,
+  'north-east': 5,
+  east: 6,
+  'south-east': 7,
+}
 
 const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
@@ -378,6 +409,7 @@ export default function GameMap({ game }: Props) {
   const [tilesetReady, setTilesetReady] = useState(false)
   const [availableMaps, setAvailableMaps] = useState<Array<{ id: string; fileName: string }>>([])
   const [selectedMapId, setSelectedMapId] = useState<string>('demo-project')
+  const [syncStatus, setSyncStatus] = useState<{ state: 'idle' | 'syncing' | 'ok' | 'error'; message?: string }>({ state: 'idle' })
   const [mapInfo, setMapInfo] = useState<{
     width: number
     height: number
@@ -401,6 +433,34 @@ export default function GameMap({ game }: Props) {
     setMounted(true)
   }, [])
 
+  const syncPixelLabAssets = useCallback(async () => {
+    if (syncStatus.state === 'syncing') return
+    setSyncStatus({ state: 'syncing', message: '同步中…' })
+    try {
+      const res = await fetch('/api/pixellab-sync', { method: 'POST' })
+      const data = (await res.json()) as {
+        ok?: boolean
+        copiedFiles?: number
+        skippedFiles?: number
+        errors?: string[]
+      }
+      if (!res.ok || !data.ok) {
+        const detail = (data.errors ?? []).slice(0, 2).join(' | ')
+        setSyncStatus({ state: 'error', message: `同步失败${detail ? `：${detail}` : ''}` })
+        window.setTimeout(() => setSyncStatus({ state: 'idle' }), 4500)
+        return
+      }
+      setSyncStatus({
+        state: 'ok',
+        message: `同步完成：新增/更新 ${data.copiedFiles ?? 0} 个文件`,
+      })
+      window.setTimeout(() => setSyncStatus({ state: 'idle' }), 2500)
+    } catch (e) {
+      setSyncStatus({ state: 'error', message: `同步异常：${e instanceof Error ? e.message : String(e)}` })
+      window.setTimeout(() => setSyncStatus({ state: 'idle' }), 4500)
+    }
+  }, [syncStatus.state])
+
   // 敌人独立位置状态（用于随机移动）
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
   // 敌人消息气泡
@@ -413,6 +473,58 @@ export default function GameMap({ game }: Props) {
   enemiesRef.current = enemies
   const enemyPositionsRef = useRef(enemyPositions)
   enemyPositionsRef.current = enemyPositions
+
+  // PixelLab packs cache: visualId -> spritesheet info
+  const [pixelLabPacks, setPixelLabPacks] = useState<Record<string, PixelLabPackRuntime>>({})
+  // Used to decide walk vs idle (move in last N ms)
+  const enemyLastMoveAtRef = useRef<Record<number, number>>({})
+
+  const pixelLabEnemyVisualIds = useMemo(() => {
+    const vids = enemies
+      .map((e) => e.visualId)
+      .filter((v): v is `pixellab:${string}` => typeof v === 'string' && v.startsWith('pixellab:'))
+    return Array.from(new Set(vids))
+  }, [enemies])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (pixelLabEnemyVisualIds.length === 0) return
+      const missing = pixelLabEnemyVisualIds.filter((vid) => !pixelLabPacks[String(vid)])
+      if (missing.length === 0) return
+      await Promise.all(
+        missing.map(async (vid) => {
+          const id = String(vid).slice('pixellab:'.length)
+          if (!id) return
+          try {
+            const metaUrl = `/assets/characters/packs/${encodeURIComponent(id)}/meta.json`
+            const metaRes = await fetch(metaUrl)
+            if (!metaRes.ok) return
+            const meta = (await metaRes.json()) as PixelLabPackMeta
+            const cols = Math.max(1, meta.layout?.cols ?? meta.framesPerDirection ?? 1)
+            const rows = Math.max(1, meta.layout?.rows ?? 8)
+            const pack: PixelLabPackRuntime = {
+              id,
+              frameW: meta.imageSize?.width ?? 64,
+              frameH: meta.imageSize?.height ?? 64,
+              rows,
+              cols,
+              sheetUrl: `/assets/characters/packs/${encodeURIComponent(id)}/sheet.png`,
+            }
+            if (!cancelled) {
+              setPixelLabPacks((prev) => ({ ...prev, [String(vid)]: pack }))
+            }
+          } catch (e) {
+            console.warn('[battle-poc] load pixellab pack failed:', vid, e)
+          }
+        }),
+      )
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [pixelLabEnemyVisualIds, pixelLabPacks])
 
   type ActorWalkOpts = {
     ignoreEnemyIds?: number[]
@@ -469,6 +581,10 @@ export default function GameMap({ game }: Props) {
   const renderOffsetY = Math.max(0, Math.floor((viewportSize.height - renderHeight) / 2))
   const mapCellDisplayPx =
     Math.min(renderWidth / Math.max(1, mapInfo.width), renderHeight / Math.max(1, mapInfo.height)) * 0.92
+
+  // Unified actor sprite display size (player + enemies).
+  // We scale with cell size so it feels consistent across maps/viewport sizes.
+  const actorPx = Math.max(32, Math.round(mapCellDisplayPx * 1.5))
 
   const gridToScreen = (x: number, y: number) => ({
     x: renderOffsetX + ((x + 0.5) / mapInfo.width) * renderWidth,
@@ -758,7 +874,12 @@ export default function GameMap({ game }: Props) {
           const nx = from.x + (dx / distance) * move
           const ny = from.y + (dy / distance) * move
           next[enemy.id] = { x: nx, y: ny }
-          facingUpdates[enemy.id] = resolveDirectionByDelta(nx - from.x, ny - from.y)
+          const ddx = nx - from.x
+          const ddy = ny - from.y
+          if (Math.hypot(ddx, ddy) > 0.0005) {
+            enemyLastMoveAtRef.current[enemy.id] = Date.now()
+          }
+          facingUpdates[enemy.id] = resolveDirectionByDelta(ddx, ddy)
         })
 
         if (Object.keys(facingUpdates).length > 0) {
@@ -1397,17 +1518,17 @@ export default function GameMap({ game }: Props) {
         <canvas ref={mapCanvasRef} className="absolute inset-0 z-0 block h-full w-full" />
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
           {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
-          {enemies.map(enemy => {
+          {enemies.map((enemy) => {
             const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
             const message = mounted ? enemyMessages[enemy.id] : undefined
             const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
             const enemyTransitionStyle = inBattle
               ? {
-                transitionProperty: 'left, top',
-                transitionDuration: `${BATTLE_MOVE_TRANSITION_MS}ms`,
-                transitionTimingFunction: 'linear',
-                willChange: 'left, top',
-              }
+                  transitionProperty: 'left, top',
+                  transitionDuration: `${BATTLE_MOVE_TRANSITION_MS}ms`,
+                  transitionTimingFunction: 'linear',
+                  willChange: 'left, top',
+                }
               : undefined
             return (
               <div
@@ -1420,18 +1541,68 @@ export default function GameMap({ game }: Props) {
                   ...enemyTransitionStyle,
                 }}
               >
-                {/* 消息气泡 */}
                 {message && (
                   <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
                     {message}
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
                   </div>
                 )}
-                <EnemyMapAvatar
-                  enemy={enemy}
-                  facing={enemyFacings[enemy.id] || DEFAULT_DIRECTION}
-                  tileset={mapInfo.tileset}
-                />
+                {enemy.visualId && typeof enemy.visualId === 'string' && enemy.visualId.startsWith('pixellab:') ? (
+                  (() => {
+                    const vid = enemy.visualId
+                    const pack = pixelLabPacks[vid]
+                    const displaySize = actorPx
+                    const lastMoveAt = enemyLastMoveAtRef.current[enemy.id] ?? 0
+                    const isWalking = Date.now() - lastMoveAt < 220
+                    const facing = enemyFacings[enemy.id] || DEFAULT_DIRECTION
+                    const row = PIXELLAB_ROW_BY_FACING[facing] ?? 0
+                    const col = pack && isWalking && pack.cols >= 2 ? Math.floor((Date.now() / 120) % pack.cols) : 0
+
+                    if (!pack) {
+                      return (
+                        <img
+                          src={toPixelLabPreviewPath(vid)}
+                          alt={enemy.name}
+                          className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                          style={{ width: displaySize, height: displaySize, imageRendering: 'pixelated' }}
+                          onError={(e) => {
+                            const target = e.currentTarget
+                            target.onerror = null
+                            target.src = toEnemySpritePath(facing)
+                          }}
+                        />
+                      )
+                    }
+
+                    const scale = displaySize / Math.max(1, pack.frameW)
+                    const sheetW = pack.cols * pack.frameW * scale
+                    const sheetH = pack.rows * pack.frameH * scale
+                    const bgX = -col * pack.frameW * scale
+                    const bgY = -row * pack.frameH * scale
+                    return (
+                      <div
+                        aria-label={enemy.name}
+                        className="drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                        style={{
+                          width: displaySize,
+                          height: displaySize,
+                          backgroundImage: `url("${pack.sheetUrl}")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: `${sheetW}px ${sheetH}px`,
+                          backgroundPosition: `${bgX}px ${bgY}px`,
+                          imageRendering: 'pixelated',
+                          animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        }}
+                      />
+                    )
+                  })()
+                ) : (
+                  <EnemyMapAvatar
+                    enemy={enemy}
+                    facing={enemyFacings[enemy.id] || DEFAULT_DIRECTION}
+                    tileset={mapInfo.tileset}
+                  />
+                )}
                 <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
                   {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
                 </div>
@@ -1453,8 +1624,8 @@ export default function GameMap({ game }: Props) {
             }}
           >
             <div
-              className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-              style={mapCharacterIdleStyle(playerMapVisual, 32)}
+              className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+              style={mapCharacterIdleStyle(playerMapVisual, Math.max(32, Math.round(actorPx)))}
               role="img"
               aria-label="你"
             />
@@ -1634,7 +1805,29 @@ export default function GameMap({ game }: Props) {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={syncPixelLabAssets}
+          disabled={syncStatus.state === 'syncing'}
+          className="ml-2 rounded bg-emerald-700 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+          title="把 ai-rpg-poc 生成的 PixelLab 素材同步到 battle-poc/public"
+        >
+          {syncStatus.state === 'syncing' ? '同步中…' : '同步 PixelLab'}
+        </button>
       </div>
+      {syncStatus.state !== 'idle' && (
+        <div
+          className={`absolute top-28 right-4 z-20 rounded-lg border px-3 py-2 text-xs ${
+            syncStatus.state === 'ok'
+              ? 'border-emerald-400/60 bg-emerald-950/80 text-emerald-100'
+              : syncStatus.state === 'error'
+                ? 'border-red-400/60 bg-red-950/80 text-red-100'
+                : 'border-sky-400/60 bg-slate-950/80 text-sky-100'
+          }`}
+        >
+          {syncStatus.message ?? ''}
+        </div>
+      )}
 
       {/* 右下角 Dock：深色圆角方块，active 为橙色+绿色描边；悬停左侧气泡标签
           z-index 高于 Chat 侧栏，保证在侧栏开启时仍可切换 */}
