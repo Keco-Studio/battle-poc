@@ -120,14 +120,14 @@ export default function CharacterPanel({ game }: Props) {
                 <input
                   type="range"
                   min={0}
-                  max={100}
+                  max={99}
                   step={1}
-                  value={autoFleeHpPercent}
+                  value={Math.min(99, autoFleeHpPercent)}
                   onChange={(e) => setAutoFleeHpPercent(Number(e.target.value))}
                   className="w-full h-1.5 accent-amber-400 cursor-pointer"
                 />
                 <p className="text-[9px] text-gray-500 mt-1 leading-snug">
-                  战斗中当前生命百分比不高于该值时自动逃跑（0 为关闭）
+                  当前生命百分比 ≤ 该值时自动逃跑；0 为关闭。勿选满 100（满血时条件恒成立，会误判为立刻逃跑）。
                 </p>
               </div>
             </div>

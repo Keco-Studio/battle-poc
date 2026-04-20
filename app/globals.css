@@ -17,6 +17,7 @@ body {
     transform: translateY(-12vh) rotate(0deg);
     opacity: 1;
   }
+
   to {
     transform: translateY(120vh) rotate(720deg);
     opacity: 0.85;
@@ -34,19 +35,23 @@ body {
   0% {
     transform: translateX(0) scale(1);
   }
+
   40% {
     transform: translateX(36px) scale(1.08);
   }
+
   100% {
     transform: translateX(0) scale(1);
   }
 }
 
 @keyframes enemy-recoil {
+
   0%,
   100% {
     transform: translateX(0) scale(1);
   }
+
   35% {
     transform: translateX(18px) scale(0.92);
   }
@@ -62,11 +67,13 @@ body {
 
 /* 防御：盾牌虚影脉动 */
 @keyframes shield-pulse {
+
   0%,
   100% {
     opacity: 0.35;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.55;
     transform: scale(1.06);
@@ -84,6 +91,7 @@ body {
     opacity: 1;
     filter: blur(0);
   }
+
   100% {
     transform: translateX(-85%) scale(0.88);
     opacity: 0.15;
@@ -100,9 +108,11 @@ body {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.6);
   }
+
   30% {
     opacity: 0.9;
   }
+
   100% {
     opacity: 0;
     transform: translate(-120%, -60%) scale(1.2);
@@ -111,4 +121,21 @@ body {
 
 .animate-flee-dust {
   animation: flee-dust 1.05s ease-out forwards;
+}
+
+/* 大地图战斗：头顶飘字 — 自头顶上移，约 1s 内淡出并虚化 */
+@keyframes map-hp-float {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -52px);
+  }
+}
+
+.animate-map-hp-float {
+  animation: map-hp-float 1s ease-out forwards;
 }

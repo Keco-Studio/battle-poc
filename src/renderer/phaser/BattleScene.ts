@@ -35,6 +35,16 @@ export class BattleScene extends Phaser.Scene {
   private static readonly PLAYER_PATROL_SPEED = 78;
   private static readonly ENEMY_PATROL_SPEED = 110;
   private static readonly MAX_MOVE_DT = 1 / 45;
+  private static readonly PRESENTATION_SLOWDOWN = 1.35;
+
+  private resetSceneState(): void {
+    this.animBusyUntil = 0
+    this.enemyDeathPlayed = false
+    this.playerDeathPlayed = false
+    this.fleeTweenStarted = false
+    this.lastBattleFx = 'none'
+    this.processedFloatIds.clear()
+  }
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -47,18 +57,22 @@ export class BattleScene extends Phaser.Scene {
 
   create(data: BattleSceneInitData): void {
     this.getState = data.getState;
+    this.resetSceneState()
 
     this.add.rectangle(W / 2, H / 2, W, H, 0x1a1a2e);
-    this.add
-      .rectangle(MID_X, H / 2, 4, H - 40, 0x4a4a6a, 0.65)
-      .setDepth(0);
 
     this.player = this.add.sprite(ZONE.player.xMin + 220, H * 0.52, 'battle-player');
     this.player.setScale(0.42);
+    this.player.setAlpha(1)
+    this.player.setVisible(true)
+    this.player.setAngle(0)
     this.player.setDepth(5);
 
     this.enemy = this.add.sprite(ZONE.enemy.xMax - 220, H * 0.48, 'battle-enemy');
     this.enemy.setScale(0.38);
+    this.enemy.setAlpha(1)
+    this.enemy.setVisible(true)
+    this.enemy.setAngle(0)
     this.enemy.setDepth(5);
 
     this.pickPatrolTarget('player');
@@ -80,19 +94,14 @@ export class BattleScene extends Phaser.Scene {
     this.playerNameLabel = this.add
       .text(this.player.x, this.player.y - 110, '玩家', { fontSize: '16px', color: '#a7f3d0' })
       .setOrigin(0.5)
+      .setVisible(true)
       .setDepth(15);
     this.enemyNameLabel = this.add
       .text(this.enemy.x, this.enemy.y - 110, '敌人', { fontSize: '16px', color: '#fecaca' })
       .setOrigin(0.5)
+      .setVisible(true)
       .setDepth(15);
 
-    this.add
-      .text(W / 2, 36, 'Battle Arena', {
-        fontSize: '26px',
-        color: '#e2e8f0',
-      })
-      .setOrigin(0.5)
-      .setDepth(10);
   }
 
   private pickPatrolTarget(which: 'player' | 'enemy'): void {
@@ -206,24 +215,38 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  private pickImpactPoint(): { y: number; playerX: number; enemyX: number } {
+    const impactY = Phaser.Math.Between(Math.floor(H * 0.34), Math.floor(H * 0.68))
+    return {
+      y: impactY,
+      playerX: Phaser.Math.Clamp(MID_X - Phaser.Math.Between(70, 130), ZONE.player.xMin + 30, ZONE.player.xMax),
+      enemyX: Phaser.Math.Clamp(MID_X + Phaser.Math.Between(70, 130), ZONE.enemy.xMin, ZONE.enemy.xMax - 30),
+    }
+  }
+
   private playAttackSequence(kind: BattleFxKind, state: BattleVisualState): void {
     const heavy = state.heavyStrikePlaying;
-    const wind = heavy ? 220 : 120;
-    const lunge = heavy ? 140 : 85;
-    this.animBusyUntil = this.time.now + wind + 280 + (heavy ? 120 : 0);
+    const slow = BattleScene.PRESENTATION_SLOWDOWN;
+    const wind = Math.round((heavy ? 220 : 120) * slow);
+    const retreat = Math.round((heavy ? 260 : 200) * slow);
+    const settle = Math.round(110 * slow);
+    this.animBusyUntil = this.time.now + wind + retreat + settle;
 
     if (kind === 'player-hit') {
       // 敌人打玩家：敌人前冲，玩家受击
       const ex = this.enemy.x;
       const ey = this.enemy.y;
       const px = this.player.x;
-      const approach = Phaser.Math.Clamp(px + 55, ZONE.enemy.xMin, ZONE.enemy.xMax);
+      const py = this.player.y;
+      const impact = this.pickImpactPoint();
       this.tweens.add({
         targets: this.enemy,
-        x: approach,
+        x: impact.enemyX,
+        y: impact.y,
         duration: wind,
         ease: heavy ? 'Cubic.easeIn' : 'Quad.easeIn',
         onComplete: () => {
+          this.player.y = impact.y;
           this.hitFlash(this.player);
           this.knockback(this.player, -38);
           this.shakeSprite(this.player);
@@ -231,7 +254,13 @@ export class BattleScene extends Phaser.Scene {
             targets: this.enemy,
             x: ex,
             y: ey,
-            duration: 200,
+            duration: retreat,
+            ease: 'Sine.easeOut',
+          });
+          this.tweens.add({
+            targets: this.player,
+            y: py,
+            duration: retreat,
             ease: 'Sine.easeOut',
           });
         },
@@ -243,14 +272,16 @@ export class BattleScene extends Phaser.Scene {
       const px = this.player.x;
       const py = this.player.y;
       const ex = this.enemy.x;
-      const approach = Phaser.Math.Clamp(ex - 55, ZONE.player.xMin, ZONE.player.xMax);
+      const ey = this.enemy.y;
+      const impact = this.pickImpactPoint();
       this.tweens.add({
         targets: this.player,
-        x: approach,
-        y: py,
+        x: impact.playerX,
+        y: impact.y,
         duration: wind,
         ease: heavy ? 'Cubic.easeIn' : 'Quad.easeIn',
         onComplete: () => {
+          this.enemy.y = impact.y;
           this.hitFlash(this.enemy);
           this.knockback(this.enemy, 42);
           this.shakeSprite(this.enemy);
@@ -258,7 +289,13 @@ export class BattleScene extends Phaser.Scene {
             targets: this.player,
             x: px,
             y: py,
-            duration: heavy ? 260 : 200,
+            duration: retreat,
+            ease: 'Sine.easeOut',
+          });
+          this.tweens.add({
+            targets: this.enemy,
+            y: ey,
+            duration: retreat,
             ease: 'Sine.easeOut',
           });
         },
@@ -273,7 +310,7 @@ export class BattleScene extends Phaser.Scene {
         targets: this.player,
         scaleX: s0 * 1.06,
         scaleY: s0 * 1.06,
-        duration: 100,
+        duration: Math.round(100 * slow),
         yoyo: true,
         ease: 'Sine.easeInOut',
         onComplete: () => {
@@ -369,8 +406,8 @@ export class BattleScene extends Phaser.Scene {
       this.playerDeathPlayed = true;
       this.tweens.add({
         targets: this.player,
-        alpha: 0,
-        scale: this.player.scale * 0.5,
+        alpha: 0.35,
+        scale: this.player.scale * 0.68,
         angle: -90,
         duration: 600,
         ease: 'Cubic.easeIn',

@@ -8,8 +8,19 @@ interface Props {
 }
 
 export default function SkillsPanel({ game }: Props) {
-  const { playerLevel, setShowSkills, setShowCharacter, getAvailableSkills } = game
-  const availableSkills = getAvailableSkills()
+  const { playerLevel, setShowSkills, setShowCharacter, getAvailableSkills, carriedSkillIds, setCarriedSkillIds } = game
+  const carriedSkills = getAvailableSkills()
+  const unlockedSkills = allSkills.filter((skill) => skill.unlockLevel <= playerLevel)
+
+  const toggleCarry = (skillId: string) => {
+    const exists = carriedSkillIds.includes(skillId)
+    if (exists) {
+      setCarriedSkillIds(carriedSkillIds.filter((id) => id !== skillId))
+      return
+    }
+    if (carriedSkillIds.length >= 6) return
+    setCarriedSkillIds([...carriedSkillIds, skillId])
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -20,13 +31,16 @@ export default function SkillsPanel({ game }: Props) {
           <span className="text-orange-900 font-bold text-lg">技 能 系 统</span>
         </div>
 
-        <div className="flex-1 p-4">
-          <div className="text-yellow-400 text-sm mb-3 text-center">
-            已解锁 ({availableSkills.length}/{allSkills.length})
+        <div className="flex-1 p-4 overflow-hidden flex flex-col">
+          <div className="text-yellow-400 text-sm mb-3 text-center shrink-0">
+            携带中 ({carriedSkills.length}/6) · 已解锁 ({unlockedSkills.length}/{allSkills.length})
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-3 gap-3 pb-2">
             {allSkills.map(skill => {
               const unlocked = skill.unlockLevel <= playerLevel
+              const checked = carriedSkillIds.includes(skill.id)
+              const disabledByLimit = !checked && carriedSkillIds.length >= 6
               return (
                 <div
                   key={skill.id}
@@ -42,10 +56,21 @@ export default function SkillsPanel({ game }: Props) {
                   </div>
                   <div className="text-gray-400 text-xs mb-2">{skill.desc}</div>
                   {!unlocked && <div className="text-red-400 text-xs">需要 Lv.{skill.unlockLevel}</div>}
-                  {unlocked && <div className="text-green-400 text-xs">已解锁</div>}
+                  {unlocked && (
+                    <label className={`mt-1 flex items-center justify-center gap-2 text-xs ${disabledByLimit ? 'text-gray-400' : 'text-green-300'}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabledByLimit}
+                        onChange={() => toggleCarry(skill.id)}
+                      />
+                      {checked ? '已携带' : disabledByLimit ? '携带已满(6)' : '携带'}
+                    </label>
+                  )}
                 </div>
               )
             })}
+          </div>
           </div>
         </div>
 

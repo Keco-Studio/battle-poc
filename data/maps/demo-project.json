@@ -9,6 +9,7 @@
   },
   "config": {
     "startingMap": "demo-map",
+    "playerVisualId": "archerGreen",
     "playerSpawn": { "x": 8, "y": 8 },
     "tileSize": 16,
     "viewportSize": { "width": 16, "height": 12 }
@@ -61,8 +62,7 @@
       ],
       "entities": [
         { "instanceId": "guard-1", "entityDefId": "guard-entity", "position": { "x": 5, "y": 5 } },
-        { "instanceId": "guard-2", "entityDefId": "guard-entity", "position": { "x": 4, "y": 8 } },
-        { "instanceId": "archer-1", "entityDefId": "archer-entity", "position": { "x": 10, "y": 6 } }
+        { "instanceId": "guard-2", "entityDefId": "guard-entity", "position": { "x": 4, "y": 8 } }
       ],
       "triggers": []
     }
@@ -73,14 +73,16 @@
       "type": "npc",
       "name": "Guard",
       "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 },
-      "battleProfile": { "maxHp": 72, "atk": 8, "def": 3 }
+      "visualId": "warriorBlue",
+      "battleProfile": { "maxHp": 72, "atk": 8, "def": 3, "spd": 3 }
     },
     "archer-entity": {
       "id": "archer-entity",
       "type": "npc",
       "name": "Archer",
       "sprite": { "tilesetId": "demo-tileset", "tileIndex": 32 },
-      "battleProfile": { "maxHp": 68, "atk": 7, "def": 2 }
+      "visualId": "archerGreen",
+      "battleProfile": { "maxHp": 68, "atk": 7, "def": 2, "spd": 3 }
     }
   },
   "dialogues": {},

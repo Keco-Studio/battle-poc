@@ -2,6 +2,8 @@ import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { NextResponse } from 'next/server'
 
+import type { MapCharacterVisualId } from '@/app/constants'
+
 const LOCAL_MAPS_DIR = path.join(process.cwd(), 'data', 'maps')
 const DEFAULT_MAP_FILE = 'demo-project.json'
 
@@ -9,6 +11,42 @@ type AirpgMapEntity = {
   instanceId: string
   entityDefId: string
   position: { x: number; y: number }
+  overrides?: {
+    visualId?: MapCharacterVisualId | null
+  }
+}
+
+type EntityDefLike = {
+  name?: string
+  visualId?: MapCharacterVisualId
+  sprite?: { tilesetId?: string; tileIndex?: number }
+  battleProfile?: { maxHp?: number; atk?: number; def?: number; spd?: number }
+}
+
+function resolveNpcMapRender(def: EntityDefLike | undefined, entity: AirpgMapEntity): {
+  visualId?: MapCharacterVisualId | null
+  mapSpriteTileIndex?: number
+} {
+  if (!def) return {}
+  const rawOverride = entity.overrides && Object.prototype.hasOwnProperty.call(entity.overrides, 'visualId')
+    ? entity.overrides!.visualId
+    : undefined
+  let effectiveVisual: MapCharacterVisualId | undefined
+  if (rawOverride === null) {
+    effectiveVisual = undefined
+  } else if (rawOverride !== undefined) {
+    effectiveVisual = rawOverride
+  } else {
+    effectiveVisual = def.visualId
+  }
+  if (effectiveVisual === 'warriorBlue' || effectiveVisual === 'archerGreen') {
+    // 弓手立绘留给玩家主角；NPC 若标成 archerGreen 仍用战士图，避免地图上出现第二个「你」
+    const mapVisual: MapCharacterVisualId = effectiveVisual === 'archerGreen' ? 'warriorBlue' : effectiveVisual
+    return { visualId: mapVisual }
+  }
+  const ti = typeof def.sprite?.tileIndex === 'number' ? def.sprite.tileIndex : 0
+  if (ti > 0) return { mapSpriteTileIndex: ti }
+  return {}
 }
 
 async function resolveUsableTilesetPath(imagePath: string | undefined): Promise<string | null> {
@@ -46,6 +84,8 @@ export async function GET(request: Request) {
       config?: {
         startingMap?: string
         playerSpawn?: { x: number; y: number }
+        /** 与 ai-rpg-poc 对齐：地图主角外观，默认弓手 */
+        playerVisualId?: MapCharacterVisualId
       }
       maps?: Record<
         string,
@@ -70,7 +110,7 @@ export async function GET(request: Request) {
           columns: number
         }
       >
-      entityDefs?: Record<string, { name?: string; battleProfile?: { maxHp?: number; atk?: number; def?: number } }>
+      entityDefs?: Record<string, EntityDefLike>
     }
 
     const mapId = project.config?.startingMap
@@ -87,6 +127,8 @@ export async function GET(request: Request) {
       const maxHp = def?.battleProfile?.maxHp ?? null
       const atk = def?.battleProfile?.atk ?? null
       const defStat = def?.battleProfile?.def ?? null
+      const spd = def?.battleProfile?.spd ?? null
+      const { visualId, mapSpriteTileIndex } = resolveNpcMapRender(def, entity)
       return {
         id: index + 1,
         name: def?.name ?? entity.entityDefId,
@@ -97,10 +139,16 @@ export async function GET(request: Request) {
           maxHp,
           atk,
           def: defStat,
-          spd: atk !== null ? Math.max(1, Math.round(atk * 0.45)) : null,
+          spd,
         },
+        ...(visualId !== undefined ? { visualId } : {}),
+        ...(mapSpriteTileIndex !== undefined ? { mapSpriteTileIndex } : {}),
       }
     })
+
+    const rawPlayerVisual = project.config?.playerVisualId
+    const playerVisualId: MapCharacterVisualId =
+      rawPlayerVisual === 'warriorBlue' || rawPlayerVisual === 'archerGreen' ? rawPlayerVisual : 'archerGreen'
 
     return NextResponse.json({
       mapId: map.id,
@@ -110,16 +158,17 @@ export async function GET(request: Request) {
       collision: map.collisionLayer ?? [],
       tileset: tileset
         ? {
-            id: tileset.id,
-            imagePath: tileset.imagePath,
-            publicImagePath,
-            tileWidth: tileset.tileWidth,
-            tileHeight: tileset.tileHeight,
-            tileCount: tileset.tileCount,
-            columns: tileset.columns,
-          }
+          id: tileset.id,
+          imagePath: tileset.imagePath,
+          publicImagePath,
+          tileWidth: tileset.tileWidth,
+          tileHeight: tileset.tileHeight,
+          tileCount: tileset.tileCount,
+          columns: tileset.columns,
+        }
         : null,
       playerSpawn: project.config?.playerSpawn ?? { x: 0, y: 0 },
+      playerVisualId,
       enemies,
     })
   } catch (error) {
