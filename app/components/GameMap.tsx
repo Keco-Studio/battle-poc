@@ -88,9 +88,9 @@ type RotationKey = (typeof ROTATION_KEYS)[number]
 
 const DEFAULT_DIRECTION: RotationKey = 'south'
 
-const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
 const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
 const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
+const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
 
 const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
@@ -103,9 +103,6 @@ const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   if (dy < 0) return 'north'
   return 'south'
 }
-
-// translate-416 的 resolveEnemyMapSpriteStyle 保留在历史中；
-// 本次按需求 A：大地图角色使用 main 的朝向 GIF/PNG 素材。
 
 /** battle-core 地图战 tick 间隔（越大越慢） */
 const BASE_BATTLE_TICK_MS = 340
@@ -338,8 +335,7 @@ export default function GameMap({ game }: Props) {
     mapId: 'fallback',
     tileset: null,
   })
-  /** 地图 JSON `config.playerVisualId`，缺省为弓手 */
-  const [playerMapVisual, setPlayerMapVisual] = useState<MapCharacterVisualId>('archerGreen')
+  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
 
   // 避免 SSR hydration 不匹配
   useEffect(() => {
@@ -351,7 +347,6 @@ export default function GameMap({ game }: Props) {
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
   const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
-  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
   const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
   const lastKeyboardMoveAtRef = useRef(0)
 
@@ -532,7 +527,6 @@ export default function GameMap({ game }: Props) {
           data.tileset?.id ?? null,
         )
         setPlayerPos(spawn)
-        setPlayerMapVisual(data.playerVisualId === 'warriorBlue' ? 'warriorBlue' : 'archerGreen')
         if (data.enemies.length > 0) {
           setEnemies(data.enemies)
         }
@@ -808,7 +802,7 @@ export default function GameMap({ game }: Props) {
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
       window.removeEventListener('keyup', handleKeyUp, { capture: true })
     }
-  }, [isWalkable, playerPos.x, playerPos.y, setPlayerFacing, setPlayerPos, showBattle])
+  }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos, showBattle])
 
   // battle-core tick：仅在地图上更新交战双方格子坐标（无 Phaser、无全屏遮罩）
   // 必须用 combatEnemyId 而非 nearbyEnemy：拉扯后双方距离会超过 INTERACTION_RANGE，
@@ -997,6 +991,13 @@ export default function GameMap({ game }: Props) {
       setEnemyHP(s.right.resources.hp)
       // 战斗中保留小数坐标，避免位移被整格取整吞掉导致“看起来不动”。
       setPlayerPos({ x: s.left.position.x, y: s.left.position.y })
+      {
+        const pdx = s.left.position.x - prevPlayerPos.x
+        const pdy = s.left.position.y - prevPlayerPos.y
+        if (pdx * pdx + pdy * pdy > 0.0001) {
+          setPlayerFacing(resolveDirectionByDelta(pdx, pdy))
+        }
+      }
       setEnemyPositions((prev) => ({
         ...prev,
         [combatEnemyId]: { x: s.right.position.x, y: s.right.position.y },
@@ -1178,6 +1179,7 @@ export default function GameMap({ game }: Props) {
               ? isWalkable(gx, gy, { ignoreEnemyIds: combatEnemyId != null ? [combatEnemyId] : [] })
               : isWalkable(gx, gy, { ignorePlayerOnCell: { x: Math.round(p0.x), y: Math.round(p0.y) } }),
         )
+        setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
         setPlayerPos(sep.player)
         setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
         finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
