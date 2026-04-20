@@ -12,13 +12,13 @@ type AirpgMapEntity = {
   entityDefId: string
   position: { x: number; y: number }
   overrides?: {
-    visualId?: MapCharacterVisualId | null
+    visualId?: string | null
   }
 }
 
 type EntityDefLike = {
   name?: string
-  visualId?: MapCharacterVisualId
+  visualId?: string
   sprite?: { tilesetId?: string; tileIndex?: number }
   battleProfile?: { maxHp?: number; atk?: number; def?: number; spd?: number }
 }
@@ -31,7 +31,7 @@ function resolveNpcMapRender(def: EntityDefLike | undefined, entity: AirpgMapEnt
   const rawOverride = entity.overrides && Object.prototype.hasOwnProperty.call(entity.overrides, 'visualId')
     ? entity.overrides!.visualId
     : undefined
-  let effectiveVisual: MapCharacterVisualId | undefined
+  let effectiveVisual: string | undefined
   if (rawOverride === null) {
     effectiveVisual = undefined
   } else if (rawOverride !== undefined) {
@@ -43,6 +43,9 @@ function resolveNpcMapRender(def: EntityDefLike | undefined, entity: AirpgMapEnt
     // 弓手立绘留给玩家主角；NPC 若标成 archerGreen 仍用战士图，避免地图上出现第二个「你」
     const mapVisual: MapCharacterVisualId = effectiveVisual === 'archerGreen' ? 'warriorBlue' : effectiveVisual
     return { visualId: mapVisual }
+  }
+  if (typeof effectiveVisual === 'string' && effectiveVisual.startsWith('pixellab:')) {
+    return { visualId: effectiveVisual as MapCharacterVisualId }
   }
   const ti = typeof def.sprite?.tileIndex === 'number' ? def.sprite.tileIndex : 0
   if (ti > 0) return { mapSpriteTileIndex: ti }

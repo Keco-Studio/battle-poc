@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Trophy, ScrollText, MessageSquare, Swords, User } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GameState } from '../hooks/useGameState'
 import {
   INTERACTION_RANGE,
@@ -14,9 +13,9 @@ import {
 } from '../constants'
 import type { DockPanelId } from '../hooks/useGameState'
 import DockFeatureModal from './DockFeatureModal'
-import { MapBattleController } from '../../src/map-battle/MapBattleController'
-import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
-import { snapPositionToWalkable } from '../../src/map-battle/walkability'
+import { MapBattleController } from '@/src/map-battle/MapBattleController'
+import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '@/src/map-battle/dungeonDemoFootTiles'
+import { snapPositionToWalkable } from '@/src/map-battle/walkability'
 
 /** 脱离战斗：双方沿连线方向各退几格（可走则移动） */
 function disengageGridPositions(
@@ -88,9 +87,40 @@ type RotationKey = (typeof ROTATION_KEYS)[number]
 
 const DEFAULT_DIRECTION: RotationKey = 'south'
 
+const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
 const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
 const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
-const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
+
+const toPixelLabPreviewPath = (visualId: string) =>
+  `/assets/characters/${encodeURIComponent(visualId.slice('pixellab:'.length))}.png`
+
+type PixelLabPackMeta = {
+  id: string
+  imageSize: { width: number; height: number }
+  framesPerDirection: number
+  layout?: { rows?: number; cols?: number }
+}
+
+type PixelLabPackRuntime = {
+  id: string
+  frameW: number
+  frameH: number
+  rows: number
+  cols: number
+  sheetUrl: string
+}
+
+const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
+  // ai-rpg-poc pack order: south, south-west, west, north-west, north, north-east, east, south-east
+  south: 0,
+  'south-west': 1,
+  west: 2,
+  'north-west': 3,
+  north: 4,
+  'north-east': 5,
+  east: 6,
+  'south-east': 7,
+}
 
 const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
@@ -104,8 +134,11 @@ const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   return 'south'
 }
 
+// translate-416 的 resolveEnemyMapSpriteStyle 保留在历史中；
+// 本次按需求 A：大地图角色使用 main 的朝向 GIF/PNG 素材。
+
 /** battle-core 地图战 tick 间隔（越大越慢） */
-const BASE_BATTLE_TICK_MS = 340
+const BASE_BATTLE_TICK_MS = 260
 
 type BattleSpeedMultiplier = 0.5 | 1 | 2
 
@@ -117,35 +150,8 @@ type MapFloatText = {
   offsetX: number
 }
 
-type MapMoveFx = {
-  id: string
-  target: 'player' | 'enemy'
-  x: number
-  y: number
-}
-
-type MapProjectileFx = {
-  id: string
-  kind: 'arrow' | 'fireball' | 'arcane_bolt' | 'generic'
-  from: 'player' | 'enemy'
-  startX: number
-  startY: number
-  deltaX: number
-  deltaY: number
-  durationMs: number
-}
-
-type MapImpactFx = {
-  id: string
-  kind: 'hit' | 'dodge'
-  target: 'player' | 'enemy'
-  x: number
-  y: number
-}
-
 /** 地图上与战斗同步的格子位移动画时长 */
-const BATTLE_MOVE_TRANSITION_MS = 300
-const MANUAL_FLEE_DEBOUNCE_MS = 450
+const BATTLE_MOVE_TRANSITION_MS = 220
 
 type TacticalMode = 'aggressive_finish' | 'kite_and_cast' | 'flee_and_reset' | 'steady_trade'
 
@@ -164,7 +170,6 @@ function reasonLabel(reason: unknown): string | null {
   if (typeof reason !== 'string') return null
   const map: Record<string, string> = {
     manual_flee: '手动逃跑',
-    auto_flee: '自动逃跑',
     enemy_cast_control: '敌方控制施法',
     enemy_cast_burst: '敌方爆发施法',
     enemy_dodge_retreat: '敌方规避后撤',
@@ -172,33 +177,12 @@ function reasonLabel(reason: unknown): string | null {
     enemy_dash_approach: '敌方贴近走位',
     enemy_dash_kite: '敌方风筝后撤',
     enemy_basic_attack: '敌方普通攻击',
-    player_dash_approach: '为技能贴近走位',
-    player_dash_kite: '为技能拉扯后撤',
+    player_dash_approach: '玩家贴近走位',
+    player_dash_kite: '玩家风筝后撤',
     player_dodge_retreat: '玩家规避后撤',
     player_basic_attack: '玩家普通攻击',
-    player_basic_attack_fallback: '技能不可用，回退普攻',
     player_defend: '玩家防御',
     player_cast_skill: '玩家施放技能',
-  }
-  return map[reason] ?? reason
-}
-
-function rejectReasonLabel(reason: string): string {
-  const map: Record<string, string> = {
-    battle_ended: '战斗已结束',
-    actor_not_found: '执行者不存在',
-    actor_dead: '执行者已阵亡',
-    actor_controlled: '处于受控状态',
-    target_not_found: '目标不存在',
-    target_out_of_range: '超出射程',
-    not_enough_stamina: '耐力不足',
-    not_enough_mp: '法力不足',
-    missing_skill_id: '技能参数缺失',
-    skill_not_found: '技能不存在',
-    skill_not_equipped: '技能未装备',
-    skill_on_cooldown: '技能冷却中',
-    flee_failed: '逃跑概率未通过',
-    action_not_implemented: '动作未实现',
   }
   return map[reason] ?? reason
 }
@@ -273,8 +257,9 @@ export default function GameMap({ game }: Props) {
     battleResult,
     gainedExp,
     gainedGold,
+    autoFleeHpPercent,
     getAvailableSkills,
-    finalizeMapBattleFleeSuccess,
+    handleFlee,
     closeBattle,
     completeMapBattleVictory,
     completeMapBattleDefeat,
@@ -284,17 +269,13 @@ export default function GameMap({ game }: Props) {
     setEnemyCombatStats,
   } = game
 
-  const dockItems: {
-    id: DockPanelId
-    label: string
-    Icon: typeof Trophy
-  }[] = [
-      { id: 'achievements', label: 'Battle history', Icon: Trophy },
-      { id: 'log', label: 'Battle log', Icon: ScrollText },
-      { id: 'chat', label: 'Chat', Icon: MessageSquare },
-      { id: 'battle_system', label: 'Start battle', Icon: Swords },
-      { id: 'character_login', label: 'Profile', Icon: User },
-    ]
+  const dockItems: { id: DockPanelId; label: string; icon: string }[] = [
+    { id: 'achievements', label: '成就', icon: '🏆' },
+    { id: 'log', label: '日志', icon: '📜' },
+    { id: 'chat', label: '聊天', icon: '💬' },
+    { id: 'battle_system', label: '战斗系统', icon: '⚔️' },
+    { id: 'character_login', label: '角色登录', icon: '👤' },
+  ]
 
   useEffect(() => {
     if (!fleeSuccessMessage) return
@@ -320,6 +301,7 @@ export default function GameMap({ game }: Props) {
   const [tilesetReady, setTilesetReady] = useState(false)
   const [availableMaps, setAvailableMaps] = useState<Array<{ id: string; fileName: string }>>([])
   const [selectedMapId, setSelectedMapId] = useState<string>('demo-project')
+  const [syncStatus, setSyncStatus] = useState<{ state: 'idle' | 'syncing' | 'ok' | 'error'; message?: string }>({ state: 'idle' })
   const [mapInfo, setMapInfo] = useState<{
     width: number
     height: number
@@ -335,18 +317,48 @@ export default function GameMap({ game }: Props) {
     mapId: 'fallback',
     tileset: null,
   })
-  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
+  /** 地图 JSON `config.playerVisualId`，缺省为弓手 */
+  const [playerMapVisual, setPlayerMapVisual] = useState<MapCharacterVisualId>('archerGreen')
 
   // 避免 SSR hydration 不匹配
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  const syncPixelLabAssets = useCallback(async () => {
+    if (syncStatus.state === 'syncing') return
+    setSyncStatus({ state: 'syncing', message: '同步中…' })
+    try {
+      const res = await fetch('/api/pixellab-sync', { method: 'POST' })
+      const data = (await res.json()) as {
+        ok?: boolean
+        copiedFiles?: number
+        skippedFiles?: number
+        errors?: string[]
+      }
+      if (!res.ok || !data.ok) {
+        const detail = (data.errors ?? []).slice(0, 2).join(' | ')
+        setSyncStatus({ state: 'error', message: `同步失败${detail ? `：${detail}` : ''}` })
+        window.setTimeout(() => setSyncStatus({ state: 'idle' }), 4500)
+        return
+      }
+      setSyncStatus({
+        state: 'ok',
+        message: `同步完成：新增/更新 ${data.copiedFiles ?? 0} 个文件`,
+      })
+      window.setTimeout(() => setSyncStatus({ state: 'idle' }), 2500)
+    } catch (e) {
+      setSyncStatus({ state: 'error', message: `同步异常：${e instanceof Error ? e.message : String(e)}` })
+      window.setTimeout(() => setSyncStatus({ state: 'idle' }), 4500)
+    }
+  }, [syncStatus.state])
+
   // 敌人独立位置状态（用于随机移动）
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
   // 敌人消息气泡
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
   const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
+  const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
   const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
   const lastKeyboardMoveAtRef = useRef(0)
 
@@ -354,6 +366,58 @@ export default function GameMap({ game }: Props) {
   enemiesRef.current = enemies
   const enemyPositionsRef = useRef(enemyPositions)
   enemyPositionsRef.current = enemyPositions
+
+  // PixelLab packs cache: visualId -> spritesheet info
+  const [pixelLabPacks, setPixelLabPacks] = useState<Record<string, PixelLabPackRuntime>>({})
+  // Used to decide walk vs idle (move in last N ms)
+  const enemyLastMoveAtRef = useRef<Record<number, number>>({})
+
+  const pixelLabEnemyVisualIds = useMemo(() => {
+    const vids = enemies
+      .map((e) => e.visualId)
+      .filter((v): v is `pixellab:${string}` => typeof v === 'string' && v.startsWith('pixellab:'))
+    return Array.from(new Set(vids))
+  }, [enemies])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (pixelLabEnemyVisualIds.length === 0) return
+      const missing = pixelLabEnemyVisualIds.filter((vid) => !pixelLabPacks[String(vid)])
+      if (missing.length === 0) return
+      await Promise.all(
+        missing.map(async (vid) => {
+          const id = String(vid).slice('pixellab:'.length)
+          if (!id) return
+          try {
+            const metaUrl = `/assets/characters/packs/${encodeURIComponent(id)}/meta.json`
+            const metaRes = await fetch(metaUrl)
+            if (!metaRes.ok) return
+            const meta = (await metaRes.json()) as PixelLabPackMeta
+            const cols = Math.max(1, meta.layout?.cols ?? meta.framesPerDirection ?? 1)
+            const rows = Math.max(1, meta.layout?.rows ?? 8)
+            const pack: PixelLabPackRuntime = {
+              id,
+              frameW: meta.imageSize?.width ?? 64,
+              frameH: meta.imageSize?.height ?? 64,
+              rows,
+              cols,
+              sheetUrl: `/assets/characters/packs/${encodeURIComponent(id)}/sheet.png`,
+            }
+            if (!cancelled) {
+              setPixelLabPacks((prev) => ({ ...prev, [String(vid)]: pack }))
+            }
+          } catch (e) {
+            console.warn('[battle-poc] load pixellab pack failed:', vid, e)
+          }
+        }),
+      )
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [pixelLabEnemyVisualIds, pixelLabPacks])
 
   type ActorWalkOpts = {
     ignoreEnemyIds?: number[]
@@ -411,6 +475,10 @@ export default function GameMap({ game }: Props) {
   const mapCellDisplayPx =
     Math.min(renderWidth / Math.max(1, mapInfo.width), renderHeight / Math.max(1, mapInfo.height)) * 0.92
 
+  // Unified actor sprite display size (player + enemies).
+  // We scale with cell size so it feels consistent across maps/viewport sizes.
+  const actorPx = Math.max(32, Math.round(mapCellDisplayPx * 1.5))
+
   const gridToScreen = (x: number, y: number) => ({
     x: renderOffsetX + ((x + 0.5) / mapInfo.width) * renderWidth,
     y: renderOffsetY + ((y + 0.5) / mapInfo.height) * renderHeight,
@@ -425,11 +493,10 @@ export default function GameMap({ game }: Props) {
   const mapBattleControllerRef = useRef<MapBattleController | null>(null)
   /** 胜利结算关闭弹窗时再同 id 重生野怪 */
   const pendingRespawnEnemyIdRef = useRef<number | null>(null)
+  const pendingMapFleeRef = useRef(false)
   const manualFleeRequestedRef = useRef(false)
-  const lastManualFleeRequestAtRef = useRef(0)
-  const autoFleePendingRef = useRef(false)
-  const autoFleeConsumedMapRef = useRef(false)
   const mapBattleEndedRef = useRef(false)
+  const autoFleeConsumedMapRef = useRef(false)
   const nextAttackSkillRef = useRef<string | null>(null)
   nextAttackSkillRef.current = nextAttackSkillId
 
@@ -440,21 +507,11 @@ export default function GameMap({ game }: Props) {
   const battleSpeedRef = useRef<BattleSpeedMultiplier>(1)
   battleSpeedRef.current = battleSpeed
   const [floatTexts, setFloatTexts] = useState<MapFloatText[]>([])
-  const [moveFx, setMoveFx] = useState<MapMoveFx[]>([])
-  const [projectileFx, setProjectileFx] = useState<MapProjectileFx[]>([])
-  const [impactFx, setImpactFx] = useState<MapImpactFx[]>([])
-  const projectileTargetByCommandRef = useRef<Record<string, { target: 'player' | 'enemy' }>>({})
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [, setCdUiTick] = useState(0)
 
   useEffect(() => {
-    if (!showBattle) {
-      setFloatTexts([])
-      setMoveFx([])
-      setProjectileFx([])
-      setImpactFx([])
-      projectileTargetByCommandRef.current = {}
-    }
+    if (!showBattle) setFloatTexts([])
   }, [showBattle])
 
   useEffect(() => {
@@ -527,6 +584,7 @@ export default function GameMap({ game }: Props) {
           data.tileset?.id ?? null,
         )
         setPlayerPos(spawn)
+        setPlayerMapVisual(data.playerVisualId === 'warriorBlue' ? 'warriorBlue' : 'archerGreen')
         if (data.enemies.length > 0) {
           setEnemies(data.enemies)
         }
@@ -698,7 +756,12 @@ export default function GameMap({ game }: Props) {
           const nx = from.x + (dx / distance) * move
           const ny = from.y + (dy / distance) * move
           next[enemy.id] = { x: nx, y: ny }
-          facingUpdates[enemy.id] = resolveDirectionByDelta(nx - from.x, ny - from.y)
+          const ddx = nx - from.x
+          const ddy = ny - from.y
+          if (Math.hypot(ddx, ddy) > 0.0005) {
+            enemyLastMoveAtRef.current[enemy.id] = Date.now()
+          }
+          facingUpdates[enemy.id] = resolveDirectionByDelta(ddx, ddy)
         })
 
         if (Object.keys(facingUpdates).length > 0) {
@@ -745,14 +808,8 @@ export default function GameMap({ game }: Props) {
       'arrowright',
     ])
 
-    const normalizeKey = (rawKey: unknown): string => {
-      if (typeof rawKey !== 'string') return ''
-      return rawKey.toLowerCase()
-    }
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      const key = normalizeKey(e.key)
-      if (!key) return
+      const key = e.key.toLowerCase()
       if (!CONTROL_KEYS.has(key)) return
       e.preventDefault()
       if (!(key in keysRef.current)) return
@@ -760,8 +817,7 @@ export default function GameMap({ game }: Props) {
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      const key = normalizeKey(e.key)
-      if (!key) return
+      const key = e.key.toLowerCase()
       if (!CONTROL_KEYS.has(key)) return
       e.preventDefault()
       if (!(key in keysRef.current)) return
@@ -802,7 +858,7 @@ export default function GameMap({ game }: Props) {
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
       window.removeEventListener('keyup', handleKeyUp, { capture: true })
     }
-  }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos, showBattle])
+  }, [isWalkable, playerPos.x, playerPos.y, setPlayerFacing, setPlayerPos, showBattle])
 
   // battle-core tick：仅在地图上更新交战双方格子坐标（无 Phaser、无全屏遮罩）
   // 必须用 combatEnemyId 而非 nearbyEnemy：拉扯后双方距离会超过 INTERACTION_RANGE，
@@ -820,8 +876,8 @@ export default function GameMap({ game }: Props) {
     }
 
     mapBattleEndedRef.current = false
-    autoFleePendingRef.current = false
     autoFleeConsumedMapRef.current = false
+    pendingMapFleeRef.current = false
 
     /** 交战双方走位仍由 battle-core 处理；此处仅把「未参战」的野怪格当成地形外的阻挡，避免穿怪 */
     const isWalkableForBattle = (gx: number, gy: number) => {
@@ -886,31 +942,6 @@ export default function GameMap({ game }: Props) {
       }, 1050)
     }
 
-    const pushMoveFx = (item: Omit<MapMoveFx, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setMoveFx((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setMoveFx((prev) => prev.filter((h) => h.id !== id))
-      }, 380)
-    }
-
-    const pushProjectileFx = (item: Omit<MapProjectileFx, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setProjectileFx((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setProjectileFx((prev) => prev.filter((h) => h.id !== id))
-      }, item.durationMs + 80)
-      return id
-    }
-
-    const pushImpactFx = (item: Omit<MapImpactFx, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setImpactFx((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setImpactFx((prev) => prev.filter((h) => h.id !== id))
-      }, item.kind === 'dodge' ? 420 : 320)
-    }
-
     battleTimer = window.setInterval(() => setBattleTimeSec((s) => s + 1), 1000)
     cdTimer = window.setInterval(() => setCdUiTick((n) => n + 1), 150)
 
@@ -921,50 +952,35 @@ export default function GameMap({ game }: Props) {
     const runTick = () => {
       const c = mapBattleControllerRef.current
       if (!c || mapBattleEndedRef.current) return
-      const prevPlayerPos = { ...c.session.left.position }
-      const prevEnemyPos = { ...c.session.right.position }
 
-      const left = c.session.left.resources
-      const right = c.session.right.resources
-      const leftHpRatio = left.maxHp > 0 ? left.hp / left.maxHp : 1
-      const rightHpRatio = right.maxHp > 0 ? right.hp / right.maxHp : 1
-      const hasCombatStarted = c.session.events.some((ev) => ev.type === 'action_executed' || ev.type === 'damage_applied')
-      const shouldAutoFlee =
-        hasCombatStarted &&
-        left.hp > 0 &&
-        right.hp > 0 &&
-        leftHpRatio < 0.3 &&
-        rightHpRatio > leftHpRatio &&
-        c.session.chaseState.status !== 'flee_pending'
-      if (shouldAutoFlee) {
-        autoFleePendingRef.current = true
-        if (!autoFleeConsumedMapRef.current) {
-          autoFleeConsumedMapRef.current = true
-          setBattleLog((prev) => [...prev, '自动逃跑触发：我方血量低于 30%，且敌方血量占比更高'])
-        }
-      } else {
-        autoFleeConsumedMapRef.current = false
+      const maxHp = c.session.left.resources.maxHp
+      const hp = c.session.left.resources.hp
+      // 阈值为 100 时「当前血量% ≤100」恒成立，会导致开战首帧就自动逃跑；仅 1–99 生效
+      if (
+        autoFleeHpPercent > 0 &&
+        autoFleeHpPercent < 100 &&
+        maxHp > 0 &&
+        hp > 0 &&
+        (hp / maxHp) * 100 <= autoFleeHpPercent + 1e-6 &&
+        !autoFleeConsumedMapRef.current
+      ) {
+        pendingMapFleeRef.current = true
+        autoFleeConsumedMapRef.current = true
       }
 
       const execTick = c.session.tick + 1
-      const pendingFleeSource: 'manual' | 'auto' | null = manualFleeRequestedRef.current
-        ? 'manual'
-        : autoFleePendingRef.current
-          ? 'auto'
-          : null
       const step = c.step({
         executeAtTick: execTick,
         nextAttackSkillId: nextAttackSkillRef.current,
-        pendingFlee: manualFleeRequestedRef.current || autoFleePendingRef.current,
-        pendingFleeSource,
+        pendingFlee: pendingMapFleeRef.current || manualFleeRequestedRef.current,
         onClearQueuedSkill: () => setNextAttackSkillId(null),
         onSkillCooldown: (skillId, ms) => {
           if (skillId === BASIC_ATTACK.id || ms <= 0) return
           setSkillCooldownEndAt((prev) => ({ ...prev, [skillId]: Date.now() + ms }))
         },
       })
+      pendingMapFleeRef.current = false
       manualFleeRequestedRef.current = false
-      autoFleePendingRef.current = false
 
       const snappedLeft = snapPositionToWalkable({
         pos: step.session.left.position,
@@ -991,75 +1007,16 @@ export default function GameMap({ game }: Props) {
       setEnemyHP(s.right.resources.hp)
       // 战斗中保留小数坐标，避免位移被整格取整吞掉导致“看起来不动”。
       setPlayerPos({ x: s.left.position.x, y: s.left.position.y })
-      {
-        const pdx = s.left.position.x - prevPlayerPos.x
-        const pdy = s.left.position.y - prevPlayerPos.y
-        if (pdx * pdx + pdy * pdy > 0.0001) {
-          setPlayerFacing(resolveDirectionByDelta(pdx, pdy))
-        }
-      }
       setEnemyPositions((prev) => ({
         ...prev,
         [combatEnemyId]: { x: s.right.position.x, y: s.right.position.y },
       }))
       setIsDefending(!!s.left.defending)
-      const playerMoveDist = Math.hypot(s.left.position.x - prevPlayerPos.x, s.left.position.y - prevPlayerPos.y)
-      if (playerMoveDist > 0.22) {
-        pushMoveFx({ target: 'player', x: s.left.position.x, y: s.left.position.y })
-      }
-      const enemyMoveDist = Math.hypot(s.right.position.x - prevEnemyPos.x, s.right.position.y - prevEnemyPos.y)
-      if (enemyMoveDist > 0.22) {
-        pushMoveFx({ target: 'enemy', x: s.right.position.x, y: s.right.position.y })
-      }
-      const roleByEntityId = (entityId: string): 'player' | 'enemy' | null => {
-        if (entityId === s.left.id) return 'player'
-        if (entityId === s.right.id) return 'enemy'
-        return null
-      }
-      const posByEntityId = (entityId: string): { x: number; y: number } | null => {
-        if (entityId === s.left.id) return s.left.position
-        if (entityId === s.right.id) return s.right.position
-        return null
-      }
 
       for (let i = evStart; i < s.events.length; i++) {
         const ev = s.events[i]
         if (ev.type === 'command_received') {
-          const commandId = String(ev.payload.commandId ?? '')
           const actorId = typeof ev.payload.actorId === 'string' ? ev.payload.actorId : ''
-          const targetId = typeof ev.payload.targetId === 'string' ? ev.payload.targetId : ''
-          const actorRole = roleByEntityId(actorId)
-          const targetRole = roleByEntityId(targetId)
-          const actorPos = posByEntityId(actorId)
-          const targetPos = posByEntityId(targetId)
-          const action = String(ev.payload.action ?? '')
-          const skillId = String(ev.payload.skillId ?? '')
-          if (actorRole && targetRole && actorPos && targetPos) {
-            let projectileKind: MapProjectileFx['kind'] | null = null
-            if (action === 'basic_attack' && actorRole === 'player') {
-              projectileKind = 'arrow'
-            } else if (action === 'cast_skill' && skillId === 'fireball') {
-              projectileKind = 'fireball'
-            } else if (action === 'cast_skill' && skillId === 'arcane_bolt') {
-              projectileKind = 'arcane_bolt'
-            } else if (action === 'cast_skill') {
-              projectileKind = 'generic'
-            }
-            if (projectileKind) {
-              pushProjectileFx({
-                kind: projectileKind,
-                from: actorRole,
-                startX: actorPos.x,
-                startY: actorPos.y,
-                deltaX: targetPos.x - actorPos.x,
-                deltaY: targetPos.y - actorPos.y,
-                durationMs: projectileKind === 'arrow' ? 300 : 360,
-              })
-              if (commandId) {
-                projectileTargetByCommandRef.current[commandId] = { target: targetRole }
-              }
-            }
-          }
           const actStr = actionLabel(ev.payload.action)
           const md = (ev.payload.metadata ?? {}) as Record<string, unknown>
           const strategy = strategyLabel(md.strategy)
@@ -1074,7 +1031,6 @@ export default function GameMap({ game }: Props) {
         }
         if (ev.type === 'damage_applied') {
           const dmg = Math.max(0, Number(ev.payload.damage ?? 0))
-          const commandId = String(ev.payload.commandId ?? '')
           const tid = String(ev.payload.targetId ?? '')
           if (tid === 'poc-player') {
             setBattleLog((prev) => [...prev, `受到 ${dmg} 伤害`])
@@ -1096,56 +1052,6 @@ export default function GameMap({ game }: Props) {
                 offsetX: (Math.random() - 0.5) * 28,
               })
             }
-          }
-          const impactedRole = commandId ? projectileTargetByCommandRef.current[commandId]?.target : undefined
-          if (impactedRole) {
-            const impactedPos = impactedRole === 'player' ? s.left.position : s.right.position
-            pushImpactFx({
-              kind: 'hit',
-              target: impactedRole,
-              x: impactedPos.x,
-              y: impactedPos.y,
-            })
-            delete projectileTargetByCommandRef.current[commandId]
-          }
-        }
-        if (ev.type === 'chase_started') {
-          const st = typeof ev.payload.startTick === 'number' ? ev.payload.startTick : '?'
-          const ex = typeof ev.payload.expireTick === 'number' ? ev.payload.expireTick : '?'
-          setBattleLog((prev) => [...prev, `追逐开始：${st}→${ex} tick，被追上则败、抵达边缘或拉开≥3.0 则胜`])
-        }
-        if (ev.type === 'chase_resolved') {
-          const typ = ev.payload.type
-          if (typ === 'captured') {
-            setBattleLog((prev) => [...prev, '追逐结束：被追上，逃跑失败，战斗继续'])
-          } else if (typ === 'escaped') {
-            const by = ev.payload.escapedBy === 'edge' ? '抵达边缘' : '拉开距离'
-            setBattleLog((prev) => [...prev, `追逐结束：逃脱（${by}）`])
-          } else if (typ === 'escape_failed') {
-            setBattleLog((prev) => [...prev, '追逐结束：未满足逃脱条件，战斗继续'])
-          }
-        }
-        if (ev.type === 'command_rejected') {
-          const reason = String(ev.payload.reason ?? '')
-          const actorId = String(ev.payload.actorId ?? '')
-          const commandId = String(ev.payload.commandId ?? '')
-          if (reason === 'target_dodged') {
-            const dodgedRole = commandId ? projectileTargetByCommandRef.current[commandId]?.target : undefined
-            if (dodgedRole) {
-              const dodgePos = dodgedRole === 'player' ? s.left.position : s.right.position
-              pushImpactFx({
-                kind: 'dodge',
-                target: dodgedRole,
-                x: dodgePos.x,
-                y: dodgePos.y,
-              })
-              delete projectileTargetByCommandRef.current[commandId]
-            }
-          }
-          if (reason === 'flee_failed' && actorId === s.left.id) {
-            setBattleLog((prev) => [...prev, '逃跑失败（概率未通过），靠向地图边缘或再次尝试'])
-          } else if (actorId === s.left.id) {
-            setBattleLog((prev) => [...prev, `玩家行动被拒绝：${rejectReasonLabel(reason)}`])
           }
         }
       }
@@ -1179,10 +1085,9 @@ export default function GameMap({ game }: Props) {
               ? isWalkable(gx, gy, { ignoreEnemyIds: combatEnemyId != null ? [combatEnemyId] : [] })
               : isWalkable(gx, gy, { ignorePlayerOnCell: { x: Math.round(p0.x), y: Math.round(p0.y) } }),
         )
-        setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
         setPlayerPos(sep.player)
         setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
-        finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
+        handleFlee({ successMessage: '成功脱离战斗。' })
       }
     }
 
@@ -1346,177 +1251,167 @@ export default function GameMap({ game }: Props) {
       >
         <canvas ref={mapCanvasRef} className="absolute inset-0 z-0 block h-full w-full" />
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-          {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
-          {enemies.map(enemy => {
-            const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
-            const message = mounted ? enemyMessages[enemy.id] : undefined
-            const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
-            const enemyTransitionStyle = inBattle
-              ? {
-                transitionProperty: 'left, top',
-                transitionDuration: `${BATTLE_MOVE_TRANSITION_MS}ms`,
-                transitionTimingFunction: 'linear',
-                willChange: 'left, top',
-              }
-              : undefined
+      {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
+      {enemies.map(enemy => {
+        const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
+        const message = mounted ? enemyMessages[enemy.id] : undefined
+        const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
+        const enemyTransitionStyle = inBattle
+          ? {
+            transitionProperty: 'left, top',
+            transitionDuration: `${BATTLE_MOVE_TRANSITION_MS}ms`,
+            transitionTimingFunction: 'linear',
+            willChange: 'left, top',
+          }
+          : undefined
+        return (
+          <div
+            key={enemy.id}
+            className="absolute pointer-events-none z-20"
+            style={{
+              left: `${gridToScreen(pos.x, pos.y).x}px`,
+              top: `${gridToScreen(pos.x, pos.y).y}px`,
+              transform: 'translate(-50%, -50%)',
+              ...enemyTransitionStyle,
+            }}
+          >
+            {/* 消息气泡 */}
+            {message && (
+              <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
+                {message}
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
+              </div>
+            )}
+            {enemy.visualId && typeof enemy.visualId === 'string' && enemy.visualId.startsWith('pixellab:') ? (
+              (() => {
+                const vid = enemy.visualId
+                const pack = pixelLabPacks[vid]
+                const displaySize = actorPx
+                const lastMoveAt = enemyLastMoveAtRef.current[enemy.id] ?? 0
+                const isWalking = Date.now() - lastMoveAt < 220
+                const facing = enemyFacings[enemy.id] || DEFAULT_DIRECTION
+                const row = PIXELLAB_ROW_BY_FACING[facing] ?? 0
+                const col = pack && isWalking && pack.cols >= 2 ? Math.floor((Date.now() / 120) % pack.cols) : 0
+
+                // Fallback while pack metadata hasn't loaded.
+                if (!pack) {
+                  return (
+                    <img
+                      src={toPixelLabPreviewPath(vid)}
+                      alt={enemy.name}
+                      className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                      style={{ width: displaySize, height: displaySize, imageRendering: 'pixelated' }}
+                      onError={(e) => {
+                        const target = e.currentTarget
+                        target.onerror = null
+                        target.src = toEnemySpritePath(facing)
+                      }}
+                    />
+                  )
+                }
+
+                const scale = displaySize / Math.max(1, pack.frameW)
+                const sheetW = pack.cols * pack.frameW * scale
+                const sheetH = pack.rows * pack.frameH * scale
+                const bgX = -col * pack.frameW * scale
+                const bgY = -row * pack.frameH * scale
+                return (
+                  <div
+                    aria-label={enemy.name}
+                    className="drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                    style={{
+                      width: displaySize,
+                      height: displaySize,
+                      backgroundImage: `url("${pack.sheetUrl}")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: `${sheetW}px ${sheetH}px`,
+                      backgroundPosition: `${bgX}px ${bgY}px`,
+                      imageRendering: 'pixelated',
+                      animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }}
+                  />
+                )
+              })()
+            ) : (
+              <img
+                src={toEnemyGifPath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)}
+                alt={enemy.name}
+                className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
+                onError={(e) => {
+                  const target = e.currentTarget
+                  target.onerror = null
+                  target.src = toEnemySpritePath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)
+                }}
+              />
+            )}
+            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
+              {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
+      <div
+        className="absolute pointer-events-none z-30"
+        style={{
+          left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%',
+          top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
+          transform: mounted ? 'translate(-50%, -50%)' : undefined,
+          transitionProperty: 'left, top',
+          transitionDuration: showBattle ? `${BATTLE_MOVE_TRANSITION_MS}ms` : '120ms',
+          transitionTimingFunction: showBattle ? 'linear' : 'ease-out',
+          willChange: 'left, top',
+        }}
+      >
+        <img
+          src={toPlayerSpritePath(playerFacing)}
+          alt="你"
+          className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+          style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
+          onError={(e) => {
+            const target = e.currentTarget
+            target.onerror = null
+            target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
+          }}
+        />
+        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
+          你
+        </div>
+      </div>
+
+      {/* 战斗飘字（伤害 / 治疗），与网格角色对齐 */}
+      {showBattle && combatEnemyId !== null && (
+        <div className="pointer-events-none absolute inset-0 z-[26] overflow-hidden">
+          {floatTexts.map((h) => {
+            const foe = enemies.find((e) => e.id === combatEnemyId)
+            const grid =
+              h.target === 'player'
+                ? playerPos
+                : enemyPositions[combatEnemyId] || (foe ? { x: foe.x, y: foe.y } : playerPos)
+            const screen = gridToScreen(grid.x, grid.y)
+            const colorClass =
+              h.variant === 'heal'
+                ? 'text-emerald-300'
+                : h.target === 'player'
+                  ? 'text-sky-400'
+                  : 'text-red-500'
             return (
               <div
-                key={enemy.id}
-                className="absolute pointer-events-none z-20"
+                key={h.id}
+                className={`animate-map-hp-float absolute text-sm font-black tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.85)] ${colorClass}`}
                 style={{
-                  left: `${gridToScreen(pos.x, pos.y).x}px`,
-                  top: `${gridToScreen(pos.x, pos.y).y}px`,
-                  transform: 'translate(-50%, -50%)',
-                  ...enemyTransitionStyle,
+                  left: screen.x + h.offsetX,
+                  top: screen.y - 40,
                 }}
               >
-                {/* 消息气泡 */}
-                {message && (
-                  <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
-                    {message}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
-                  </div>
-                )}
-                <img
-                  src={toEnemyGifPath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)}
-                  alt={enemy.name}
-                  className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
-                  onError={(e) => {
-                    const target = e.currentTarget
-                    target.onerror = null
-                    target.src = toEnemySpritePath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)
-                  }}
-                />
-                <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
-                  {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
-                </div>
+                {h.text}
               </div>
             )
           })}
-
-          {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
-          <div
-            className="absolute pointer-events-none z-30"
-            style={{
-              left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%',
-              top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%',
-              transform: mounted ? 'translate(-50%, -50%)' : undefined,
-              transitionProperty: 'left, top',
-              transitionDuration: showBattle ? `${BATTLE_MOVE_TRANSITION_MS}ms` : '120ms',
-              transitionTimingFunction: showBattle ? 'linear' : 'ease-out',
-              willChange: 'left, top',
-            }}
-          >
-            <img
-              src={toPlayerSpritePath(playerFacing)}
-              alt="你"
-              className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-              onError={(e) => {
-                const target = e.currentTarget
-                target.onerror = null
-                target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
-              }}
-            />
-            <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
-              你
-            </div>
-          </div>
-
-          {/* 战斗飘字（伤害 / 治疗），与网格角色对齐 */}
-          {showBattle && combatEnemyId !== null && (
-            <div className="pointer-events-none absolute inset-0 z-[26] overflow-hidden">
-              {projectileFx.map((fx) => {
-                const start = gridToScreen(fx.startX, fx.startY)
-                const end = gridToScreen(fx.startX + fx.deltaX, fx.startY + fx.deltaY)
-                const dx = end.x - start.x
-                const dy = end.y - start.y
-                const angle = Math.atan2(dy, dx)
-                const projectileClass =
-                  fx.kind === 'arrow'
-                    ? 'oc-projectile-arrow'
-                    : fx.kind === 'fireball'
-                      ? 'oc-projectile-fireball'
-                      : fx.kind === 'arcane_bolt'
-                        ? 'oc-projectile-arcane'
-                        : 'oc-projectile-generic'
-                return (
-                  <span
-                    key={fx.id}
-                    className={`oc-projectile ${projectileClass}`}
-                    style={{
-                      left: start.x,
-                      top: start.y,
-                      ['--proj-dx' as string]: `${dx}px`,
-                      ['--proj-dy' as string]: `${dy}px`,
-                      ['--proj-rot' as string]: `${angle}rad`,
-                      animationDuration: `${fx.durationMs}ms`,
-                    }}
-                  />
-                )
-              })}
-              {impactFx.map((fx) => {
-                const p = gridToScreen(fx.x, fx.y)
-                const impactClass =
-                  fx.kind === 'hit'
-                    ? fx.target === 'player'
-                      ? 'oc-impact-hit-player'
-                      : 'oc-impact-hit-enemy'
-                    : fx.target === 'player'
-                      ? 'oc-impact-dodge-player'
-                      : 'oc-impact-dodge-enemy'
-                return (
-                  <span
-                    key={fx.id}
-                    className={`oc-impact ${impactClass}`}
-                    style={{
-                      left: p.x,
-                      top: p.y,
-                    }}
-                  />
-                )
-              })}
-              {moveFx.map((fx) => {
-                const screen = gridToScreen(fx.x, fx.y)
-                const tintClass = fx.target === 'player' ? 'oc-battle-step-fx-player' : 'oc-battle-step-fx-enemy'
-                return (
-                  <span
-                    key={fx.id}
-                    className={`oc-battle-step-fx ${tintClass}`}
-                    style={{
-                      left: screen.x,
-                      top: screen.y,
-                    }}
-                  />
-                )
-              })}
-              {floatTexts.map((h) => {
-                const foe = enemies.find((e) => e.id === combatEnemyId)
-                const grid =
-                  h.target === 'player'
-                    ? playerPos
-                    : enemyPositions[combatEnemyId] || (foe ? { x: foe.x, y: foe.y } : playerPos)
-                const screen = gridToScreen(grid.x, grid.y)
-                const colorClass =
-                  h.variant === 'heal'
-                    ? 'text-emerald-300'
-                    : h.target === 'player'
-                      ? 'text-sky-400'
-                      : 'text-red-500'
-                return (
-                  <div
-                    key={h.id}
-                    className={`animate-map-hp-float absolute text-sm font-black tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.85)] ${colorClass}`}
-                    style={{
-                      left: screen.x + h.offsetX,
-                      top: screen.y - 40,
-                    }}
-                  >
-                    {h.text}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+        </div>
+      )}
 
         </div>
       </div>
@@ -1593,28 +1488,50 @@ export default function GameMap({ game }: Props) {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={syncPixelLabAssets}
+          disabled={syncStatus.state === 'syncing'}
+          className="ml-2 rounded bg-emerald-700 px-2 py-1 text-[11px] font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+          title="把 ai-rpg-poc 生成的 PixelLab 素材同步到 battle-poc/public"
+        >
+          {syncStatus.state === 'syncing' ? '同步中…' : '同步 PixelLab'}
+        </button>
       </div>
+      {syncStatus.state !== 'idle' && (
+        <div
+          className={`absolute top-28 right-4 z-20 rounded-lg border px-3 py-2 text-xs ${
+            syncStatus.state === 'ok'
+              ? 'border-emerald-400/60 bg-emerald-950/80 text-emerald-100'
+              : syncStatus.state === 'error'
+                ? 'border-red-400/60 bg-red-950/80 text-red-100'
+                : 'border-sky-400/60 bg-slate-950/80 text-sky-100'
+          }`}
+        >
+          {syncStatus.message ?? ''}
+        </div>
+      )}
 
-      {/* 右下角 Dock：深色圆角方块，active 为橙色+绿色描边；悬停左侧气泡标签
-          z-index 高于 Chat 侧栏，保证在侧栏开启时仍可切换 */}
-      <div className="pointer-events-auto absolute bottom-6 right-4 z-[60] flex flex-col items-center gap-2">
-        {dockItems.map(({ id, label, Icon }) => {
-          const active = dockPanel === id
-          return (
-            <div key={id} className="oc-dock-btn-wrap relative">
-              <button
-                type="button"
-                aria-label={label}
-                aria-pressed={active}
-                onClick={() => setDockPanel(active ? null : id)}
-                className={`oc-dock-btn ${active ? 'oc-dock-btn-active' : ''}`}
-              >
-                <Icon size={18} strokeWidth={2.2} />
-              </button>
-              <span className="oc-dock-tooltip">{label}</span>
-            </div>
-          )
-        })}
+      {/* 右下角：五个小图标自上而下（悬停见名称） */}
+      <div className="pointer-events-auto absolute bottom-4 right-4 z-40 flex flex-col items-center gap-1 rounded-xl border-2 border-yellow-500/50 bg-gray-900/90 p-1.5 shadow-lg backdrop-blur-sm">
+        {dockItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            title={item.label}
+            aria-label={item.label}
+            aria-pressed={dockPanel === item.id}
+            onClick={() => setDockPanel(dockPanel === item.id ? null : item.id)}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-[15px] leading-none transition-colors ${dockPanel === item.id
+              ? 'border-amber-400 bg-amber-500/35 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.5)]'
+              : 'border-transparent bg-gray-800/90 text-gray-100 hover:bg-gray-700 hover:border-gray-600'
+              }`}
+          >
+            <span aria-hidden className="select-none">
+              {item.icon}
+            </span>
+          </button>
+        ))}
       </div>
 
       {dockPanel && <DockFeatureModal game={game} />}
@@ -1633,10 +1550,11 @@ export default function GameMap({ game }: Props) {
                     key={sp}
                     type="button"
                     onClick={() => setBattleSpeed(sp)}
-                    className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors ${battleSpeed === sp
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                      }`}
+                    className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold transition-colors ${
+                      battleSpeed === sp
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
                   >
                     {sp}×
                   </button>
@@ -1652,16 +1570,6 @@ export default function GameMap({ game }: Props) {
                 <button
                   type="button"
                   onClick={() => {
-                    const now = Date.now()
-                    if (now - lastManualFleeRequestAtRef.current < MANUAL_FLEE_DEBOUNCE_MS) {
-                      return
-                    }
-                    const chasePending =
-                      mapBattleControllerRef.current?.session.chaseState.status === 'flee_pending'
-                    if (chasePending) {
-                      return
-                    }
-                    lastManualFleeRequestAtRef.current = now
                     manualFleeRequestedRef.current = true
                   }}
                   className="rounded-lg border border-gray-500 bg-gray-700 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-gray-600"
@@ -1680,12 +1588,13 @@ export default function GameMap({ game }: Props) {
                     onMouseEnter={() => setHoveredSkill(skill)}
                     onMouseLeave={() => setHoveredSkill(null)}
                     disabled={locked}
-                    className={`relative flex h-11 w-14 flex-col items-center justify-center rounded-lg border text-[10px] font-bold text-white ${nextAttackSkillId === skill.id
-                      ? 'border-orange-300 bg-orange-600 ring-1 ring-white'
-                      : locked
-                        ? 'border-gray-600 bg-gray-800 opacity-70'
-                        : 'border-blue-400 bg-blue-600 hover:bg-blue-500'
-                      }`}
+                    className={`relative flex h-11 w-14 flex-col items-center justify-center rounded-lg border text-[10px] font-bold text-white ${
+                      nextAttackSkillId === skill.id
+                        ? 'border-orange-300 bg-orange-600 ring-1 ring-white'
+                        : locked
+                          ? 'border-gray-600 bg-gray-800 opacity-70'
+                          : 'border-blue-400 bg-blue-600 hover:bg-blue-500'
+                    }`}
                   >
                     <span className="text-lg">{skill.icon}</span>
                     {skill.name}
@@ -1719,108 +1628,37 @@ export default function GameMap({ game }: Props) {
           </div>
 
           {isGameOver && (
-            <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-              {/* 结果颜色蒙版（胜利淡绿/失败红色 vignette） */}
-              <div
-                className={`absolute inset-0 ${battleResult === 'win'
-                  ? 'bg-emerald-900/40'
-                  : 'oc-defeat-vignette'
-                  }`}
-              />
-
-              {/* 胜利彩带 */}
+            <div className="fixed bottom-52 left-1/2 z-40 w-[min(360px,calc(100vw-1rem))] -translate-x-1/2 rounded-2xl border-2 border-orange-400 bg-gradient-to-b from-yellow-300 to-orange-400 p-5 text-center shadow-2xl">
+              <div className="mb-2 inline-block rounded-lg border-2 border-red-400 bg-red-500 px-4 py-1 text-lg font-black text-white">
+                {battleResult === 'win' ? '胜利！' : '失败...'}
+              </div>
+              <div className="mb-2 rounded-lg bg-white/40 p-2 text-sm text-orange-950">
+                时长{' '}
+                <span className="font-mono font-bold">
+                  {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
+                  {lastBattleTickCount > 0 ? `（${lastBattleTickCount} tick）` : ''}
+                </span>
+              </div>
               {battleResult === 'win' && (
-                <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                  {Array.from({ length: 36 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="animate-confetti-fall absolute top-0 h-3 w-2 rounded-sm opacity-90"
-                      style={{
-                        left: `${(i * 13 + (i % 5) * 7) % 100}%`,
-                        animationDelay: `${(i % 10) * 0.08}s`,
-                        animationDuration: `${2 + (i % 5) * 0.2}s`,
-                        backgroundColor: `hsl(${(i * 37) % 360} 80% 58%)`,
-                      }}
-                    />
-                  ))}
+                <div className="mb-2 rounded-lg bg-white/40 p-2 text-xs text-orange-950">
+                  💰 +{gainedGold}　⭐ +{gainedExp}
                 </div>
               )}
-
-              <div className="relative z-10 flex w-[min(460px,calc(100vw-1rem))] flex-col items-center gap-5 text-center">
-                <h2
-                  className={`font-arcade text-[44px] leading-none ${battleResult === 'win' ? 'oc-title-victory' : 'oc-title-defeat'
-                    }`}
-                >
-                  {battleResult === 'win' ? 'VICTORY!' : 'DEFEAT'}
-                </h2>
-
-                <div className="font-arcade text-[14px] tracking-[0.12em] text-white/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]">
-                  {battleResult === 'win' ? (
-                    <>
-                      <span className="text-yellow-200">◆ YOU DEFEATED </span>
-                      <span className="text-orange-300">
-                        {nearbyEnemy?.name?.toUpperCase() ?? 'ENEMY'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-yellow-200">◆ YOU WERE DEFEATED BY </span>
-                      <span className="text-orange-300">
-                        {nearbyEnemy?.name?.toUpperCase() ?? 'ENEMY'}
-                      </span>
-                    </>
-                  )}
+              {battleResult === 'lose' && (
+                <div className="mb-2 text-left text-xs leading-relaxed text-orange-950">已失去全部金币；装备与背包保留。</div>
+              )}
+              {battleLootDrop && battleResult === 'win' && (
+                <div className="mb-2 rounded-lg bg-emerald-600/90 p-2 text-sm text-white">
+                  掉落 {battleLootDrop.icon} {battleLootDrop.name}
                 </div>
-
-                {/* 奖励 / 惩罚信息（小卡片） */}
-                <div className="flex w-full flex-col gap-1 rounded-xl bg-black/40 px-4 py-2 text-[11px] text-white backdrop-blur-sm">
-                  <div>
-                    时长{' '}
-                    <span className="font-mono font-bold">
-                      {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
-                      {lastBattleTickCount > 0 ? ` · ${lastBattleTickCount} tick` : ''}
-                    </span>
-                  </div>
-                  {battleResult === 'win' && (
-                    <div className="text-yellow-200">
-                      💰 +{gainedGold} · ⭐ +{gainedExp}
-                      {battleLootDrop ? ` · 掉落 ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
-                    </div>
-                  )}
-                  {battleResult === 'lose' && (
-                    <div className="text-rose-200">已失去全部金币；装备与背包保留。</div>
-                  )}
-                </div>
-
-                <div className="flex w-full max-w-[320px] flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={finishBattleAndClose}
-                    className={`oc-arcade-btn ${battleResult === 'win'
-                      ? 'oc-arcade-btn-primary'
-                      : 'oc-arcade-btn-danger'
-                      }`}
-                  >
-                    CONTINUE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={finishBattleAndClose}
-                    className="oc-arcade-btn"
-                    style={{
-                      background: battleResult === 'win' ? '#fff' : '#0f172a',
-                      color: battleResult === 'win' ? '#0f172a' : '#f3f4f6',
-                      borderColor: battleResult === 'win' ? '#cbd5e1' : '#7f1d1d',
-                      boxShadow:
-                        battleResult === 'win'
-                          ? '0 4px 0 0 #cbd5e1'
-                          : '0 4px 0 0 #7f1d1d',
-                    }}
-                  >
-                    BATTLE AGAIN
-                  </button>
-                </div>
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={finishBattleAndClose}
+                className="w-full rounded-lg border-2 border-blue-500 bg-blue-600 py-2 text-sm font-bold text-white hover:bg-blue-500"
+              >
+                继续探索
+              </button>
             </div>
           )}
         </>
