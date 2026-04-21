@@ -28,9 +28,6 @@ import {
   getBattleRewards,
 } from '../constants'
 
-/** 重击：撞击演出；防御：盾牌虚影依赖 isDefending */
-const SKILL_HEAVY_STRIKE_ID = 1
-
 interface Props {
   game: GameState
 }
@@ -43,7 +40,7 @@ function enemyAttackIntervalMs(enemySpd: number): number {
   return attackIntervalMsFromSpd(enemySpd) + Math.floor(Math.random() * 200)
 }
 
-function skillCooldownRemaining(endAt: Record<number, number>, skillId: number): number {
+function skillCooldownRemaining(endAt: Record<string, number>, skillId: string): number {
   const t = endAt[skillId]
   if (t === undefined) return 0
   return Math.max(0, t - Date.now())
@@ -80,8 +77,8 @@ type BattleSnap = {
   playerHP: number
   totalStats: { maxHp: number; atk: number; def: number; spd: number }
   isDefending: boolean
-  nextAttackSkillId: number | null
-  skillCooldownEndAt: Record<number, number>
+  nextAttackSkillId: string | null
+  skillCooldownEndAt: Record<string, number>
   enemyLevel: number
 }
 
@@ -276,7 +273,7 @@ export default function BattlePanel({ game }: Props) {
   )
 
   const beginSkillCooldown = useCallback(
-    (skillId: number, ms: number) => {
+    (skillId: string, ms: number) => {
       if (skillId === BASIC_ATTACK.id || ms <= 0) return
       setSkillCooldownEndAt((prev) => ({ ...prev, [skillId]: Date.now() + ms }))
     },
@@ -327,11 +324,7 @@ export default function BattlePanel({ game }: Props) {
         const hits = skill.hits || 1
 
         if (skill.type === 'damage' || skill.type === 'counter') {
-          if (skill.id === SKILL_HEAVY_STRIKE_ID) {
-            triggerHeavyStrikeVfx()
-          } else {
-            flashFx(skill.id === BASIC_ATTACK.id ? 'enemy-hit' : 'player-skill-offense')
-          }
+          flashFx(skill.id === BASIC_ATTACK.id ? 'enemy-hit' : 'player-skill-offense')
           const enemyDef = enemyCombatStats.def
           let totalDamage = 0
           for (let i = 0; i < hits; i++) {

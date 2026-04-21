@@ -150,8 +150,12 @@ export async function GET(request: Request) {
     })
 
     const rawPlayerVisual = project.config?.playerVisualId
-    const playerVisualId: MapCharacterVisualId =
-      rawPlayerVisual === 'warriorBlue' || rawPlayerVisual === 'archerGreen' ? rawPlayerVisual : 'archerGreen'
+    let playerVisualId: MapCharacterVisualId = 'archerGreen'
+    if (rawPlayerVisual === 'warriorBlue' || rawPlayerVisual === 'archerGreen') {
+      playerVisualId = rawPlayerVisual
+    } else if (typeof rawPlayerVisual === 'string' && rawPlayerVisual.startsWith('pixellab:')) {
+      playerVisualId = rawPlayerVisual as MapCharacterVisualId
+    }
 
     return NextResponse.json({
       mapId: map.id,

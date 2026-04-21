@@ -41,6 +41,30 @@ export interface ChatMessage {
   timestamp: number
 }
 
+/** 供 AchievementPanel（遗留入口）使用的占位数据 */
+export interface AchievementItem {
+  id: string
+  name: string
+  desc: string
+  icon: string
+  unlocked: boolean
+}
+
+const DEFAULT_ACHIEVEMENTS: AchievementItem[] = [
+  { id: 'a1', name: '初出茅庐', desc: '完成第一场战斗', icon: '⚔️', unlocked: false },
+  { id: 'a2', name: '百战老兵', desc: '累计战斗 10 次', icon: '🛡️', unlocked: false },
+]
+
+/** BattleLogPanel（遗留入口）条目 */
+export interface BattleHistoryLogItem {
+  id: string
+  result: 'win' | 'lose'
+  timestamp: number
+  rounds: number
+  expGained?: number
+  goldGained?: number
+}
+
 /** 地图右下角功能入口对应的弹窗 */
 export const DOCK_PANEL_IDS = [
   'achievements',
@@ -182,6 +206,9 @@ export function useGameState() {
   /** 地图右下角：成就 / 日志 / 聊天 / 战斗系统 / 角色登录 */
   const [dockPanel, setDockPanel] = useState<DockPanelId | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [battleCount, setBattleCount] = useState(0)
+  const [achievements] = useState<AchievementItem[]>(() => [...DEFAULT_ACHIEVEMENTS])
+  const [battleLogs, setBattleLogs] = useState<BattleHistoryLogItem[]>([])
 
   // 战斗相关
   const [battleLog, setBattleLog] = useState<string[]>([])
@@ -382,6 +409,7 @@ export function useGameState() {
       setBattleGridAnchor(anchor ?? null)
       setCombatEnemyId(nearbyEnemy?.id ?? null)
       setBattleSessionNonce((n) => n + 1)
+      setBattleCount((c) => c + 1)
     },
     [enemyPreview, nearbyEnemy, playerLevel],
   )
@@ -453,11 +481,22 @@ export function useGameState() {
       const afterLevelUp = tryLevelUp(playerExp + expGain)
       setPlayerExp(afterLevelUp.exp)
       setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
+      setBattleLogs((prev) => [
+        ...prev,
+        {
+          id: `bh-${Date.now()}`,
+          result: 'win',
+          timestamp: Date.now(),
+          rounds: battleRound,
+          expGained: expGain,
+          goldGained: goldGain,
+        },
+      ])
       if (afterLevelUp.level > playerLevel) {
         setBattleLog((prev) => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
       }
     },
-    [enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
+    [battleRound, enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
   )
 
   /** 地图战斗：失败 */
@@ -467,9 +506,36 @@ export function useGameState() {
     setPlayerGold(0)
     setPlayerHP(totalStats.maxHp)
     setPlayerMP(playerMaxMp)
-  }, [playerMaxMp, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
+    setBattleLogs((prev) => [
+      ...prev,
+      {
+        id: `bh-${Date.now()}`,
+        result: 'lose',
+        timestamp: Date.now(),
+        rounds: battleRound,
+      },
+    ])
+  }, [battleRound, playerMaxMp, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
 
   const closeDockPanel = useCallback(() => {
+    setDockPanel(null)
+  }, [])
+
+  /** AchievementPanel 遗留 API：关闭时收起 dock */
+  const setShowAchievement = useCallback((open: boolean) => {
+    if (!open) setDockPanel(null)
+  }, [])
+
+  /** BattleLogPanel 遗留 API */
+  const setShowBattleLog = useCallback((open: boolean) => {
+    if (!open) setDockPanel(null)
+  }, [])
+
+  /** LoginPanel 遗留 API */
+  const setShowLogin = useCallback((open: boolean) => {
+    if (!open) setDockPanel(null)
+  }, [])
+  const login = useCallback((_username: string) => {
     setDockPanel(null)
   }, [])
 
@@ -565,6 +631,13 @@ export function useGameState() {
     dockPanel,
     setDockPanel,
     closeDockPanel,
+    battleCount,
+    achievements,
+    setShowAchievement,
+    battleLogs,
+    setShowBattleLog,
+    login,
+    setShowLogin,
     chatMessages,
     setChatMessages,
     sendChatMessage,

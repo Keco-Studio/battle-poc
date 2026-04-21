@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Trophy, ScrollText, MessageSquare, Swords, User } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import {
@@ -17,6 +17,7 @@ import DockFeatureModal from './DockFeatureModal'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
+import { mapCharacterIdleStyle } from '../lib/mapEntitySpriteStyles'
 
 /** 脱离战斗：双方沿连线方向各退几格（可走则移动） */
 function disengageGridPositions(
@@ -91,6 +92,53 @@ const DEFAULT_DIRECTION: RotationKey = 'south'
 const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
 const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
 const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
+
+/** 与 ai-rpg-poc PixelLab pack `meta.json` 中 `directions` 数组行顺序一致 */
+const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
+  south: 0,
+  'south-west': 1,
+  west: 2,
+  'north-west': 3,
+  north: 4,
+  'north-east': 5,
+  east: 6,
+  'south-east': 7,
+}
+
+type PixelLabPackMeta = {
+  id: string
+  imageSize: { width: number; height: number }
+  framesPerDirection: number
+  layout: { rows: number; cols: number }
+  files: { previewPng: string; sheetPng: string }
+}
+
+function pixelLabSheetActorStyle(
+  meta: PixelLabPackMeta,
+  facing: RotationKey,
+  isWalking: boolean,
+  tick: number,
+  displaySize: number,
+): CSSProperties {
+  const fw = meta.imageSize.width
+  const fh = meta.imageSize.height
+  const cols = meta.layout?.cols ?? meta.framesPerDirection ?? 1
+  const rows = meta.layout?.rows ?? 8
+  const row = PIXELLAB_ROW_BY_FACING[facing] ?? 0
+  const frames = Math.max(1, meta.framesPerDirection)
+  const frame = isWalking ? tick % frames : 0
+  const rel = meta.files.sheetPng
+  const sheetUrl = rel.startsWith('/') ? rel : `/${rel.replace(/^\/+/, '')}`
+  return {
+    width: displaySize,
+    height: displaySize,
+    backgroundImage: `url("${sheetUrl}")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: `${fw * cols}px ${fh * rows}px`,
+    backgroundPosition: `${-frame * fw}px ${-row * fh}px`,
+    imageRendering: 'pixelated',
+  }
+}
 
 const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
@@ -336,6 +384,14 @@ export default function GameMap({ game }: Props) {
     tileset: null,
   })
   const [playerFacing, setPlayerFacing] = useState<RotationKey>(DEFAULT_DIRECTION)
+  const [playerVisualId, setPlayerVisualId] = useState<MapCharacterVisualId>('archerGreen')
+  const [pixelLabPacks, setPixelLabPacks] = useState<Record<string, PixelLabPackMeta | null>>({})
+  const [walkAnimTick, setWalkAnimTick] = useState(0)
+  const [enemyLastMoveAt, setEnemyLastMoveAt] = useState<Record<number, number>>({})
+  const [playerLastMoveAt, setPlayerLastMoveAt] = useState(0)
+  const [pixellabSyncHint, setPixellabSyncHint] = useState<string | null>(null)
+  const prevEnemyGridRef = useRef<Record<number, { x: number; y: number }>>({})
+  const prevPlayerGridRef = useRef<{ x: number; y: number } | null>(null)
 
   // 避免 SSR hydration 不匹配
   useEffect(() => {
@@ -410,6 +466,9 @@ export default function GameMap({ game }: Props) {
   const renderOffsetY = Math.max(0, Math.floor((viewportSize.height - renderHeight) / 2))
   const mapCellDisplayPx =
     Math.min(renderWidth / Math.max(1, mapInfo.width), renderHeight / Math.max(1, mapInfo.height)) * 0.92
+
+  /** 玩家与敌人统一显示尺寸，随格子缩放，与 ai-rpg-poc 观感对齐 */
+  const actorPx = Math.max(32, Math.round(mapCellDisplayPx * 1.5))
 
   const gridToScreen = (x: number, y: number) => ({
     x: renderOffsetX + ((x + 0.5) / mapInfo.width) * renderWidth,
@@ -517,6 +576,9 @@ export default function GameMap({ game }: Props) {
           mapId: data.mapId,
           tileset: data.tileset,
         })
+        if (data.playerVisualId) {
+          setPlayerVisualId(data.playerVisualId)
+        }
         const spawn = snapGridSpawnToWalkable(
           data.playerSpawn.x,
           data.playerSpawn.y,
@@ -539,6 +601,78 @@ export default function GameMap({ game }: Props) {
       active = false
     }
   }, [selectedMapId, setEnemies, setPlayerPos])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setWalkAnimTick((t) => t + 1), 130)
+    return () => window.clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    const ids = new Set<string>()
+    if (typeof playerVisualId === 'string' && playerVisualId.startsWith('pixellab:')) {
+      ids.add(playerVisualId)
+    }
+    for (const e of enemies) {
+      const v = e.visualId
+      if (typeof v === 'string' && v.startsWith('pixellab:')) ids.add(v)
+    }
+    if (ids.size === 0) {
+      setPixelLabPacks({})
+      return
+    }
+    let cancelled = false
+    void (async () => {
+      const next: Record<string, PixelLabPackMeta | null> = {}
+      await Promise.all(
+        [...ids].map(async (visualId) => {
+          const packId = visualId.slice('pixellab:'.length)
+          if (!packId) {
+            next[visualId] = null
+            return
+          }
+          const url = `/assets/characters/packs/${encodeURIComponent(packId)}/meta.json`
+          try {
+            const res = await fetch(url)
+            if (!res.ok) throw new Error(String(res.status))
+            next[visualId] = (await res.json()) as PixelLabPackMeta
+          } catch {
+            next[visualId] = null
+          }
+        }),
+      )
+      if (!cancelled) setPixelLabPacks(next)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [enemies, playerVisualId])
+
+  useEffect(() => {
+    const now = Date.now()
+    setEnemyLastMoveAt((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const e of enemies) {
+        const p = enemyPositions[e.id] ?? { x: e.x, y: e.y }
+        const prevP = prevEnemyGridRef.current[e.id]
+        prevEnemyGridRef.current[e.id] = { ...p }
+        if (prevP && (prevP.x !== p.x || prevP.y !== p.y)) {
+          next[e.id] = now
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [enemyPositions, enemies])
+
+  useEffect(() => {
+    const p = playerPos
+    const prev = prevPlayerGridRef.current
+    prevPlayerGridRef.current = { ...p }
+    if (prev && (prev.x !== p.x || prev.y !== p.y)) {
+      setPlayerLastMoveAt(Date.now())
+    }
+  }, [playerPos])
 
   useEffect(() => {
     const viewport = mapViewportRef.current
@@ -1336,6 +1470,31 @@ export default function GameMap({ game }: Props) {
   const enemyLevelRangeMin = Math.max(1, playerLevel - 2)
   const enemyLevelRangeMax = Math.max(1, playerLevel - 1)
 
+  const handlePixellabSync = useCallback(async () => {
+    setPixellabSyncHint('同步中…')
+    try {
+      const res = await fetch('/api/pixellab-sync', { method: 'POST' })
+      const data = (await res.json()) as { ok?: boolean; copiedFiles?: number; errors?: string[] }
+      if (data.ok) {
+        setPixellabSyncHint(`已同步 ${data.copiedFiles ?? 0} 个文件`)
+      } else {
+        setPixellabSyncHint(data.errors?.[0] ?? '同步未完成')
+      }
+      const mapRes = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
+      if (mapRes.ok) {
+        const d = (await mapRes.json()) as {
+          enemies: typeof enemies
+          playerVisualId?: MapCharacterVisualId
+        }
+        if (d.playerVisualId) setPlayerVisualId(d.playerVisualId)
+        if (d.enemies?.length) setEnemies(d.enemies)
+      }
+    } catch (e) {
+      setPixellabSyncHint(e instanceof Error ? e.message : '同步失败')
+    }
+    window.setTimeout(() => setPixellabSyncHint(null), 4200)
+  }, [selectedMapId, setEnemies])
+
   return (
     <main className="relative w-screen h-screen overflow-hidden">
       {/* 全屏地图：画布与角色同一视口、同一坐标系，避免「浮在地图外一层」 */}
@@ -1377,16 +1536,47 @@ export default function GameMap({ game }: Props) {
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
                   </div>
                 )}
-                <img
-                  src={toEnemyGifPath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)}
-                  alt={enemy.name}
-                  className="h-12 w-12 animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
-                  onError={(e) => {
-                    const target = e.currentTarget
-                    target.onerror = null
-                    target.src = toEnemySpritePath(enemyFacings[enemy.id] || DEFAULT_DIRECTION)
-                  }}
-                />
+                {(() => {
+                  const facing = enemyFacings[enemy.id] || DEFAULT_DIRECTION
+                  const vid = enemy.visualId
+                  const plMeta = typeof vid === 'string' && vid.startsWith('pixellab:') ? pixelLabPacks[vid] : undefined
+                  const movedAt = enemyLastMoveAt[enemy.id]
+                  const isWalking = movedAt !== undefined && Date.now() - movedAt < 480
+                  if (typeof vid === 'string' && vid.startsWith('pixellab:')) {
+                    if (plMeta) {
+                      return (
+                        <div
+                          className="drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                          style={pixelLabSheetActorStyle(plMeta, facing, isWalking, walkAnimTick, actorPx)}
+                          role="img"
+                          aria-label={enemy.name}
+                        />
+                      )
+                    }
+                    return (
+                      <div
+                        className="animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                        style={mapCharacterIdleStyle(vid, actorPx)}
+                        role="img"
+                        aria-label={enemy.name}
+                      />
+                    )
+                  }
+                  /* 非 PixelLab：统一用 battle-poc public/enemy 方向精灵（gif/png） */
+                  return (
+                    <img
+                      src={toEnemyGifPath(facing)}
+                      alt={enemy.name}
+                      className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
+                      style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
+                      onError={(e) => {
+                        const target = e.currentTarget
+                        target.onerror = null
+                        target.src = toEnemySpritePath(facing)
+                      }}
+                    />
+                  )
+                })()}
                 <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
                   {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
                 </div>
@@ -1407,16 +1597,41 @@ export default function GameMap({ game }: Props) {
               willChange: 'left, top',
             }}
           >
-            <img
-              src={toPlayerSpritePath(playerFacing)}
-              alt="你"
-              className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-              onError={(e) => {
-                const target = e.currentTarget
-                target.onerror = null
-                target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
-              }}
-            />
+            {playerVisualId.startsWith('pixellab:') ? (
+              pixelLabPacks[playerVisualId] ? (
+                <div
+                  className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+                  style={pixelLabSheetActorStyle(
+                    pixelLabPacks[playerVisualId]!,
+                    playerFacing,
+                    Date.now() - playerLastMoveAt < 480,
+                    walkAnimTick,
+                    actorPx,
+                  )}
+                  role="img"
+                  aria-label="你"
+                />
+              ) : (
+                <div
+                  className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+                  style={mapCharacterIdleStyle(playerVisualId, actorPx)}
+                  role="img"
+                  aria-label="你"
+                />
+              )
+            ) : (
+              <img
+                src={toPlayerSpritePath(playerFacing)}
+                alt="你"
+                className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+                style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
+                onError={(e) => {
+                  const target = e.currentTarget
+                  target.onerror = null
+                  target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
+                }}
+              />
+            )}
             <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
               你
             </div>
@@ -1593,6 +1808,19 @@ export default function GameMap({ game }: Props) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="absolute top-[7.25rem] right-4 z-20 flex max-w-[min(280px,calc(100vw-2rem))] flex-col items-end gap-1 rounded-lg border border-amber-500/35 bg-black/60 px-3 py-2 text-xs text-amber-100">
+        <button
+          type="button"
+          onClick={() => void handlePixellabSync()}
+          className="rounded bg-amber-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-600"
+        >
+          同步 PixelLab 资源
+        </button>
+        {pixellabSyncHint && <span className="text-[10px] leading-snug text-amber-200/90">{pixellabSyncHint}</span>}
+        <span className="text-[10px] leading-snug text-slate-400">
+          从 ai-rpg-poc 的 demo-project 拷贝到 public/assets/characters
+        </span>
       </div>
 
       {/* 右下角 Dock：深色圆角方块，active 为橙色+绿色描边；悬停左侧气泡标签
