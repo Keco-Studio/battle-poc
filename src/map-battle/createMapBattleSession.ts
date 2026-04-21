@@ -133,6 +133,7 @@ export function createMapBattleSession(cfg: MapBattleStartConfig): BattleSession
   return createBattleSession({
     left,
     right,
+    preparationTicks: 5,
     mapBounds: {
       minX: 0,
       maxX: Math.max(1, cfg.mapWidth),

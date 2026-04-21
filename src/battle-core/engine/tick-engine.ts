@@ -9,9 +9,13 @@ export type TickEngineResult = {
 
 export class BattleTickEngine {
   public tick(session: BattleSession): TickEngineResult {
+    const advancedTick = session.tick + 1
+    const shouldEnterBattle =
+      session.phase === 'preparation' && advancedTick >= session.preparationEndTick
     const advancedSession: BattleSession = {
       ...session,
-      tick: session.tick + 1,
+      tick: advancedTick,
+      phase: shouldEnterBattle ? 'battle' : session.phase,
       updatedAt: Date.now()
     }
     const processed = processBattleCommands(advancedSession)
