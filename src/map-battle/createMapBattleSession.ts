@@ -3,7 +3,7 @@ import type { BattleEntity } from '../battle-core/domain/entities/battle-entity'
 import { createBattleSession, type BattleSession } from '../battle-core/domain/entities/battle-session'
 import type { TotalStats } from '../../app/hooks/useGameState'
 import type { EnemyCombatStats } from '../../app/constants'
-import type { LlmProviderConfig } from '../battle-core/service/auto-decision-engine'
+import type { LlmProviderConfig } from '../battle-core/service/ai/auto-decision-engine'
 
 const PLAYER_CORE_SKILLS = [
   'backstab',

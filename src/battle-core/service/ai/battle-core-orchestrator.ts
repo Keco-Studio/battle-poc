@@ -1,5 +1,5 @@
-import type { BattleSession } from '../domain/entities/battle-session'
-import { enqueueBattleCommand } from '../engine/command-processor'
+import type { BattleSession } from '../../domain/entities/battle-session'
+import { enqueueBattleCommand } from '../../engine/command-processor'
 import {
   AutoDecisionEngine,
   type LlmProviderConfig,
@@ -12,7 +12,6 @@ type ActorState = {
   pending: boolean
   cachedDecision: RawBattleDecision | null
   lastError: string | null
-  lastRequestTick: number
   nextDueTick: number
 }
 
@@ -26,16 +25,29 @@ export type PrepareDecisionResult = {
 }
 
 export class BattleCoreOrchestrator {
-  private static readonly PREFETCH_LEAD_TICKS = 1
   private readonly decisionEngine: AutoDecisionEngine
+  private readonly llmConfig?: LlmProviderConfig
+  private readonly useProxyMode: boolean
   private readonly actorStates = new Map<string, ActorState>()
+  private llmAvailability: 'unknown' | 'available' | 'unavailable'
+  private availabilityCheckPending = false
+  private llmDisabledForCurrentBattle = false
 
   constructor(options?: OrchestratorOptions) {
-    this.decisionEngine = new AutoDecisionEngine(options?.llmConfig)
+    this.llmConfig = options?.llmConfig
+    this.decisionEngine = new AutoDecisionEngine(this.llmConfig)
+    this.useProxyMode = Boolean(this.llmConfig?.proxyUrl)
+    this.llmAvailability = this.useProxyMode ? 'unknown' : 'available'
   }
 
   public prepareCommands(session: BattleSession, executeAtTick: number): PrepareDecisionResult {
     if (session.result !== 'ongoing') {
+      return {
+        session,
+        failedActorIds: []
+      }
+    }
+    if (!this.shouldUseLlm()) {
       return {
         session,
         failedActorIds: []
@@ -58,8 +70,40 @@ export class BattleCoreOrchestrator {
   }
 
   public onTickFinished(session: BattleSession): void {
+    if (!this.shouldUseLlm()) return
     this.prefetchDecision(session, session.left.id)
     this.prefetchDecision(session, session.right.id)
+  }
+
+  public ensureLlmAvailability(): void {
+    if (!this.useProxyMode) return
+    if (this.llmDisabledForCurrentBattle) return
+    if (this.llmAvailability !== 'unknown') return
+    if (this.availabilityCheckPending) return
+    this.availabilityCheckPending = true
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 1500)
+    const proxyBaseUrl = String(this.llmConfig?.proxyUrl || 'http://localhost:8787').replace(/\/$/, '')
+    void fetch(`${proxyBaseUrl}/health`, { signal: controller.signal })
+      .then(async (resp) => {
+        if (!resp.ok) {
+          this.llmAvailability = 'unavailable'
+          return
+        }
+        const payload = (await resp.json()) as { ok?: boolean; hasKey?: boolean }
+        this.llmAvailability = payload.ok && payload.hasKey ? 'available' : 'unavailable'
+      })
+      .catch(() => {
+        this.llmAvailability = 'unavailable'
+      })
+      .finally(() => {
+        clearTimeout(timer)
+        this.availabilityCheckPending = false
+      })
+  }
+
+  public shouldUseLlm(): boolean {
+    return !this.llmDisabledForCurrentBattle && this.llmAvailability === 'available'
   }
 
   private maybeEnqueueDecision(
@@ -119,21 +163,15 @@ export class BattleCoreOrchestrator {
   }
 
   private prefetchDecision(session: BattleSession, actorId: string): void {
+    if (!this.shouldUseLlm()) return
     if (session.result !== 'ongoing') return
     const actor = session.left.id === actorId ? session.left : session.right
     const target = actor.id === session.left.id ? session.right : session.left
     if (!actor.alive || !target.alive) return
     const state = this.getActorState(actorId, actor.spd)
-    // Only prefetch when action window is near; avoid spamming remote requests.
-    if (session.tick + BattleCoreOrchestrator.PREFETCH_LEAD_TICKS < state.nextDueTick) return
-    const hasFutureCommand = session.commandQueue.some(
-      (command) => command.actorId === actorId && command.tick >= session.tick
-    )
-    if (hasFutureCommand) return
     if (state.pending || state.cachedDecision) return
     const memory = buildShortTermMemory(session, actorId)
     state.pending = true
-    state.lastRequestTick = session.tick
     void this.decisionEngine
       .requestDecision({
         session,
@@ -144,6 +182,10 @@ export class BattleCoreOrchestrator {
       .then((result) => {
         state.cachedDecision = result.decision
         state.lastError = result.error || null
+        if (this.useProxyMode && result.error) {
+          this.llmDisabledForCurrentBattle = true
+          this.llmAvailability = 'unavailable'
+        }
       })
       .finally(() => {
         state.pending = false
@@ -157,7 +199,6 @@ export class BattleCoreOrchestrator {
       pending: false,
       cachedDecision: null,
       lastError: null,
-      lastRequestTick: -1,
       nextDueTick: Math.max(1, intervalTicksForSpd(spd))
     }
     this.actorStates.set(actorId, created)

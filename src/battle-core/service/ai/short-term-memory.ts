@@ -1,5 +1,5 @@
-import type { BattleSession } from '../domain/entities/battle-session'
-import type { BattleEvent } from '../domain/types/event-types'
+import type { BattleSession } from '../../domain/entities/battle-session'
+import type { BattleEvent } from '../../domain/types/event-types'
 
 export type ShortTermMemory = {
   actorId: string

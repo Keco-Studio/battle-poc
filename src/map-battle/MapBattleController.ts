@@ -8,7 +8,7 @@ import { getPocBattleUiOutcome } from './battleOutcome'
 import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '../../app/constants'
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
 import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
-import { BattleCoreOrchestrator } from '../battle-core/service/battle-core-orchestrator'
+import { BattleCoreOrchestrator } from '../battle-core/service/ai/battle-core-orchestrator'
 import { clampDashDestination } from './walkability'
 
 const MELEE_RANGE = 1.6
@@ -110,6 +110,7 @@ export class MapBattleController {
             llmConfig: cfg.llmConfig
           })
         : null
+    this.llmOrchestrator?.ensureLlmAvailability()
     this.playerInterval = intervalTicksForSpd(this.session.left.spd)
     this.enemyInterval = intervalTicksForSpd(this.session.right.spd)
     this.mapW = cfg.mapWidth
@@ -170,6 +171,14 @@ export class MapBattleController {
       const out = this.engine.tick(this.session)
       this.session = out.session
     } else if (this.decisionMode === 'dual_llm' && this.llmOrchestrator) {
+      this.llmOrchestrator.ensureLlmAvailability()
+      if (!this.llmOrchestrator.shouldUseLlm()) {
+        const dist = distBetween(this.session)
+        this.enqueueEnemyIntent(input.executeAtTick, dist)
+        this.enqueuePlayerIntent(input.executeAtTick, dist, input)
+        const out = this.engine.tick(this.session)
+        this.session = out.session
+      } else {
       const prepared = this.llmOrchestrator.prepareCommands(this.session, input.executeAtTick)
       this.session = prepared.session
       if (prepared.failedActorIds.length > 0) {
@@ -184,6 +193,7 @@ export class MapBattleController {
       const out = this.engine.tick(this.session)
       this.session = out.session
       this.llmOrchestrator.onTickFinished(this.session)
+      }
     } else {
       const dist = distBetween(this.session)
 

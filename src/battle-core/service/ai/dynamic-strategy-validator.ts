@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { BattleSession } from '../domain/entities/battle-session'
-import type { BattleCommand } from '../domain/types/command-types'
-import { getBattleSkillDefinition } from '../content/skills/basic-skill-catalog'
+import type { BattleSession } from '../../domain/entities/battle-session'
+import type { BattleCommand } from '../../domain/types/command-types'
+import { getBattleSkillDefinition } from '../../content/skills/basic-skill-catalog'
 import type { RawBattleDecision } from './auto-decision-engine'
 
 export type ValidationResult = {
@@ -175,5 +175,4 @@ function getDistance(
   const dy = a.position.y - b.position.y
   return Math.sqrt(dx * dx + dy * dy)
 }
-
 

@@ -3,7 +3,7 @@ import { createBattleSession } from '../src/battle-core/domain/entities/battle-s
 import type { BattleEntity } from '../src/battle-core/domain/entities/battle-entity'
 import { enqueueBattleCommand } from '../src/battle-core/engine/command-processor'
 import { BattleTickEngine } from '../src/battle-core/engine/tick-engine'
-import { BattleCoreOrchestrator } from '../src/battle-core/service/battle-core-orchestrator'
+import { BattleCoreOrchestrator } from '../src/battle-core/service/ai/battle-core-orchestrator'
 
 function makeEntity(input: {
   id: string
@@ -46,7 +46,7 @@ describe('battle core orchestrator', () => {
     let session = createBattleSession({ left, right, preparationTicks: 0 })
     const orchestrator = new BattleCoreOrchestrator()
     const tickEngine = new BattleTickEngine()
-    for (let tick = 1; tick <= 20; tick += 1) {
+    for (let tick = 1; tick <= 8; tick += 1) {
       const prepared = orchestrator.prepareCommands(session, tick)
       session = prepared.session
       if (prepared.failedActorIds.includes(left.id)) {

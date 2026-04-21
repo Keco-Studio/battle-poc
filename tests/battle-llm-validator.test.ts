@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createBattleSession } from '../src/battle-core/domain/entities/battle-session'
 import type { BattleEntity } from '../src/battle-core/domain/entities/battle-entity'
-import { normalizeDecisionToCommand } from '../src/battle-core/service/dynamic-strategy-validator'
+import { normalizeDecisionToCommand } from '../src/battle-core/service/ai/dynamic-strategy-validator'
 
 function makeEntity(input: {
   id: string

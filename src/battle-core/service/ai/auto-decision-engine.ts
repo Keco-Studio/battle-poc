@@ -1,6 +1,6 @@
-import type { BattleEntity } from '../domain/entities/battle-entity'
-import type { BattleSession } from '../domain/entities/battle-session'
-import { getBattleSkillDefinition } from '../content/skills/basic-skill-catalog'
+import type { BattleEntity } from '../../domain/entities/battle-entity'
+import type { BattleSession } from '../../domain/entities/battle-session'
+import { getBattleSkillDefinition } from '../../content/skills/basic-skill-catalog'
 import type { ShortTermMemory } from './short-term-memory'
 
 export type RawBattleDecision = {
@@ -14,6 +14,7 @@ export type LlmProviderConfig = {
   provider: 'deepseek' | 'zhipu' | 'custom'
   apiKey?: string
   model?: string
+  proxyUrl?: string
   baseUrl?: string
   timeoutMs?: number
 }
@@ -75,11 +76,61 @@ class HeuristicDecisionProvider implements DecisionProvider {
   }
 }
 
-class RemoteLlmDecisionProvider implements DecisionProvider {
+class ProxyLlmDecisionProvider implements DecisionProvider {
   constructor(private readonly config: LlmProviderConfig) {}
 
   async request(context: DecisionContext): Promise<RawBattleDecision> {
-    const timeoutMs = Math.max(150, Number(this.config.timeoutMs || 450))
+    const timeoutMs = Math.max(400, Number(this.config.timeoutMs || 7000))
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const endpoint = `${String(this.config.proxyUrl || 'http://localhost:8787').replace(/\/$/, '')}/api/ai/battle-decision`
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: this.config.provider,
+          model: this.config.model || this.getDefaultModel(),
+          prompt: buildPrompt(context),
+          timeoutMs
+        }),
+        signal: controller.signal
+      })
+      if (!resp.ok) {
+        const text = await resp.text()
+        throw new Error(`proxy_http_${resp.status}:${text.slice(0, 140)}`)
+      }
+      const payload = (await resp.json()) as {
+        decision?: RawBattleDecision
+        error?: string
+      }
+      if (payload.error) {
+        throw new Error(payload.error)
+      }
+      const parsed = payload.decision as Record<string, unknown> | undefined
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('proxy_parse_error')
+      }
+      return parsed as RawBattleDecision
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  private getDefaultModel(): string {
+    if (this.config.provider === 'deepseek') return 'deepseek-chat'
+    if (this.config.provider === 'zhipu') return 'glm-4.5'
+    return 'gpt-4o-mini'
+  }
+}
+
+class DirectRemoteLlmDecisionProvider implements DecisionProvider {
+  constructor(private readonly config: LlmProviderConfig) {}
+
+  async request(context: DecisionContext): Promise<RawBattleDecision> {
+    const timeoutMs = Math.max(400, Number(this.config.timeoutMs || 7000))
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
@@ -172,7 +223,6 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   try {
     return JSON.parse(trimmed) as Record<string, unknown>
   } catch {
-    // Some models return fenced or extra text.
     const start = trimmed.indexOf('{')
     const end = trimmed.lastIndexOf('}')
     if (start < 0 || end <= start) return null
@@ -187,39 +237,22 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
 
 export class AutoDecisionEngine {
   private readonly provider: DecisionProvider
-  private readonly decisionCache = new Map<
-    string,
-    {
-      decision: RawBattleDecision
-      expiresAt: number
-    }
-  >()
-  private static readonly CACHE_TTL_MS = 2500
 
   constructor(private readonly config?: LlmProviderConfig) {
+    if (config?.proxyUrl) {
+      this.provider = new ProxyLlmDecisionProvider(config)
+      return
+    }
     if (config?.apiKey) {
-      this.provider = new RemoteLlmDecisionProvider(config)
+      this.provider = new DirectRemoteLlmDecisionProvider(config)
       return
     }
     this.provider = new HeuristicDecisionProvider()
   }
 
   async requestDecision(context: DecisionContext): Promise<DecisionResult> {
-    const cacheKey = buildDecisionCacheKey(context)
-    const cached = this.decisionCache.get(cacheKey)
-    const now = Date.now()
-    if (cached && cached.expiresAt > now) {
-      return {
-        decision: cached.decision,
-        source: this.config?.apiKey ? 'remote_llm' : 'heuristic_fallback'
-      }
-    }
     try {
       const decision = await this.provider.request(context)
-      this.decisionCache.set(cacheKey, {
-        decision,
-        expiresAt: Date.now() + AutoDecisionEngine.CACHE_TTL_MS
-      })
       return {
         decision,
         source: this.config?.apiKey ? 'remote_llm' : 'heuristic_fallback'
@@ -232,29 +265,5 @@ export class AutoDecisionEngine {
       }
     }
   }
-}
-
-function bucket(value: number, size: number): number {
-  return Math.max(0, Math.floor(value / Math.max(1, size)))
-}
-
-function buildDecisionCacheKey(context: DecisionContext): string {
-  const { session, actor, target } = context
-  const distance = Math.hypot(actor.position.x - target.position.x, actor.position.y - target.position.y)
-  const actorReadySkills = actor.skillSlots
-    .filter((slot) => slot.cooldownTick <= session.tick)
-    .map((slot) => slot.skillId)
-    .sort()
-    .join(',')
-  return [
-    `phase:${session.phase}`,
-    `actor:${actor.id}`,
-    `target:${target.id}`,
-    `ahp:${bucket(actor.resources.hp, 12)}`,
-    `thp:${bucket(target.resources.hp, 12)}`,
-    `amp:${bucket(actor.resources.mp, 5)}`,
-    `dst:${bucket(distance, 1)}`,
-    `ready:${actorReadySkills}`
-  ].join('|')
 }
 

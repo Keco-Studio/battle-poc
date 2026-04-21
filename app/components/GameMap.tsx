@@ -1038,6 +1038,7 @@ export default function GameMap({ game }: Props) {
       process.env.NEXT_PUBLIC_BATTLE_DECISION_MODE === 'dual_llm' ? 'dual_llm' : 'manual'
     const llmProvider: 'deepseek' | 'zhipu' | 'custom' =
       process.env.NEXT_PUBLIC_BATTLE_LLM_PROVIDER === 'zhipu' ? 'zhipu' : 'deepseek'
+    const aiProxyUrl = process.env.NEXT_PUBLIC_BATTLE_AI_SERVER_URL || 'http://localhost:8787'
     const cfg = {
       mapWidth: mapInfo.width,
       mapHeight: mapInfo.height,
@@ -1059,10 +1060,9 @@ export default function GameMap({ game }: Props) {
           ? {
               provider:
                 llmProvider,
-              apiKey: process.env.NEXT_PUBLIC_BATTLE_LLM_API_KEY,
               model: process.env.NEXT_PUBLIC_BATTLE_LLM_MODEL,
-              baseUrl: process.env.NEXT_PUBLIC_BATTLE_LLM_BASE_URL,
-              timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 450),
+              proxyUrl: aiProxyUrl,
+              timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 7000),
             }
           : undefined,
     }

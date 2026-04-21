@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:ai": "NODE_USE_ENV_PROXY=1 node server/ai-proxy.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
