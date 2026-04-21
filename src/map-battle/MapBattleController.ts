@@ -8,6 +8,7 @@ import { getPocBattleUiOutcome } from './battleOutcome'
 import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '../../app/constants'
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
 import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
+import { BattleCoreOrchestrator } from '../battle-core/service/battle-core-orchestrator'
 import { clampDashDestination } from './walkability'
 
 const MELEE_RANGE = 1.6
@@ -90,6 +91,8 @@ export type MapBattleStepResult = {
 export class MapBattleController {
   session: BattleSession
   private readonly engine = new BattleTickEngine()
+  private readonly decisionMode: 'manual' | 'dual_llm'
+  private readonly llmOrchestrator: BattleCoreOrchestrator | null
   private nextPlayerDue = 1
   private nextEnemyDue = 1
   private playerInterval: number
@@ -100,6 +103,13 @@ export class MapBattleController {
 
   constructor(cfg: MapBattleStartConfig) {
     this.session = createMapBattleSession(cfg)
+    this.decisionMode = cfg.battleDecisionMode || 'manual'
+    this.llmOrchestrator =
+      this.decisionMode === 'dual_llm'
+        ? new BattleCoreOrchestrator({
+            llmConfig: cfg.llmConfig
+          })
+        : null
     this.playerInterval = intervalTicksForSpd(this.session.left.spd)
     this.enemyInterval = intervalTicksForSpd(this.session.right.spd)
     this.mapW = cfg.mapWidth
@@ -157,16 +167,32 @@ export class MapBattleController {
         targetId: this.session.right.id,
       }
       this.enqueueIntentCommand(cmd, 'flee_and_reset', fleeReason)
+      const out = this.engine.tick(this.session)
+      this.session = out.session
+    } else if (this.decisionMode === 'dual_llm' && this.llmOrchestrator) {
+      const prepared = this.llmOrchestrator.prepareCommands(this.session, input.executeAtTick)
+      this.session = prepared.session
+      if (prepared.failedActorIds.length > 0) {
+        const dist = distBetween(this.session)
+        if (prepared.failedActorIds.includes(this.session.right.id)) {
+          this.enqueueEnemyIntent(input.executeAtTick, dist)
+        }
+        if (prepared.failedActorIds.includes(this.session.left.id)) {
+          this.enqueuePlayerIntent(input.executeAtTick, dist, input)
+        }
+      }
+      const out = this.engine.tick(this.session)
+      this.session = out.session
+      this.llmOrchestrator.onTickFinished(this.session)
     } else {
       const dist = distBetween(this.session)
 
       this.enqueueEnemyIntent(input.executeAtTick, dist)
 
       this.enqueuePlayerIntent(input.executeAtTick, dist, input)
+      const out = this.engine.tick(this.session)
+      this.session = out.session
     }
-
-    const out = this.engine.tick(this.session)
-    this.session = out.session
 
     const uiOutcome = getPocBattleUiOutcome(this.session)
     return {
@@ -408,21 +434,29 @@ export class MapBattleController {
       if (playerHasManualQueuedSkill) {
         input.onClearQueuedSkill?.()
       }
-      // 撤离动作也按玩家节奏窗口执行，避免每 tick 连续后撤刷屏。
+      // 撤离动作按玩家节奏窗口执行；flee 由 step.pendingFlee（自动/手动）统一触发，
+      // 这里仅做撤步，不在低血时无条件强制发 flee，避免“阈值到了但未满足自动逃跑判定时卡住”。
       if (executeAtTick < this.nextPlayerDue) return
       this.nextPlayerDue = executeAtTick + this.playerInterval
 
-      const flee: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'flee',
-        targetId: target.id,
+      if (actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
+        const dodge: BattleCommand = {
+          commandId: newCommandId(),
+          sessionId: this.session.id,
+          actorId: actor.id,
+          tick: executeAtTick,
+          action: 'dodge',
+        }
+        this.enqueueIntentCommand(dodge, mode, 'player_dodge_retreat')
+        return
       }
-      this.enqueueIntentCommand(flee, mode, 'auto_flee')
-      return
+
+      // 体力不足时回落到常规分支（可能普攻/施法），避免整段空转。
+      // 不 return
     }
+
+    if (executeAtTick < this.nextPlayerDue) return
+    this.nextPlayerDue = executeAtTick + this.playerInterval
 
     if (!inPreferredRange) {
       const approachRange = mode === 'aggressive_finish' ? MELEE_RANGE : preferredRange
@@ -435,9 +469,6 @@ export class MapBattleController {
       })
       const rawTy = target.position.y
       if (this.canDashToward(actor, rawTx, rawTy)) {
-        // 贴近走位也遵守玩家行动节奏，避免每 tick 刷位移日志导致“追着跑不出手”。
-        if (executeAtTick < this.nextPlayerDue) return
-        this.nextPlayerDue = executeAtTick + this.playerInterval
         const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
         const cmd: BattleCommand = {
           commandId: newCommandId(),
@@ -473,8 +504,6 @@ export class MapBattleController {
       })
       const rawTy = actor.position.y
       if (this.canDashToward(actor, rawTx, rawTy)) {
-        if (executeAtTick < this.nextPlayerDue) return
-        this.nextPlayerDue = executeAtTick + this.playerInterval
         const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
         const reposition: BattleCommand = {
           commandId: newCommandId(),

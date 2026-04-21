@@ -1034,6 +1034,10 @@ export default function GameMap({ game }: Props) {
       return true
     }
 
+    const battleDecisionMode: 'manual' | 'dual_llm' =
+      process.env.NEXT_PUBLIC_BATTLE_DECISION_MODE === 'dual_llm' ? 'dual_llm' : 'manual'
+    const llmProvider: 'deepseek' | 'zhipu' | 'custom' =
+      process.env.NEXT_PUBLIC_BATTLE_LLM_PROVIDER === 'zhipu' ? 'zhipu' : 'deepseek'
     const cfg = {
       mapWidth: mapInfo.width,
       mapHeight: mapInfo.height,
@@ -1049,6 +1053,18 @@ export default function GameMap({ game }: Props) {
       enemyId: `enemy-${battleEnemy.id}`,
       enemyGrid: { ...battleGridAnchor.enemy },
       enemyStats: enemyCombatStats,
+      battleDecisionMode,
+      llmConfig:
+        battleDecisionMode === 'dual_llm'
+          ? {
+              provider:
+                llmProvider,
+              apiKey: process.env.NEXT_PUBLIC_BATTLE_LLM_API_KEY,
+              model: process.env.NEXT_PUBLIC_BATTLE_LLM_MODEL,
+              baseUrl: process.env.NEXT_PUBLIC_BATTLE_LLM_BASE_URL,
+              timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 450),
+            }
+          : undefined,
     }
     const ctrl = new MapBattleController(cfg)
     mapBattleControllerRef.current = ctrl
