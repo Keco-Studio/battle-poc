@@ -83,6 +83,8 @@ export type MapBattleStepResult = {
   uiOutcome: ReturnType<typeof getPocBattleUiOutcome>
   /** 本步内新产生的事件（用于飘字 / 演出） */
   newEventCount: number
+  /** 准备阶段剩余 tick（若已进入 battle 则为 0） */
+  remainingPreparationTicks: number
 }
 
 export class MapBattleController {
@@ -140,6 +142,7 @@ export class MapBattleController {
         session: this.session,
         uiOutcome: getPocBattleUiOutcome(this.session),
         newEventCount: 0,
+        remainingPreparationTicks: Math.max(0, this.session.preparationEndTick - this.session.tick),
       }
     }
 
@@ -170,6 +173,7 @@ export class MapBattleController {
       session: this.session,
       uiOutcome,
       newEventCount: this.session.events.length - eventsBefore,
+      remainingPreparationTicks: Math.max(0, this.session.preparationEndTick - this.session.tick),
     }
   }
 
@@ -241,6 +245,7 @@ export class MapBattleController {
     }
 
     if (mode === 'flee_and_reset' && actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
+      if (executeAtTick < this.nextEnemyDue) return
       const dodge: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -249,6 +254,7 @@ export class MapBattleController {
         action: 'dodge',
       }
       this.enqueueIntentCommand(dodge, mode, 'enemy_dodge_retreat')
+      this.nextEnemyDue = executeAtTick + this.enemyInterval
       const rawTx = actor.team === 'right' ? this.session.mapBounds.maxX - 0.5 : this.session.mapBounds.minX + 0.5
       const rawTy = actor.position.y
       if (this.canDashToward(actor, rawTx, rawTy)) {
@@ -273,6 +279,7 @@ export class MapBattleController {
 
     // 即使已在射程内，kite 模式也要主动拉开，避免站桩。
     if (mode === 'kite_and_cast' && dist < Math.max(MELEE_RANGE + 0.4, preferredRange - 1.2)) {
+      if (executeAtTick < this.nextEnemyDue) return
       const rawTx = computeRetreatX({
         actorX: actor.position.x,
         actorTeam: actor.team,
@@ -297,12 +304,14 @@ export class MapBattleController {
           },
         }
         this.enqueueIntentCommand(reposition, mode, 'enemy_dash_kite')
+        this.nextEnemyDue = executeAtTick + this.enemyInterval
         return
       }
       // 无法沿风筝方向位移（贴墙等）：不 return，交给下方普攻/接近逻辑，避免每 tick 空 dash 卡死
     }
 
     if (dist > MELEE_RANGE) {
+      if (executeAtTick < this.nextEnemyDue) return
       const desired =
         mode === 'aggressive_finish'
           ? MELEE_RANGE - 0.1
@@ -336,6 +345,7 @@ export class MapBattleController {
           },
         }
         this.enqueueIntentCommand(cmd, mode, 'enemy_dash_approach')
+        this.nextEnemyDue = executeAtTick + this.enemyInterval
         return
       }
       // 仍远离且无法沿直线接近：本 tick 不出手，避免 basic_attack 超距被拒刷屏
@@ -392,6 +402,28 @@ export class MapBattleController {
         ? dist <= preferredRange + RANGE_BUFFER
         : dist <= MELEE_RANGE
 
+    const playerHasManualQueuedSkill = chosen !== BASIC_ATTACK.id
+    if (mode === 'flee_and_reset') {
+      // 低血撤离阶段不再因手选技能而主动贴近，优先清空队列并尝试脱离。
+      if (playerHasManualQueuedSkill) {
+        input.onClearQueuedSkill?.()
+      }
+      // 撤离动作也按玩家节奏窗口执行，避免每 tick 连续后撤刷屏。
+      if (executeAtTick < this.nextPlayerDue) return
+      this.nextPlayerDue = executeAtTick + this.playerInterval
+
+      const flee: BattleCommand = {
+        commandId: newCommandId(),
+        sessionId: this.session.id,
+        actorId: actor.id,
+        tick: executeAtTick,
+        action: 'flee',
+        targetId: target.id,
+      }
+      this.enqueueIntentCommand(flee, mode, 'auto_flee')
+      return
+    }
+
     if (!inPreferredRange) {
       const approachRange = mode === 'aggressive_finish' ? MELEE_RANGE : preferredRange
       const rawTx = computeApproachX({
@@ -403,6 +435,9 @@ export class MapBattleController {
       })
       const rawTy = target.position.y
       if (this.canDashToward(actor, rawTx, rawTy)) {
+        // 贴近走位也遵守玩家行动节奏，避免每 tick 刷位移日志导致“追着跑不出手”。
+        if (executeAtTick < this.nextPlayerDue) return
+        this.nextPlayerDue = executeAtTick + this.playerInterval
         const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
         const cmd: BattleCommand = {
           commandId: newCommandId(),
@@ -422,23 +457,6 @@ export class MapBattleController {
       // 无法沿直线接近：不 return，继续尝试施法/普攻分支（避免贴墙时整局空转）
     }
 
-    const playerHasManualQueuedSkill = chosen !== BASIC_ATTACK.id
-    if (
-      mode === 'flee_and_reset' &&
-      !playerHasManualQueuedSkill &&
-      actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost
-    ) {
-      const dodge: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'dodge',
-      }
-      this.enqueueIntentCommand(dodge, mode, 'player_dodge_retreat')
-      return
-    }
-
     // 玩家处于风筝策略时，若贴得太近则优先后撤再打。若本 tick 已手选技能且已在理想射程内，勿每 tick 后撤，
     // 否则会与技能施放分支死锁（看起来「不动」），并与敌方走位叠加成左右抖动。
     if (
@@ -455,6 +473,8 @@ export class MapBattleController {
       })
       const rawTy = actor.position.y
       if (this.canDashToward(actor, rawTx, rawTy)) {
+        if (executeAtTick < this.nextPlayerDue) return
+        this.nextPlayerDue = executeAtTick + this.playerInterval
         const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
         const reposition: BattleCommand = {
           commandId: newCommandId(),

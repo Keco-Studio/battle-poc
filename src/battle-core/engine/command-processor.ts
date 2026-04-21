@@ -8,6 +8,9 @@ import { getBattleSkillDefinition } from '../content/skills/basic-skill-catalog'
 import { applyFreezeToEntity } from './effect-processor'
 import { BATTLE_BALANCE } from '../config/battle-balance'
 
+const AUTO_FLEE_GUARANTEE_AFTER_FAILURES = 3
+const CHASE_WINDOW_TICKS = 3
+
 export type CommandProcessorResult = {
   session: BattleSession
   appliedCommandCount: number
@@ -147,6 +150,10 @@ function applySingleCommand(
       }),
       applied: false
     }
+  }
+
+  if (session.phase === 'preparation' && isBlockedInPreparation(command.action)) {
+    return { session, applied: false }
   }
 
   const target = command.targetId
@@ -392,10 +399,12 @@ function applySingleCommand(
     const alreadyEscapedByDistance = distanceAfterMove >= 3.0
     const fleeReason = typeof command.metadata?.reason === 'string' ? command.metadata.reason : ''
     const isAutoFlee = fleeReason === 'auto_flee'
+    const autoFleeFailStreak = Math.max(0, Number(session.chaseState.autoFleeFailStreak || 0))
     const nonEdgeFleeChance = isAutoFlee ? 0.5 : 0.3
     const fleeChance = atEdge ? (hpRatio < 0.3 ? 0.9 : 0.55) : nonEdgeFleeChance
     const deterministicSuccess = atEdge || alreadyEscapedByDistance
-    const fleeSucceed = deterministicSuccess || Math.random() < fleeChance
+    const guaranteedByFailStreak = isAutoFlee && autoFleeFailStreak >= AUTO_FLEE_GUARANTEE_AFTER_FAILURES
+    const fleeSucceed = deterministicSuccess || guaranteedByFailStreak || Math.random() < fleeChance
     const withAction = appendEvent(movedSession, 'action_executed', {
       commandId: command.commandId,
       actorId: actor.id,
@@ -404,14 +413,25 @@ function applySingleCommand(
       toX: Number(nextActor.position.x.toFixed(2)),
       fromY: Number(actor.position.y.toFixed(2)),
       toY: Number(nextActor.position.y.toFixed(2)),
-      fleeChance: Number(fleeChance.toFixed(2))
+      fleeChance: Number(fleeChance.toFixed(2)),
+      guaranteedByFailStreak
     })
     if (!fleeSucceed) {
+      const nextFailStreak = isAutoFlee ? autoFleeFailStreak + 1 : 0
+      const withFailStreak: BattleSession = {
+        ...withAction,
+        chaseState: {
+          ...withAction.chaseState,
+          status: 'none',
+          autoFleeFailStreak: nextFailStreak
+        }
+      }
       return {
-        session: appendEvent(withAction, 'command_rejected', {
+        session: appendEvent(withFailStreak, 'command_rejected', {
           commandId: command.commandId,
           actorId: actor.id,
-          reason: 'flee_failed'
+          reason: 'flee_failed',
+          autoFleeFailStreak: nextFailStreak
         }),
         applied: false
       }
@@ -427,7 +447,6 @@ function applySingleCommand(
         applied: false
       }
     }
-    const chaseWindowTicks = 4
     const withChaseState: BattleSession = {
       ...withAction,
       chaseState: {
@@ -435,7 +454,8 @@ function applySingleCommand(
         runnerId: actor.id,
         chaserId: chaser.id,
         startTick: withAction.tick,
-        expireTick: withAction.tick + chaseWindowTicks
+        expireTick: withAction.tick + CHASE_WINDOW_TICKS,
+        autoFleeFailStreak: 0
       }
     }
     return {
@@ -443,7 +463,7 @@ function applySingleCommand(
         runnerId: actor.id,
         chaserId: chaser.id,
         startTick: withAction.tick,
-        expireTick: withAction.tick + chaseWindowTicks
+        expireTick: withAction.tick + CHASE_WINDOW_TICKS
       }),
       applied: true
     }
@@ -600,6 +620,15 @@ function applySingleCommand(
     }),
     applied: false
   }
+}
+
+function isBlockedInPreparation(action: BattleCommand['action']): boolean {
+  return (
+    action === 'basic_attack' ||
+    action === 'cast_skill' ||
+    action === 'dash' ||
+    action === 'flee'
+  )
 }
 
 function ensureSpacingWithOpponent(
@@ -933,25 +962,6 @@ function resolveChaseByTimeout(session: BattleSession): BattleSession {
   const atEscapeEdge = isAtMapEdge(runner.position, session.mapBounds)
   const distanceFromChaser = chaser ? getDistance(runner, chaser) : Number.POSITIVE_INFINITY
   const escapedByDistance = distanceFromChaser >= 3.0
-  if (!atEscapeEdge && !escapedByDistance) {
-    return appendEvent(
-      {
-        ...session,
-        chaseState: {
-          status: 'none'
-        }
-      },
-      'chase_resolved',
-      {
-        type: 'escape_failed',
-        runnerId,
-        chaserId: chaserId || null,
-        expireTick,
-        distance: Number(distanceFromChaser.toFixed(2)),
-        reason: 'escape_condition_not_met'
-      }
-    )
-  }
   const result = runner.team === 'left' ? 'left_win' : 'right_win'
   const withResolved = appendEvent(
     {
@@ -967,7 +977,7 @@ function resolveChaseByTimeout(session: BattleSession): BattleSession {
       runnerId,
       chaserId: chaserId || null,
       expireTick,
-      escapedBy: atEscapeEdge ? 'edge' : 'distance',
+      escapedBy: atEscapeEdge ? 'edge' : escapedByDistance ? 'distance' : 'timeout',
       distance: Number(distanceFromChaser.toFixed(2)),
       result
     }

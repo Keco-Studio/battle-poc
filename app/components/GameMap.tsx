@@ -19,6 +19,7 @@ import DockFeatureModal from './DockFeatureModal'
 import BattleResultOverlay from './map-ui/BattleResultOverlay'
 import InteractionButtons from './map-ui/InteractionButtons'
 import EnemyInfoModal from './map-ui/EnemyInfoModal'
+import { resolveSkillFxProfile, type ProjectileKind } from './map-ui/skillFxProfile'
 import { ENEMY_MESSAGES, actionLabel, reasonLabel, rejectReasonLabel, strategyLabel } from './map-ui/battleText'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
@@ -228,7 +229,7 @@ type MapMoveFx = {
 
 type MapProjectileFx = {
   id: string
-  kind: 'arrow' | 'fireball' | 'arcane_bolt' | 'generic'
+  kind: ProjectileKind
   from: 'player' | 'enemy'
   startX: number
   startY: number
@@ -243,6 +244,15 @@ type MapImpactFx = {
   target: 'player' | 'enemy'
   x: number
   y: number
+}
+
+type CombatAnim = 'idle' | 'attack' | 'cast' | 'hit'
+
+type CombatFxState = {
+  anim: CombatAnim
+  untilMs: number
+  offsetX: number
+  offsetY: number
 }
 
 /** 地图上与战斗同步的格子位移动画时长 */
@@ -497,6 +507,13 @@ export default function GameMap({ game }: Props) {
   const [moveFx, setMoveFx] = useState<MapMoveFx[]>([])
   const [projectileFx, setProjectileFx] = useState<MapProjectileFx[]>([])
   const [impactFx, setImpactFx] = useState<MapImpactFx[]>([])
+  const [playerCombatFx, setPlayerCombatFx] = useState<CombatFxState>({
+    anim: 'idle',
+    untilMs: 0,
+    offsetX: 0,
+    offsetY: 0,
+  })
+  const [enemyCombatFx, setEnemyCombatFx] = useState<Record<number, CombatFxState>>({})
   const projectileTargetByCommandRef = useRef<Record<string, { target: 'player' | 'enemy' }>>({})
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [, setCdUiTick] = useState(0)
@@ -507,6 +524,8 @@ export default function GameMap({ game }: Props) {
       setMoveFx([])
       setProjectileFx([])
       setImpactFx([])
+      setPlayerCombatFx({ anim: 'idle', untilMs: 0, offsetX: 0, offsetY: 0 })
+      setEnemyCombatFx({})
       projectileTargetByCommandRef.current = {}
     }
   }, [showBattle])
@@ -874,31 +893,52 @@ export default function GameMap({ game }: Props) {
       'arrowright',
     ])
 
-    const normalizeKey = (rawKey: unknown): string => {
-      if (typeof rawKey !== 'string') return ''
-      return rawKey.toLowerCase()
+    const CODE_TO_KEY: Record<string, string> = {
+      keyw: 'w',
+      keya: 'a',
+      keys: 's',
+      keyd: 'd',
+      arrowup: 'arrowup',
+      arrowdown: 'arrowdown',
+      arrowleft: 'arrowleft',
+      arrowright: 'arrowright',
+    }
+    const resolveControlKey = (e: KeyboardEvent): string => {
+      const key = typeof e.key === 'string' ? e.key.toLowerCase() : ''
+      if (CONTROL_KEYS.has(key)) return key
+      const code = typeof e.code === 'string' ? e.code.toLowerCase() : ''
+      return CODE_TO_KEY[code] ?? ''
+    }
+    const debugInput = (...args: unknown[]) => {
+      if (typeof window === 'undefined') return
+      if ((window as Window & { __MAP_DEBUG_INPUT__?: boolean }).__MAP_DEBUG_INPUT__) {
+        console.debug('[map-input]', ...args)
+      }
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const key = normalizeKey(e.key)
+      const key = resolveControlKey(e)
       if (!key) return
-      if (!CONTROL_KEYS.has(key)) return
       e.preventDefault()
       if (!(key in keysRef.current)) return
       keysRef.current[key] = true
+      debugInput('keydown', { key: e.key, code: e.code, resolved: key, keys: { ...keysRef.current } })
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      const key = normalizeKey(e.key)
+      const key = resolveControlKey(e)
       if (!key) return
-      if (!CONTROL_KEYS.has(key)) return
       e.preventDefault()
       if (!(key in keysRef.current)) return
       keysRef.current[key] = false
+      debugInput('keyup', { key: e.key, code: e.code, resolved: key, keys: { ...keysRef.current } })
     }
 
     const move = () => {
-      if (showBattle) return
+      if (showBattle) {
+        debugInput('skip:showBattle')
+        return
+      }
 
       const k = keysRef.current
       const dx = (k.d || k.arrowright ? 1 : 0) + (k.a || k.arrowleft ? -1 : 0)
@@ -911,25 +951,42 @@ export default function GameMap({ game }: Props) {
       if (stepDx === 0 && stepDy === 0) return
 
       const now = Date.now()
-      if (now - lastKeyboardMoveAtRef.current < 90) return
+      if (now - lastKeyboardMoveAtRef.current < 90) {
+        debugInput('skip:cooldown')
+        return
+      }
       lastKeyboardMoveAtRef.current = now
 
-      const nx = playerPos.x + stepDx
-      const ny = playerPos.y + stepDy
-      if (!isWalkable(nx, ny)) return
+      const baseX = Math.floor(playerPos.x)
+      const baseY = Math.floor(playerPos.y)
+      const nx = baseX + stepDx
+      const ny = baseY + stepDy
+      if (!isWalkable(nx, ny)) {
+        debugInput('skip:notWalkable', { from: { x: playerPos.x, y: playerPos.y }, to: { x: nx, y: ny } })
+        return
+      }
 
       setPlayerFacing(resolveDirectionByDelta(stepDx, stepDy))
       setPlayerPos({ x: nx, y: ny })
+      debugInput('move', { from: { x: playerPos.x, y: playerPos.y }, to: { x: nx, y: ny } })
     }
 
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     window.addEventListener('keyup', handleKeyUp, { capture: true })
+    const handleBlur = () => {
+      Object.keys(keysRef.current).forEach((k) => {
+        keysRef.current[k] = false
+      })
+      debugInput('blur:reset')
+    }
+    window.addEventListener('blur', handleBlur)
     const intervalId = window.setInterval(move, 130)
 
     return () => {
       window.clearInterval(intervalId)
       window.removeEventListener('keydown', handleKeyDown, { capture: true })
       window.removeEventListener('keyup', handleKeyUp, { capture: true })
+      window.removeEventListener('blur', handleBlur)
     }
   }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos, showBattle])
 
@@ -998,6 +1055,7 @@ export default function GameMap({ game }: Props) {
     setBattleTimeSec(0)
     setLastBattleTickCount(0)
     setFloatTexts([])
+    setBattleLog((prev) => [...prev, '准备阶段开始'])
 
     battleTimerRef.current = null
     cdTimerRef.current = null
@@ -1045,6 +1103,44 @@ export default function GameMap({ game }: Props) {
       }, item.kind === 'dodge' ? 420 : 320)
     }
 
+    const triggerCombatFx = (
+      role: 'player' | 'enemy',
+      anim: CombatAnim,
+      opts?: { toward?: { x: number; y: number }; from?: { x: number; y: number }; durationMs?: number },
+    ) => {
+      const now = Date.now()
+      const durationMs =
+        opts?.durationMs ?? (anim === 'hit' ? 140 : anim === 'cast' ? 210 : anim === 'attack' ? 160 : 0)
+      let offsetX = 0
+      let offsetY = 0
+      if (anim === 'attack' || anim === 'cast') {
+        const tx = opts?.toward?.x ?? 0
+        const ty = opts?.toward?.y ?? 0
+        const len = Math.hypot(tx, ty) || 1
+        const mag = anim === 'attack' ? 0.14 : 0.08
+        offsetX = (tx / len) * mag
+        offsetY = (ty / len) * mag
+      } else if (anim === 'hit') {
+        const fx = opts?.from?.x ?? 0
+        const fy = opts?.from?.y ?? 0
+        const len = Math.hypot(fx, fy) || 1
+        const mag = 0.1
+        offsetX = (fx / len) * mag
+        offsetY = (fy / len) * mag
+      }
+      const nextFx: CombatFxState = {
+        anim,
+        untilMs: now + durationMs,
+        offsetX,
+        offsetY,
+      }
+      if (role === 'player') {
+        setPlayerCombatFx(nextFx)
+      } else if (combatEnemyId !== null) {
+        setEnemyCombatFx((prev) => ({ ...prev, [combatEnemyId]: nextFx }))
+      }
+    }
+
     battleTimerRef.current = window.setInterval(() => setBattleTimeSec((s) => s + 1), 1000)
     cdTimerRef.current = window.setInterval(() => setCdUiTick((n) => n + 1), 150)
 
@@ -1056,26 +1152,41 @@ export default function GameMap({ game }: Props) {
     const runTick = () => {
       const c = mapBattleControllerRef.current
       if (!c || mapBattleEndedRef.current) return
+      const prevPhase = c.session.phase
       const prevPlayerPos = { ...c.session.left.position }
       const prevEnemyPos = { ...c.session.right.position }
 
       const left = c.session.left.resources
       const right = c.session.right.resources
       const leftHpRatio = left.maxHp > 0 ? left.hp / left.maxHp : 1
-      const rightHpRatio = right.maxHp > 0 ? right.hp / right.maxHp : 1
       const hasCombatStarted = c.session.events.some((ev) => ev.type === 'action_executed' || ev.type === 'damage_applied')
+      const latestEnemyDamageToPlayer = [...c.session.events]
+        .reverse()
+        .find(
+          (ev) =>
+            ev.type === 'damage_applied' &&
+            String(ev.payload.actorId ?? '') === c.session.right.id &&
+            String(ev.payload.targetId ?? '') === c.session.left.id
+        )
+      const lastEnemyDamage = latestEnemyDamageToPlayer
+        ? Math.max(0, Number(latestEnemyDamageToPlayer.payload.damage ?? 0))
+        : 0
+      const autoFleeDamageThreshold = Math.max(1, left.hp * 0.1)
       const shouldAutoFlee =
         hasCombatStarted &&
         left.hp > 0 &&
         right.hp > 0 &&
-        leftHpRatio < 0.3 &&
-        rightHpRatio > leftHpRatio &&
+        leftHpRatio <= 0.38 &&
+        lastEnemyDamage > autoFleeDamageThreshold &&
         c.session.chaseState.status !== 'flee_pending'
       if (shouldAutoFlee) {
         autoFleePendingRef.current = true
         if (!autoFleeConsumedMapRef.current) {
           autoFleeConsumedMapRef.current = true
-          setBattleLog((prev) => [...prev, '自动逃跑触发：我方血量低于 30%，且敌方血量占比更高'])
+          setBattleLog((prev) => [
+            ...prev,
+            `自动逃跑触发：敌方单次伤害 ${lastEnemyDamage} 超过当前生命值 10%（阈值 ${Math.floor(autoFleeDamageThreshold)}）`,
+          ])
         }
       } else {
         autoFleeConsumedMapRef.current = false
@@ -1119,6 +1230,9 @@ export default function GameMap({ game }: Props) {
         right: { ...step.session.right, position: snappedRight },
       }
       c.session = s
+      if (prevPhase === 'preparation' && s.phase === 'battle') {
+        setBattleLog((prev) => [...prev, '准备阶段结束'])
+      }
       const evStart = Math.max(0, s.events.length - step.newEventCount)
 
       setPlayerHP(s.left.resources.hp)
@@ -1126,7 +1240,22 @@ export default function GameMap({ game }: Props) {
       setEnemyHP(s.right.resources.hp)
       // 战斗中保留小数坐标，避免位移被整格取整吞掉导致“看起来不动”。
       setPlayerPos({ x: s.left.position.x, y: s.left.position.y })
-      {
+      if (s.phase === 'preparation') {
+        // 准备阶段仅调整朝向：双方相互面向，不改任何坐标。
+        setPlayerFacing(
+          resolveDirectionByDelta(
+            s.right.position.x - s.left.position.x,
+            s.right.position.y - s.left.position.y
+          )
+        )
+        setEnemyFacings((prevFacing) => ({
+          ...prevFacing,
+          [combatEnemyId]: resolveDirectionByDelta(
+            s.left.position.x - s.right.position.x,
+            s.left.position.y - s.right.position.y
+          ),
+        }))
+      } else {
         const pdx = s.left.position.x - prevPlayerPos.x
         const pdy = s.left.position.y - prevPlayerPos.y
         if (pdx * pdx + pdy * pdy > 0.0001) {
@@ -1159,6 +1288,7 @@ export default function GameMap({ game }: Props) {
 
       for (let i = evStart; i < s.events.length; i++) {
         const ev = s.events[i]
+        if (s.phase === 'preparation') continue
         if (ev.type === 'command_received') {
           const commandId = String(ev.payload.commandId ?? '')
           const actorId = typeof ev.payload.actorId === 'string' ? ev.payload.actorId : ''
@@ -1170,16 +1300,39 @@ export default function GameMap({ game }: Props) {
           const action = String(ev.payload.action ?? '')
           const skillId = String(ev.payload.skillId ?? '')
           if (actorRole && targetRole && actorPos && targetPos) {
-            let projectileKind: MapProjectileFx['kind'] | null = null
-            if (action === 'basic_attack' && actorRole === 'player') {
-              projectileKind = 'arrow'
-            } else if (action === 'cast_skill' && skillId === 'fireball') {
-              projectileKind = 'fireball'
-            } else if (action === 'cast_skill' && skillId === 'arcane_bolt') {
-              projectileKind = 'arcane_bolt'
-            } else if (action === 'cast_skill') {
-              projectileKind = 'generic'
+            // 攻击/施法发生时强制对向目标，避免位移后出现背对背出手。
+            if (action === 'basic_attack' || action === 'cast_skill') {
+              triggerCombatFx(actorRole, action === 'cast_skill' ? 'cast' : 'attack', {
+                toward: {
+                  x: targetPos.x - actorPos.x,
+                  y: targetPos.y - actorPos.y,
+                },
+              })
+              const actorFacing = resolveDirectionByDelta(
+                targetPos.x - actorPos.x,
+                targetPos.y - actorPos.y
+              )
+              const targetFacing = resolveDirectionByDelta(
+                actorPos.x - targetPos.x,
+                actorPos.y - targetPos.y
+              )
+              if (actorId === s.left.id) {
+                setPlayerFacing(actorFacing)
+              } else if (actorId === s.right.id) {
+                setEnemyFacings((prevFacing) => ({ ...prevFacing, [combatEnemyId]: actorFacing }))
+              }
+              if (targetId === s.left.id) {
+                setPlayerFacing(targetFacing)
+              } else if (targetId === s.right.id) {
+                setEnemyFacings((prevFacing) => ({ ...prevFacing, [combatEnemyId]: targetFacing }))
+              }
             }
+            const fxProfile = resolveSkillFxProfile({
+              action,
+              skillId,
+              actorRole,
+            })
+            const projectileKind = fxProfile.projectileKind
             if (projectileKind) {
               pushProjectileFx({
                 kind: projectileKind,
@@ -1188,7 +1341,7 @@ export default function GameMap({ game }: Props) {
                 startY: actorPos.y,
                 deltaX: targetPos.x - actorPos.x,
                 deltaY: targetPos.y - actorPos.y,
-                durationMs: projectileKind === 'arrow' ? 300 : 360,
+                durationMs: fxProfile.durationMs,
               })
               if (commandId) {
                 projectileTargetByCommandRef.current[commandId] = { target: targetRole }
@@ -1228,6 +1381,18 @@ export default function GameMap({ game }: Props) {
           const dmg = Math.max(0, Number(ev.payload.damage ?? 0))
           const commandId = String(ev.payload.commandId ?? '')
           const tid = String(ev.payload.targetId ?? '')
+          const actorId = String(ev.payload.actorId ?? '')
+          const actorPos = posByEntityId(actorId)
+          const targetPos = posByEntityId(tid)
+          const targetRole = roleByEntityId(tid)
+          if (targetRole && actorPos && targetPos && dmg > 0) {
+            triggerCombatFx(targetRole, 'hit', {
+              from: {
+                x: targetPos.x - actorPos.x,
+                y: targetPos.y - actorPos.y,
+              },
+            })
+          }
           if (tid === 'poc-player') {
             setBattleLog((prev) => [...prev, `受到 ${dmg} 伤害`])
             if (dmg > 0) {
@@ -1638,13 +1803,25 @@ export default function GameMap({ game }: Props) {
                   const vid = enemy.visualId
                   const plMeta = typeof vid === 'string' && vid.startsWith('pixellab:') ? pixelLabPacks[vid] : undefined
                   const movedAt = enemyLastMoveAt[enemy.id]
+                  const nowMs = Date.now()
+                  const fx = enemyCombatFx[enemy.id]
+                  const activeFx = fx && nowMs < fx.untilMs ? fx : null
                   const isWalking = movedAt !== undefined && Date.now() - movedAt < 480
+                  const animWalking = isWalking || activeFx?.anim === 'attack' || activeFx?.anim === 'cast'
+                  const spriteTransform = activeFx
+                    ? `translate(${(activeFx.offsetX * mapCellDisplayPx).toFixed(1)}px, ${(activeFx.offsetY * mapCellDisplayPx).toFixed(1)}px)`
+                    : undefined
                   if (typeof vid === 'string' && vid.startsWith('pixellab:')) {
                     if (plMeta) {
                       return (
                         <div
                           className="drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
-                          style={pixelLabSheetActorStyle(plMeta, facing, isWalking, walkAnimTick, actorPx)}
+                          style={{
+                            ...pixelLabSheetActorStyle(plMeta, facing, animWalking, walkAnimTick, actorPx),
+                            transform: spriteTransform,
+                            transition: 'transform 110ms ease-out',
+                            filter: activeFx?.anim === 'hit' ? 'brightness(1.28) saturate(1.18)' : undefined,
+                          }}
                           role="img"
                           aria-label={enemy.name}
                         />
@@ -1668,10 +1845,17 @@ export default function GameMap({ game }: Props) {
                     chase?.status === 'flee_pending'
                   return (
                     <img
-                      src={isFleePending ? toEnemyRunningFramePath(facing, walkAnimTick) : toEnemyWalkFramePath(facing, walkAnimTick)}
+                      src={isFleePending ? toEnemyRunningFramePath(facing, walkAnimTick) : animWalking ? toEnemyWalkFramePath(facing, walkAnimTick) : toEnemyIdlePngPath(facing)}
                       alt={enemy.name}
                       className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
-                      style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
+                      style={{
+                        width: actorPx,
+                        height: actorPx,
+                        imageRendering: 'pixelated',
+                        transform: spriteTransform,
+                        transition: 'transform 110ms ease-out, filter 90ms ease-out',
+                        filter: activeFx?.anim === 'hit' ? 'brightness(1.24) saturate(1.18)' : undefined,
+                      }}
                       onError={(e) => {
                         const target = e.currentTarget
                         target.onerror = null
@@ -1701,47 +1885,68 @@ export default function GameMap({ game }: Props) {
               willChange: 'left, top',
             }}
           >
-            {playerVisualId.startsWith('pixellab:') ? (
-              pixelLabPacks[playerVisualId] ? (
-                <div
+            {(() => {
+              const nowMs = Date.now()
+              const activeFx = nowMs < playerCombatFx.untilMs ? playerCombatFx : null
+              const isAnimMove = Date.now() - playerLastMoveAt < 480 || activeFx?.anim === 'attack' || activeFx?.anim === 'cast'
+              const spriteTransform = activeFx
+                ? `translate(${(activeFx.offsetX * mapCellDisplayPx).toFixed(1)}px, ${(activeFx.offsetY * mapCellDisplayPx).toFixed(1)}px)`
+                : undefined
+              if (playerVisualId.startsWith('pixellab:')) {
+                return pixelLabPacks[playerVisualId] ? (
+                  <div
+                    className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+                    style={{
+                      ...pixelLabSheetActorStyle(
+                        pixelLabPacks[playerVisualId]!,
+                        playerFacing,
+                        isAnimMove,
+                        walkAnimTick,
+                        actorPx,
+                      ),
+                      transform: spriteTransform,
+                      transition: 'transform 110ms ease-out, filter 90ms ease-out',
+                      filter: activeFx?.anim === 'hit' ? 'brightness(1.28) saturate(1.2)' : undefined,
+                    }}
+                    role="img"
+                    aria-label="你"
+                  />
+                ) : (
+                  <div
+                    className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
+                    style={mapCharacterIdleStyle(playerVisualId, actorPx)}
+                    role="img"
+                    aria-label="你"
+                  />
+                )
+              }
+              return (
+                <img
+                  src={
+                    mapBattleControllerRef.current?.session.chaseState.status === 'flee_pending'
+                      ? toPlayerRunningFramePath(playerFacing, walkAnimTick)
+                      : isAnimMove
+                        ? toPlayerWalkFramePath(playerFacing, walkAnimTick)
+                        : toPlayerIdlePngPath(playerFacing)
+                  }
+                  alt="你"
                   className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-                  style={pixelLabSheetActorStyle(
-                    pixelLabPacks[playerVisualId]!,
-                    playerFacing,
-                    Date.now() - playerLastMoveAt < 480,
-                    walkAnimTick,
-                    actorPx,
-                  )}
-                  role="img"
-                  aria-label="你"
-                />
-              ) : (
-                <div
-                  className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-                  style={mapCharacterIdleStyle(playerVisualId, actorPx)}
-                  role="img"
-                  aria-label="你"
+                  style={{
+                    width: actorPx,
+                    height: actorPx,
+                    imageRendering: 'pixelated',
+                    transform: spriteTransform,
+                    transition: 'transform 110ms ease-out, filter 90ms ease-out',
+                    filter: activeFx?.anim === 'hit' ? 'brightness(1.24) saturate(1.2)' : undefined,
+                  }}
+                  onError={(e) => {
+                    const target = e.currentTarget
+                    target.onerror = null
+                    target.src = toPlayerIdlePngPath(playerFacing)
+                  }}
                 />
               )
-            ) : (
-              <img
-                src={
-                  mapBattleControllerRef.current?.session.chaseState.status === 'flee_pending'
-                    ? toPlayerRunningFramePath(playerFacing, walkAnimTick)
-                    : Date.now() - playerLastMoveAt < 480
-                      ? toPlayerWalkFramePath(playerFacing, walkAnimTick)
-                      : toPlayerIdlePngPath(playerFacing)
-                }
-                alt="你"
-                className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
-                style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
-                onError={(e) => {
-                  const target = e.currentTarget
-                  target.onerror = null
-                  target.src = toPlayerIdlePngPath(playerFacing)
-                }}
-              />
-            )}
+            })()}
             <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
               你
             </div>
@@ -1763,7 +1968,13 @@ export default function GameMap({ game }: Props) {
                       ? 'oc-projectile-fireball'
                       : fx.kind === 'arcane_bolt'
                         ? 'oc-projectile-arcane'
-                        : 'oc-projectile-generic'
+                        : fx.kind === 'frost'
+                          ? 'oc-projectile-frost'
+                          : fx.kind === 'slash'
+                            ? 'oc-projectile-slash'
+                            : fx.kind === 'support'
+                              ? 'oc-projectile-support'
+                              : 'oc-projectile-generic'
                 return (
                   <span
                     key={fx.id}
@@ -1960,7 +2171,7 @@ export default function GameMap({ game }: Props) {
       {/* 大地图战斗：无跳转、无全屏遮罩；仅底部一条操作条 + 结算卡片（不铺幕布） */}
       {showBattle && (
         <>
-          <div className="pointer-events-auto fixed bottom-20 left-1/2 z-30 w-[min(560px,calc(100vw-1rem))] -translate-x-1/2 rounded-xl border border-amber-500/60 bg-slate-900/95 px-2 py-2 shadow-xl">
+          <div className="pointer-events-auto fixed bottom-4 left-4 z-30 flex h-[clamp(320px,58vh,560px)] w-[clamp(240px,28vw,380px)] flex-col rounded-xl border border-amber-500/60 bg-slate-900/95 px-2 py-2 shadow-xl">
             <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 text-[11px] text-amber-100">
               <span className="font-semibold">战斗中 · battle-core session</span>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -2049,10 +2260,15 @@ export default function GameMap({ game }: Props) {
                 <div className="text-slate-500">射程: {hoveredSkill.range ?? '-'}（保留）</div>
               </div>
             )}
-            <div className="mt-1 max-h-16 overflow-y-auto border-t border-white/10 px-1 pt-1 text-[10px] leading-snug text-slate-300">
-              {battleLog.slice(-8).map((log, idx) => (
-                <div key={idx}>{log}</div>
-              ))}
+            <div className="mt-2 min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-black/45 px-2 py-1.5">
+              <div className="mb-1 border-b border-white/10 pb-1 text-[11px] font-semibold text-slate-200">战斗日志</div>
+              <div className="h-[calc(100%-1.5rem)] overflow-y-auto pr-1 text-[11px] leading-snug text-slate-300">
+                {battleLog.length === 0 ? (
+                  <div className="text-slate-500">等待战斗事件...</div>
+                ) : (
+                  battleLog.map((log, idx) => <div key={idx}>{log}</div>)
+                )}
+              </div>
             </div>
           </div>
 

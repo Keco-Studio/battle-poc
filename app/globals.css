@@ -483,6 +483,30 @@ body {
   box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
 }
 
+.oc-projectile-frost {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(224, 242, 254, 1) 0%, rgba(125, 211, 252, 0.95) 55%, rgba(59, 130, 246, 0.82) 100%);
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.7);
+}
+
+.oc-projectile-slash {
+  width: 22px;
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(254, 243, 199, 0.96) 0%, rgba(248, 113, 113, 0.92) 100%);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.62);
+}
+
+.oc-projectile-support {
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(209, 250, 229, 1) 0%, rgba(52, 211, 153, 0.95) 58%, rgba(5, 150, 105, 0.86) 100%);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.68);
+}
+
 @keyframes impact-hit {
   0% {
     opacity: 0.95;

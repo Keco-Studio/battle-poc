@@ -4,6 +4,7 @@ export type BattleTick = number
 
 export type BattleTeam = 'left' | 'right'
 export type BattleResult = 'ongoing' | 'left_win' | 'right_win' | 'draw' | 'fled'
+export type BattlePhase = 'preparation' | 'battle'
 
 export type BattleActionType =
   | 'basic_attack'
