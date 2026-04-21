@@ -201,12 +201,16 @@ export class MapBattleController {
       preferredRange,
     })
 
+    // 近战贴脸且未到敌方「普攻节奏」窗口时整段跳过（沿用原意）；远程技能必须与 nextEnemyDue 对齐，
+    // 否则在 gcd 窗口内仍会每技能冷却 tick 射一箭，日志与体感都会刷屏。
     if (executeAtTick < this.nextEnemyDue && dist <= MELEE_RANGE + 0.2) return
-    if (executeAtTick >= this.nextEnemyDue) {
-      this.nextEnemyDue = executeAtTick + this.enemyInterval
-    }
 
-    if (canUseFrost && dist <= frostRange + RANGE_BUFFER && targetHpRatio > 0.15) {
+    if (
+      canUseFrost &&
+      executeAtTick >= this.nextEnemyDue &&
+      dist <= frostRange + RANGE_BUFFER &&
+      targetHpRatio > 0.15
+    ) {
       const cmd: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -217,10 +221,11 @@ export class MapBattleController {
         skillId: 'frost_lock',
       }
       this.enqueueIntentCommand(cmd, mode, 'enemy_cast_control')
+      this.nextEnemyDue = executeAtTick + this.enemyInterval
       return
     }
 
-    if (canUseBolt && dist <= boltRange + RANGE_BUFFER) {
+    if (canUseBolt && executeAtTick >= this.nextEnemyDue && dist <= boltRange + RANGE_BUFFER) {
       const cmd: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -231,6 +236,7 @@ export class MapBattleController {
         skillId: 'arcane_bolt',
       }
       this.enqueueIntentCommand(cmd, mode, 'enemy_cast_burst')
+      this.nextEnemyDue = executeAtTick + this.enemyInterval
       return
     }
 
@@ -335,7 +341,7 @@ export class MapBattleController {
       // 仍远离且无法沿直线接近：本 tick 不出手，避免 basic_attack 超距被拒刷屏
       return
     }
-    if (dist <= MELEE_RANGE + RANGE_BUFFER) {
+    if (dist <= MELEE_RANGE + RANGE_BUFFER && executeAtTick >= this.nextEnemyDue) {
       const cmd: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -345,6 +351,7 @@ export class MapBattleController {
         targetId: target.id,
       }
       this.enqueueIntentCommand(cmd, mode, 'enemy_basic_attack')
+      this.nextEnemyDue = executeAtTick + this.enemyInterval
     }
   }
 
@@ -378,7 +385,12 @@ export class MapBattleController {
       distance: dist,
       preferredRange,
     })
-    const inPreferredRange = dist <= preferredRange + RANGE_BUFFER
+    // 必须与 command-processor 中 basic_attack 的射程一致（>1.6 会 command_rejected），
+    // 不能用 MELEE_RANGE+BUFFER 误判“已在普攻射程内”，否则会在 1.6~1.8 反复入队普攻刷屏。
+    const inPreferredRange =
+      selectedSkill?.action === 'cast_skill' && selectedSkill.coreSkillId
+        ? dist <= preferredRange + RANGE_BUFFER
+        : dist <= MELEE_RANGE
 
     if (!inPreferredRange) {
       const approachRange = mode === 'aggressive_finish' ? MELEE_RANGE : preferredRange
@@ -427,8 +439,13 @@ export class MapBattleController {
       return
     }
 
-    // 玩家处于风筝策略时，若贴得太近则优先后撤再打。
-    if (mode === 'kite_and_cast' && dist < Math.max(MELEE_RANGE + 0.4, preferredRange - 1.2)) {
+    // 玩家处于风筝策略时，若贴得太近则优先后撤再打。若本 tick 已手选技能且已在理想射程内，勿每 tick 后撤，
+    // 否则会与技能施放分支死锁（看起来「不动」），并与敌方走位叠加成左右抖动。
+    if (
+      !playerHasManualQueuedSkill &&
+      mode === 'kite_and_cast' &&
+      dist < Math.max(MELEE_RANGE + 0.4, preferredRange - 1.2)
+    ) {
       const rawTx = computeRetreatX({
         actorX: actor.position.x,
         actorTeam: actor.team,
@@ -462,6 +479,10 @@ export class MapBattleController {
     this.nextPlayerDue = executeAtTick + this.playerInterval
 
     if (!selectedSkill || chosen === BASIC_ATTACK.id || !action) {
+      // 与引擎 basic_attack 判定一致；避免「位移差一点仍 >1.6」时入队普攻被拒刷屏
+      if (dist > MELEE_RANGE) {
+        return
+      }
       const cmd: BattleCommand = {
         commandId: newCommandId(),
         sessionId: this.session.id,
@@ -502,15 +523,17 @@ export class MapBattleController {
         skillId: selectedSkill.coreSkillId,
       }
       this.enqueueIntentCommand(cmd, mode, 'player_cast_skill')
-      if (selectedSkill.cooldownTicks > 0) {
-        input.onSkillCooldown?.(selectedSkill.id, cooldownMsFromTicks(selectedSkill.cooldownTicks))
-      }
-      input.onClearQueuedSkill?.()
+      // 冷却在 GameMap 于 action_executed(cast_skill) 时再写 UI，避免入队后遭拒绝仍进入冷却
+      // 不在入队时清空 nextAttackSkillId：拒绝时由 GameMap 清队列；成功施放亦在 action_executed 时清空
       return
     }
 
     // 兜底：技能条里可能存在当前 map-battle 不可执行的条目（无 coreSkillId 或 action 不匹配）。
     // 若直接 return 会导致 nextAttackSkillId 长期不清空，玩家回合持续空转“看起来打不出伤害”。
+    if (dist > MELEE_RANGE) {
+      input.onClearQueuedSkill?.()
+      return
+    }
     const fallback: BattleCommand = {
       commandId: newCommandId(),
       sessionId: this.session.id,

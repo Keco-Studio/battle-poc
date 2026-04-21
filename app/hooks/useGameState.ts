@@ -75,6 +75,15 @@ export const DOCK_PANEL_IDS = [
 ] as const
 export type DockPanelId = (typeof DOCK_PANEL_IDS)[number]
 
+/** 自动化任务类型 */
+export type AutomationMode =
+  | { kind: 'repeat_battle'; remaining: number }
+  | { kind: 'flee_if_low_hp'; threshold: number }
+  | { kind: 'wait_full_hp' }
+  | { kind: 'farm_til_death' }
+  | { kind: 'auto_mode' }
+  | { kind: 'kill_count'; remaining: number; killed: number }
+
 /** 大地图开战时的双方网格锚点（对齐 battle-core 实体坐标） */
 export type BattleGridAnchor = {
   player: { x: number; y: number }
@@ -225,6 +234,9 @@ export function useGameState() {
   const [gainedExp, setGainedExp] = useState(0)
   const [gainedGold, setGainedGold] = useState(0)
   const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('archer', 6))
+
+  /** 自动化任务状态 */
+  const [automationTask, setAutomationTask] = useState<AutomationMode | null>(null)
 
   // 基础属性
   const playerStats = calcPlayerStats(playerLevel)
@@ -561,6 +573,117 @@ export function useGameState() {
     pushChatMessage(text, false)
   }, [pushChatMessage])
 
+  /** 解析自动化指令，返回任务或null */
+  const parseAutomationCommand = useCallback((text: string): AutomationMode | null => {
+    const t = text.trim()
+    // 停止/取消
+    if (/^(停止|取消|end|stop|cancel)$/i.test(t)) {
+      return null
+    }
+    // 自动模式
+    if (/自动模式|auto/i.test(t)) {
+      return { kind: 'auto_mode' }
+    }
+    // 刷钱刷经验（死则重试，不逃）
+    if (/刷钱刷经验/.test(t)) {
+      return { kind: 'farm_til_death' }
+    }
+    // 满血了再打
+    if (/满血了再打/.test(t)) {
+      return { kind: 'wait_full_hp' }
+    }
+    // 打不过就跑
+    if (/打不过就/.test(t)) {
+      // 提取自定义阈值
+      const customThreshold = t.match(/(\d+)%/)
+      const threshold = customThreshold ? Number(customThreshold[1]) / 100 : 0.2
+      return { kind: 'flee_if_low_hp', threshold }
+    }
+    // 设置逃跑线50%
+    const fleeThresholdMatch = t.match(/逃跑线(\d+)%/)
+    if (fleeThresholdMatch) {
+      return { kind: 'flee_if_low_hp', threshold: Number(fleeThresholdMatch[1]) / 100 }
+    }
+    // 连续战斗5次 / 打5场 / 战斗5次
+    const repeatMatch = t.match(/(?:连续)?战斗(\d+)(?:次)?/)
+    if (repeatMatch) {
+      return { kind: 'repeat_battle', remaining: Number(repeatMatch[1]) }
+    }
+    // 刷5个怪
+    const killMatch = t.match(/刷(\d+)个?怪/)
+    if (killMatch) {
+      return { kind: 'kill_count', remaining: Number(killMatch[1]), killed: 0 }
+    }
+    return null
+  }, [])
+
+  /** 根据自动化任务判断是否应该逃跑 */
+  const shouldAutoFleeForAutomation = useCallback((currentHp: number, maxHp: number): boolean => {
+    if (!automationTask) return false
+    if (automationTask.kind === 'flee_if_low_hp') {
+      return currentHp / maxHp < automationTask.threshold
+    }
+    return false
+  }, [automationTask])
+
+  /** 根据自动化任务判断是否等待满血 */
+  const shouldWaitFullHpForAutomation = useCallback((): boolean => {
+    return automationTask?.kind === 'wait_full_hp' && playerHP < totalStats.maxHp
+  }, [automationTask, playerHP, totalStats.maxHp])
+
+  /** 处理自动化任务步进，战斗结束后调用，返回是否应继续下一场 */
+  const processAutomationAfterBattle = useCallback((battleResult: 'win' | 'lose' | null): { continue: boolean; message?: string } => {
+    if (!automationTask) return { continue: false }
+
+    switch (automationTask.kind) {
+      case 'auto_mode':
+        return { continue: true }
+
+      case 'repeat_battle': {
+        const next = automationTask.remaining - 1
+        if (next <= 0) {
+          return { continue: false, message: `已完成 ${automationTask.remaining} 场战斗` }
+        }
+        setAutomationTask({ kind: 'repeat_battle', remaining: next })
+        return { continue: true }
+      }
+
+      case 'kill_count': {
+        if (battleResult === 'win') {
+          const nextKilled = automationTask.killed + 1
+          if (nextKilled >= automationTask.remaining) {
+            return { continue: false, message: `已击杀 ${nextKilled} 个敌人` }
+          }
+          setAutomationTask({ kind: 'kill_count', remaining: automationTask.remaining, killed: nextKilled })
+        }
+        return { continue: true }
+      }
+
+      case 'farm_til_death':
+        // 死了就重试，赢了继续
+        return { continue: true }
+
+      case 'flee_if_low_hp':
+        // 只在战斗前检查，战斗结束后不处理，继续下一场
+        return { continue: true }
+
+      case 'wait_full_hp':
+        // 每场结束后检查血量
+        if (playerHP >= totalStats.maxHp) {
+          return { continue: true }
+        }
+        return { continue: false, message: '血量未满，等待回复' }
+
+      default:
+        return { continue: false }
+    }
+  }, [automationTask, playerHP, totalStats.maxHp])
+
+  /** 取消自动化任务 */
+  const cancelAutomation = useCallback(() => {
+    setAutomationTask(null)
+  }, [])
+
   // 免费回复满血
   const healWithGold = useCallback(() => {
     if (playerHP < totalStats.maxHp) {
@@ -588,6 +711,7 @@ export function useGameState() {
     dismissFleeSuccessMessage,
     battleGridAnchor,
     battleSessionNonce,
+    setBattleSessionNonce,
     battleLootDrop,
     combatEnemyId,
     // 装备
@@ -679,6 +803,14 @@ export function useGameState() {
     healWithGold,
     completeMapBattleVictory,
     completeMapBattleDefeat,
+    // 自动化
+    automationTask,
+    setAutomationTask,
+    parseAutomationCommand,
+    shouldAutoFleeForAutomation,
+    shouldWaitFullHpForAutomation,
+    processAutomationAfterBattle,
+    cancelAutomation,
   }
 }
 
