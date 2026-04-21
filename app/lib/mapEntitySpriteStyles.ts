@@ -8,11 +8,21 @@ const CHAR_SHEET_W = 768
 const CHAR_SHEET_H = 256
 
 export function mapCharacterIdleStyle(visualId: MapCharacterVisualId, displaySize: number): CSSProperties {
-  const url = visualId.startsWith('pixellab:')
-    ? `/assets/characters/${encodeURIComponent(visualId.slice('pixellab:'.length))}.png`
-    : visualId === 'warriorBlue'
-      ? '/characters/Warrior-Blue.png'
-      : '/characters/Archer-Green.png'
+  if (visualId.startsWith('pixellab:')) {
+    const slug = visualId.slice('pixellab:'.length)
+    const url = `/assets/characters/${encodeURIComponent(slug)}.png`
+    return {
+      width: displaySize,
+      height: displaySize,
+      backgroundImage: `url("${url}")`,
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: 'contain',
+      backgroundPosition: 'center',
+      imageRendering: 'pixelated',
+    }
+  }
+  const url =
+    visualId === 'warriorBlue' ? '/characters/Warrior-Blue.png' : '/characters/Archer-Green.png'
   const scale = displaySize / CHAR_FRAME
   return {
     width: displaySize,

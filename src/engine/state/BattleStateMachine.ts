@@ -44,7 +44,7 @@ export class BattleStateMachine {
       const target = this.actors.find(a => a.side === targetSide && a.stats.hp > 0);
       if (!target) continue;
 
-      const { damage } = calcDamage(actor, target, this.rng, {});
+      const { damage } = calcDamage(actor, target, this.rng, undefined);
       target.stats.hp = Math.max(0, target.stats.hp - damage);
     }
   }
