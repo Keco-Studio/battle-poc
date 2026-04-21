@@ -7,7 +7,9 @@ import {
   INTERACTION_RANGE,
   BASIC_ATTACK,
   getSkillById,
+  cooldownMsFromTicks,
   createEnemyEncounter,
+  getBattleRewards,
   type Skill,
   type Enemy,
   type MapCharacterVisualId,
@@ -305,6 +307,7 @@ export default function GameMap({ game }: Props) {
     enemyPreview,
     battleGridAnchor,
     battleSessionNonce,
+    setBattleSessionNonce,
     enemyCombatStats,
     enemyHP,
     setEnemyHP,
@@ -318,18 +321,30 @@ export default function GameMap({ game }: Props) {
     setBattleLog,
     isGameOver,
     setIsDefending,
+    setIsGameOver,
+    setBattleResult,
+    setBattleRound,
     battleResult,
     gainedExp,
+    setGainedExp,
     gainedGold,
+    setGainedGold,
     getAvailableSkills,
     finalizeMapBattleFleeSuccess,
     closeBattle,
     completeMapBattleVictory,
     completeMapBattleDefeat,
     battleLootDrop,
+    tryLevelUp,
     combatEnemyId,
+    enemyLevel,
     setEnemyLevel,
     setEnemyCombatStats,
+    setPlayerExp,
+    setPlayerGold,
+    automationTask,
+    processAutomationAfterBattle,
+    cancelAutomation,
   } = game
 
   const dockItems: {
@@ -491,6 +506,13 @@ export default function GameMap({ game }: Props) {
   const mapBattleEndedRef = useRef(false)
   const nextAttackSkillRef = useRef<string | null>(null)
   nextAttackSkillRef.current = nextAttackSkillId
+  /** 自动化模式中：不弹胜利/失败结算，直接继续下一场 */
+  const automationModeRef = useRef(false)
+  automationModeRef.current = !!automationTask
+  /** 战斗 timer ID（用于自动化重启时清理） */
+  const battleTimerRef = useRef<number | null>(null)
+  const cdTimerRef = useRef<number | null>(null)
+  const tickTimeoutRef = useRef<number | null>(null)
 
   const [battleTimeSec, setBattleTimeSec] = useState(0)
   /** 结算用：battle-core 已推进的 tick（墙钟不足 1s 时仍可读） */
@@ -946,6 +968,8 @@ export default function GameMap({ game }: Props) {
       mapBattleControllerRef.current = null
       return
     }
+    // 重置结束标记，确保新战斗的 runTick 能正常推进
+    mapBattleEndedRef.current = false
 
     const battleEnemy = enemies.find((e) => e.id === combatEnemyId)
     if (!battleEnemy) {
@@ -1002,14 +1026,17 @@ export default function GameMap({ game }: Props) {
     setLastBattleTickCount(0)
     setFloatTexts([])
 
-    let battleTimer = 0
-    let cdTimer = 0
-    let tickTimeout: number | undefined
+    battleTimerRef.current = null
+    cdTimerRef.current = null
+    tickTimeoutRef.current = null
 
     const clearTimers = () => {
-      window.clearInterval(battleTimer)
-      window.clearInterval(cdTimer)
-      if (tickTimeout !== undefined) window.clearTimeout(tickTimeout)
+      if (battleTimerRef.current !== null) window.clearInterval(battleTimerRef.current)
+      if (cdTimerRef.current !== null) window.clearInterval(cdTimerRef.current)
+      if (tickTimeoutRef.current !== null) window.clearTimeout(tickTimeoutRef.current)
+      battleTimerRef.current = null
+      cdTimerRef.current = null
+      tickTimeoutRef.current = null
     }
 
     const pushFloat = (item: Omit<MapFloatText, 'id'>) => {
@@ -1045,11 +1072,12 @@ export default function GameMap({ game }: Props) {
       }, item.kind === 'dodge' ? 420 : 320)
     }
 
-    battleTimer = window.setInterval(() => setBattleTimeSec((s) => s + 1), 1000)
-    cdTimer = window.setInterval(() => setCdUiTick((n) => n + 1), 150)
+    battleTimerRef.current = window.setInterval(() => setBattleTimeSec((s) => s + 1), 1000)
+    cdTimerRef.current = window.setInterval(() => setCdUiTick((n) => n + 1), 150)
 
     const scheduleTick = () => {
-      tickTimeout = window.setTimeout(runTick, BASE_BATTLE_TICK_MS / battleSpeedRef.current)
+      if (tickTimeoutRef.current !== null) window.clearTimeout(tickTimeoutRef.current)
+      tickTimeoutRef.current = window.setTimeout(runTick, BASE_BATTLE_TICK_MS / battleSpeedRef.current)
     }
 
     const runTick = () => {
@@ -1206,6 +1234,23 @@ export default function GameMap({ game }: Props) {
           if (reason && reason !== head) parts.push(`· ${reason}`)
           setBattleLog((prev) => [...prev, parts.join(' ')])
         }
+        if (ev.type === 'action_executed') {
+          const actorId = String(ev.payload.actorId ?? '')
+          const action = String(ev.payload.action ?? '')
+          if (actorId === s.left.id && action === 'cast_skill') {
+            setNextAttackSkillId(null)
+            const coreId = String(ev.payload.skillId ?? '')
+            if (coreId) {
+              const appSkill = getAvailableSkills().find((sk) => sk.coreSkillId === coreId)
+              if (appSkill && appSkill.cooldownTicks > 0) {
+                setSkillCooldownEndAt((prev) => ({
+                  ...prev,
+                  [appSkill.id]: Date.now() + cooldownMsFromTicks(appSkill.cooldownTicks),
+                }))
+              }
+            }
+          }
+        }
         if (ev.type === 'damage_applied') {
           const dmg = Math.max(0, Number(ev.payload.damage ?? 0))
           const commandId = String(ev.payload.commandId ?? '')
@@ -1246,7 +1291,10 @@ export default function GameMap({ game }: Props) {
         if (ev.type === 'chase_started') {
           const st = typeof ev.payload.startTick === 'number' ? ev.payload.startTick : '?'
           const ex = typeof ev.payload.expireTick === 'number' ? ev.payload.expireTick : '?'
-          setBattleLog((prev) => [...prev, `追逐开始：${st}→${ex} tick，被追上则败、抵达边缘或拉开≥3.0 则胜`])
+          setBattleLog((prev) => [
+            ...prev,
+            `追逐开始：${st}→${ex} tick，被追上则逃脱失败（战斗继续）、抵达边缘或拉开≥3.0 则逃脱成功`,
+          ])
         }
         if (ev.type === 'chase_resolved') {
           const typ = ev.payload.type
@@ -1263,6 +1311,27 @@ export default function GameMap({ game }: Props) {
           const reason = String(ev.payload.reason ?? '')
           const actorId = String(ev.payload.actorId ?? '')
           const commandId = String(ev.payload.commandId ?? '')
+          const payloadSkillId =
+            ev.payload.skillId !== undefined && ev.payload.skillId !== null
+              ? String(ev.payload.skillId)
+              : ''
+          if (actorId === s.left.id && reason !== 'flee_failed') {
+            const clearQueuedSkill =
+              payloadSkillId.length > 0 ||
+              [
+                'target_out_of_range',
+                'not_enough_mp',
+                'skill_on_cooldown',
+                'not_enough_stamina',
+                'skill_not_equipped',
+                'skill_not_found',
+                'missing_skill_id',
+                'target_not_found',
+              ].includes(reason)
+            if (clearQueuedSkill) {
+              setNextAttackSkillId(null)
+            }
+          }
           if (reason === 'target_dodged') {
             const dodgedRole = commandId ? projectileTargetByCommandRef.current[commandId]?.target : undefined
             if (dodgedRole) {
@@ -1295,28 +1364,65 @@ export default function GameMap({ game }: Props) {
       mapBattleControllerRef.current = null
       setLastBattleTickCount(Math.max(0, s.tick))
 
-      if (ui === 'win') {
-        pendingRespawnEnemyIdRef.current = combatEnemyId
-        completeMapBattleVictory('战斗胜利！')
-      } else if (ui === 'lose') {
-        completeMapBattleDefeat()
-      } else if (ui === 'fled') {
-        const p0 = { x: Math.round(s.left.position.x), y: Math.round(s.left.position.y) }
-        const e0 = { x: Math.round(s.right.position.x), y: Math.round(s.right.position.y) }
-        const sep = disengageGridPositions(
-          p0,
-          e0,
-          mapInfo.width,
-          mapInfo.height,
-          (gx, gy, role) =>
-            role === 'playerStep'
-              ? isWalkable(gx, gy, { ignoreEnemyIds: combatEnemyId != null ? [combatEnemyId] : [] })
-              : isWalkable(gx, gy, { ignorePlayerOnCell: { x: Math.round(p0.x), y: Math.round(p0.y) } }),
-        )
-        setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
-        setPlayerPos(sep.player)
-        setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
-        finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
+      // 处理自动化任务
+      const battleOutcome: 'win' | 'lose' | null = ui === 'win' ? 'win' : ui === 'lose' ? 'lose' : null
+      const automationResult = processAutomationAfterBattle(battleOutcome)
+
+      if (automationResult.message) {
+        setBattleLog((prev) => [...prev, automationResult.message!])
+      }
+
+      if (automationResult.continue) {
+        // 自动化模式：弹结算UI，但用 useEffect 自动点 Continue
+        if (ui === 'win') {
+          pendingRespawnEnemyIdRef.current = combatEnemyId
+          completeMapBattleVictory('战斗胜利！')
+        } else if (ui === 'lose') {
+          completeMapBattleDefeat()
+        } else if (ui === 'fled') {
+          const p0 = { x: Math.round(s.left.position.x), y: Math.round(s.left.position.y) }
+          const e0 = { x: Math.round(s.right.position.x), y: Math.round(s.right.position.y) }
+          const sep = disengageGridPositions(
+            p0,
+            e0,
+            mapInfo.width,
+            mapInfo.height,
+            (gx, gy, role) =>
+              role === 'playerStep'
+                ? isWalkable(gx, gy, { ignoreEnemyIds: combatEnemyId != null ? [combatEnemyId] : [] })
+                : isWalkable(gx, gy, { ignorePlayerOnCell: { x: Math.round(p0.x), y: Math.round(p0.y) } }),
+          )
+          setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
+          setPlayerPos(sep.player)
+          setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
+          finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
+        }
+      } else {
+        // 非自动化模式：正常弹结算UI
+        if (ui === 'win') {
+          pendingRespawnEnemyIdRef.current = combatEnemyId
+          completeMapBattleVictory('战斗胜利！')
+        } else if (ui === 'lose') {
+          completeMapBattleDefeat()
+        } else if (ui === 'fled') {
+          const p0 = { x: Math.round(s.left.position.x), y: Math.round(s.left.position.y) }
+          const e0 = { x: Math.round(s.right.position.x), y: Math.round(s.right.position.y) }
+          const sep = disengageGridPositions(
+            p0,
+            e0,
+            mapInfo.width,
+            mapInfo.height,
+            (gx, gy, role) =>
+              role === 'playerStep'
+                ? isWalkable(gx, gy, { ignoreEnemyIds: combatEnemyId != null ? [combatEnemyId] : [] })
+                : isWalkable(gx, gy, { ignorePlayerOnCell: { x: Math.round(p0.x), y: Math.round(p0.y) } }),
+          )
+          setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
+          setPlayerPos(sep.player)
+          setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
+          finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
+        }
+        cancelAutomation()
       }
     }
 
@@ -1355,6 +1461,15 @@ export default function GameMap({ game }: Props) {
     setNearbyEnemy(found || null)
     setShowInteraction(!!found)
   }, [playerPos, enemies, enemyPositions, setNearbyEnemy, setShowInteraction, playerLevel, showBattle])
+
+  /** 自动化：检测到附近敌人时自动开始战斗 */
+  useEffect(() => {
+    if (!automationTask) return
+    if (showBattle) return
+    if (!nearbyEnemy) return
+    const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
+    startBattle({ player: { ...playerPos }, enemy: { ...ep } })
+  }, [automationTask, showBattle, nearbyEnemy, enemyPositions, playerPos, startBattle])
 
   /** 击败后保留同一 id，换名/换属性/换出生点，相当于野点刷新 */
   const respawnDefeatedEnemy = useCallback(
@@ -1430,6 +1545,15 @@ export default function GameMap({ game }: Props) {
     }
     closeBattle()
   }, [closeBattle, respawnDefeatedEnemy, setEnemyPositions, setPlayerPos])
+
+  /** 自动化：结算页面出现时，自动点击 Continue */
+  const prevIsGameOverRef = useRef(false)
+  useEffect(() => {
+    if (isGameOver && automationTask && !prevIsGameOverRef.current) {
+      finishBattleAndClose()
+    }
+    prevIsGameOverRef.current = isGameOver
+  }, [isGameOver, automationTask, finishBattleAndClose])
 
   const queueSkill = useCallback(
     (skill: Skill) => {

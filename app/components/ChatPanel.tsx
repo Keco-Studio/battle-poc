@@ -24,6 +24,15 @@ const BOT_MESSAGES = [
 
 const QUICK_PROMPTS = ['What are you building?', 'Tell me your skills', 'How do you use your claw?']
 
+const AUTO_COMMANDS = [
+  { label: '连续战斗5次', cmd: '连续战斗5次' },
+  { label: '连续战斗10次', cmd: '连续战斗10次' },
+  { label: '打不过就跑', cmd: '打不过就跑' },
+  { label: '刷钱刷经验', cmd: '刷钱刷经验' },
+  { label: '自动模式', cmd: '自动模式' },
+  { label: '停止', cmd: '停止' },
+]
+
 /** 绿色像素机器人头像占位（Engineer Bolt）*/
 function BotAvatar({ size = 28 }: { size?: number }) {
   return (
@@ -62,7 +71,7 @@ function BotAvatar({ size = 28 }: { size?: number }) {
 }
 
 export default function ChatPanel({ game, embedded = false }: Props) {
-  const { chatMessages, sendChatMessage, sendBotChatMessage, setChatMessages } = game
+  const { chatMessages, sendChatMessage, sendBotChatMessage, setChatMessages, parseAutomationCommand, automationTask, setAutomationTask, cancelAutomation } = game
   const [input, setInput] = useState('')
   const [lastBotIndex, setLastBotIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -99,7 +108,17 @@ export default function ChatPanel({ game, embedded = false }: Props) {
 
   const handleSend = () => {
     if (!input.trim()) return
-    sendChatMessage(input.trim())
+    const text = input.trim()
+    sendChatMessage(text)
+    // 尝试解析自动化指令
+    const task = parseAutomationCommand(text)
+    if (task === null && (text === '停止' || text === '取消')) {
+      cancelAutomation()
+      sendBotChatMessage('已取消自动化任务')
+    } else if (task !== null) {
+      setAutomationTask(task)
+      sendBotChatMessage(`自动化任务已设置: ${task.kind}`)
+    }
     setInput('')
   }
 
@@ -165,15 +184,40 @@ export default function ChatPanel({ game, embedded = false }: Props) {
       </div>
 
       <div className="border-t border-slate-100 bg-white px-3 py-2">
-        <div className="mb-2 flex flex-wrap gap-2">
-          {QUICK_PROMPTS.map((prompt) => (
+        {automationTask && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700">
+            <span className="font-bold">自动化:</span>
+            <span>{automationTask.kind}</span>
+            {automationTask.kind === 'repeat_battle' && <span>剩余 {automationTask.remaining} 场</span>}
+            {automationTask.kind === 'kill_count' && <span>击杀 {automationTask.killed}/{automationTask.remaining}</span>}
             <button
-              key={prompt}
               type="button"
-              onClick={() => sendChatMessage(prompt)}
+              onClick={() => { cancelAutomation(); sendBotChatMessage('已取消自动化任务') }}
+              className="ml-auto rounded border border-emerald-300 bg-white px-2 py-0.5 text-[11px] hover:bg-emerald-100"
+            >
+              取消
+            </button>
+          </div>
+        )}
+        <div className="mb-2 flex flex-wrap gap-2">
+          {AUTO_COMMANDS.map((item) => (
+            <button
+              key={item.cmd}
+              type="button"
+              onClick={() => {
+                sendChatMessage(item.cmd)
+                const task = parseAutomationCommand(item.cmd)
+                if (task === null && (item.cmd === '停止' || item.cmd === '取消')) {
+                  cancelAutomation()
+                  sendBotChatMessage('已取消自动化任务')
+                } else if (task !== null) {
+                  setAutomationTask(task)
+                  sendBotChatMessage(`自动化任务已设置: ${task.kind}`)
+                }
+              }}
               className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700 hover:bg-orange-100"
             >
-              {prompt}
+              {item.label}
             </button>
           ))}
         </div>
