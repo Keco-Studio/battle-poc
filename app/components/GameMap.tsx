@@ -16,6 +16,10 @@ import {
 } from '../constants'
 import type { DockPanelId } from '../hooks/useGameState'
 import DockFeatureModal from './DockFeatureModal'
+import BattleResultOverlay from './map-ui/BattleResultOverlay'
+import InteractionButtons from './map-ui/InteractionButtons'
+import EnemyInfoModal from './map-ui/EnemyInfoModal'
+import { ENEMY_MESSAGES, actionLabel, reasonLabel, rejectReasonLabel, strategyLabel } from './map-ui/battleText'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
@@ -91,9 +95,57 @@ type RotationKey = (typeof ROTATION_KEYS)[number]
 
 const DEFAULT_DIRECTION: RotationKey = 'south'
 
-const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
-const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
-const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
+type MoveAnim = 'idle' | 'walk' | 'running'
+
+const toEnemyIdlePngPath = (direction: RotationKey) => `/enemy/idle/${direction}.png`
+const toPlayerIdlePngPath = (direction: RotationKey) => `/player/idle/${direction}.png`
+
+const ENEMY_WALK_FRAMES_BY_FACING: Record<RotationKey, number> = {
+  north: 8,
+  south: 8,
+  east: 8,
+  west: 8,
+  'north-east': 8,
+  'north-west': 8,
+  'south-east': 8,
+  'south-west': 8,
+}
+
+// Your player walk export uses hashed folder names for some directions.
+const PLAYER_WALK_DIR_BY_FACING: Record<RotationKey, string> = {
+  north: 'north',
+  south: 'south',
+  east: 'east-9b803dd5',
+  west: 'west-44afc449',
+  'north-east': 'north-east-76d09498',
+  'north-west': 'north-west-6213b10b',
+  'south-east': 'south-east-b3963b75',
+  'south-west': 'south-west-326192d3',
+}
+
+function framePath(baseDir: string, frames: number, tick: number): string {
+  const safeFrames = Math.max(1, Math.floor(frames))
+  const frame = ((tick % safeFrames) + safeFrames) % safeFrames
+  const name = `frame_${String(frame).padStart(3, '0')}.png`
+  return `${baseDir}/${name}`
+}
+
+function toEnemyWalkFramePath(direction: RotationKey, tick: number): string {
+  return framePath(`/enemy/walk/${direction}`, ENEMY_WALK_FRAMES_BY_FACING[direction] ?? 8, tick)
+}
+
+function toEnemyRunningFramePath(direction: RotationKey, tick: number): string {
+  return framePath(`/enemy/running/${direction}`, 8, tick)
+}
+
+function toPlayerWalkFramePath(direction: RotationKey, tick: number): string {
+  const dir = PLAYER_WALK_DIR_BY_FACING[direction] ?? direction
+  return framePath(`/player/walk/${dir}`, 8, tick)
+}
+
+function toPlayerRunningFramePath(direction: RotationKey, tick: number): string {
+  return framePath(`/player/running/${direction}`, 8, tick)
+}
 
 /** 与 ai-rpg-poc PixelLab pack `meta.json` 中 `directions` 数组行顺序一致 */
 const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
@@ -196,85 +248,6 @@ type MapImpactFx = {
 /** 地图上与战斗同步的格子位移动画时长 */
 const BATTLE_MOVE_TRANSITION_MS = 300
 const MANUAL_FLEE_DEBOUNCE_MS = 450
-
-type TacticalMode = 'aggressive_finish' | 'kite_and_cast' | 'flee_and_reset' | 'steady_trade'
-
-function strategyLabel(strategy: unknown): string | null {
-  if (typeof strategy !== 'string') return null
-  const map: Record<TacticalMode, string> = {
-    aggressive_finish: '强攻收割',
-    kite_and_cast: '拉扯施法',
-    flee_and_reset: '撤离重整',
-    steady_trade: '稳态换血',
-  }
-  return map[strategy as TacticalMode] ?? null
-}
-
-function reasonLabel(reason: unknown): string | null {
-  if (typeof reason !== 'string') return null
-  const map: Record<string, string> = {
-    manual_flee: '手动逃跑',
-    auto_flee: '自动逃跑',
-    enemy_cast_control: '敌方控制施法',
-    enemy_cast_burst: '敌方爆发施法',
-    enemy_dodge_retreat: '敌方规避后撤',
-    enemy_dash_retreat: '敌方拉开距离',
-    enemy_dash_approach: '敌方贴近走位',
-    enemy_dash_kite: '敌方风筝后撤',
-    enemy_basic_attack: '敌方普通攻击',
-    player_dash_approach: '为技能贴近走位',
-    player_dash_kite: '为技能拉扯后撤',
-    player_dodge_retreat: '玩家规避后撤',
-    player_basic_attack: '玩家普通攻击',
-    player_basic_attack_fallback: '技能不可用，回退普攻',
-    player_defend: '玩家防御',
-    player_cast_skill: '玩家施放技能',
-  }
-  return map[reason] ?? reason
-}
-
-function rejectReasonLabel(reason: string): string {
-  const map: Record<string, string> = {
-    battle_ended: '战斗已结束',
-    actor_not_found: '执行者不存在',
-    actor_dead: '执行者已阵亡',
-    actor_controlled: '处于受控状态',
-    target_not_found: '目标不存在',
-    target_out_of_range: '超出射程',
-    not_enough_stamina: '耐力不足',
-    not_enough_mp: '法力不足',
-    missing_skill_id: '技能参数缺失',
-    skill_not_found: '技能不存在',
-    skill_not_equipped: '技能未装备',
-    skill_on_cooldown: '技能冷却中',
-    flee_failed: '逃跑概率未通过',
-    action_not_implemented: '动作未实现',
-  }
-  return map[reason] ?? reason
-}
-
-function actionLabel(action: unknown): string {
-  if (typeof action !== 'string') return '行动'
-  if (action === 'basic_attack') return '普通攻击'
-  if (action === 'cast_skill') return '施放技能'
-  if (action === 'defend') return '防御'
-  if (action === 'dash') return '位移'
-  if (action === 'dodge') return '闪避'
-  if (action === 'flee') return '逃跑'
-  return action
-}
-
-// 敌人消息
-const ENEMY_MESSAGES = [
-  '我是魔王我很强！',
-  '再看就把你吃掉！',
-  '劝你早点逃跑吧...',
-  '这片区域是我的！',
-  '哼，不自量力的人类',
-  '别惹我，我很危险！',
-  '你已经引起了我的注意',
-  '愚蠢的冒险者...',
-]
 
 export default function GameMap({ game }: Props) {
   const {
@@ -1687,16 +1660,23 @@ export default function GameMap({ game }: Props) {
                     )
                   }
                   /* 非 PixelLab：统一用 battle-poc public/enemy 方向精灵（gif/png） */
+                  const chase = mapBattleControllerRef.current?.session.chaseState
+                  const isFleePending =
+                    !!showBattle &&
+                    combatEnemyId !== null &&
+                    enemy.id === combatEnemyId &&
+                    chase?.status === 'flee_pending'
                   return (
                     <img
-                      src={toEnemyGifPath(facing)}
+                      src={isFleePending ? toEnemyRunningFramePath(facing, walkAnimTick) : toEnemyWalkFramePath(facing, walkAnimTick)}
                       alt={enemy.name}
                       className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
                       style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
                       onError={(e) => {
                         const target = e.currentTarget
                         target.onerror = null
-                        target.src = toEnemySpritePath(facing)
+                        // If a frame is missing (incomplete export), fall back to idle.
+                        target.src = toEnemyIdlePngPath(facing)
                       }}
                     />
                   )
@@ -1745,14 +1725,20 @@ export default function GameMap({ game }: Props) {
               )
             ) : (
               <img
-                src={toPlayerSpritePath(playerFacing)}
+                src={
+                  mapBattleControllerRef.current?.session.chaseState.status === 'flee_pending'
+                    ? toPlayerRunningFramePath(playerFacing, walkAnimTick)
+                    : Date.now() - playerLastMoveAt < 480
+                      ? toPlayerWalkFramePath(playerFacing, walkAnimTick)
+                      : toPlayerIdlePngPath(playerFacing)
+                }
                 alt="你"
                 className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
                 style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
                 onError={(e) => {
                   const target = e.currentTarget
                   target.onerror = null
-                  target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
+                  target.src = toPlayerIdlePngPath(playerFacing)
                 }}
               />
             )}
@@ -1881,7 +1867,7 @@ export default function GameMap({ game }: Props) {
         className="absolute top-4 left-4 z-20 bg-gray-900/80 backdrop-blur-md rounded-xl p-4 border border-blue-500/30 min-w-48 cursor-pointer hover:bg-gray-900/90 transition-colors"
       >
         <div className="flex items-center gap-3 mb-3">
-          <img src="/player.png" alt="Player" className="w-12 h-12 object-contain rounded-lg bg-gray-800" />
+          <img src="/player/idle/south.png" alt="Player" className="w-12 h-12 object-contain rounded-lg bg-gray-800" />
           <div>
             <div className="text-white font-bold">战士</div>
             <div className="text-yellow-400 text-sm">Lv.{playerLevel}</div>
@@ -2070,196 +2056,39 @@ export default function GameMap({ game }: Props) {
             </div>
           </div>
 
-          {isGameOver && (
-            <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-              {/* 结果颜色蒙版（胜利淡绿/失败红色 vignette） */}
-              <div
-                className={`absolute inset-0 ${battleResult === 'win'
-                  ? 'bg-emerald-900/40'
-                  : 'oc-defeat-vignette'
-                  }`}
-              />
-
-              {/* 胜利彩带 */}
-              {battleResult === 'win' && (
-                <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                  {Array.from({ length: 36 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="animate-confetti-fall absolute top-0 h-3 w-2 rounded-sm opacity-90"
-                      style={{
-                        left: `${(i * 13 + (i % 5) * 7) % 100}%`,
-                        animationDelay: `${(i % 10) * 0.08}s`,
-                        animationDuration: `${2 + (i % 5) * 0.2}s`,
-                        backgroundColor: `hsl(${(i * 37) % 360} 80% 58%)`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="relative z-10 flex w-[min(460px,calc(100vw-1rem))] flex-col items-center gap-5 text-center">
-                <h2
-                  className={`font-arcade text-[44px] leading-none ${battleResult === 'win' ? 'oc-title-victory' : 'oc-title-defeat'
-                    }`}
-                >
-                  {battleResult === 'win' ? 'VICTORY!' : 'DEFEAT'}
-                </h2>
-
-                <div className="font-arcade text-[14px] tracking-[0.12em] text-white/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]">
-                  {battleResult === 'win' ? (
-                    <>
-                      <span className="text-yellow-200">◆ YOU DEFEATED </span>
-                      <span className="text-orange-300">
-                        {nearbyEnemy?.name?.toUpperCase() ?? 'ENEMY'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-yellow-200">◆ YOU WERE DEFEATED BY </span>
-                      <span className="text-orange-300">
-                        {nearbyEnemy?.name?.toUpperCase() ?? 'ENEMY'}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* 奖励 / 惩罚信息（小卡片） */}
-                <div className="flex w-full flex-col gap-1 rounded-xl bg-black/40 px-4 py-2 text-[11px] text-white backdrop-blur-sm">
-                  <div>
-                    时长{' '}
-                    <span className="font-mono font-bold">
-                      {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
-                      {lastBattleTickCount > 0 ? ` · ${lastBattleTickCount} tick` : ''}
-                    </span>
-                  </div>
-                  {battleResult === 'win' && (
-                    <div className="text-yellow-200">
-                      💰 +{gainedGold} · ⭐ +{gainedExp}
-                      {battleLootDrop ? ` · 掉落 ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
-                    </div>
-                  )}
-                  {battleResult === 'lose' && (
-                    <div className="text-rose-200">已失去全部金币；装备与背包保留。</div>
-                  )}
-                </div>
-
-                <div className="flex w-full max-w-[320px] flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={finishBattleAndClose}
-                    className={`oc-arcade-btn ${battleResult === 'win'
-                      ? 'oc-arcade-btn-primary'
-                      : 'oc-arcade-btn-danger'
-                      }`}
-                  >
-                    CONTINUE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={finishBattleAndClose}
-                    className="oc-arcade-btn"
-                    style={{
-                      background: battleResult === 'win' ? '#fff' : '#0f172a',
-                      color: battleResult === 'win' ? '#0f172a' : '#f3f4f6',
-                      borderColor: battleResult === 'win' ? '#cbd5e1' : '#7f1d1d',
-                      boxShadow:
-                        battleResult === 'win'
-                          ? '0 4px 0 0 #cbd5e1'
-                          : '0 4px 0 0 #7f1d1d',
-                    }}
-                  >
-                    BATTLE AGAIN
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <BattleResultOverlay
+            open={isGameOver}
+            battleResult={battleResult}
+            enemyName={nearbyEnemy?.name ?? 'Enemy'}
+            battleTimeSec={battleTimeSec}
+            lastBattleTickCount={lastBattleTickCount}
+            gainedGold={gainedGold}
+            gainedExp={gainedExp}
+            battleLootDrop={battleLootDrop}
+            onContinue={finishBattleAndClose}
+          />
         </>
       )}
 
       {/* 交互按钮（战斗中隐藏，由底部技能栏操作） */}
-      {showInteraction && nearbyEnemy && !showBattle && (
-        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-          <div className="flex gap-4 pointer-events-auto">
-            <button
-              type="button"
-              onClick={() => {
-                if (!nearbyEnemy) return
-                const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
-                startBattle({ player: { ...playerPos }, enemy: { ...ep } })
-              }}
-              className="w-20 h-20 bg-blue-600/80 hover:bg-blue-500/80 backdrop-blur-sm rounded-xl border-2 border-blue-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
-            >
-              <span className="text-2xl">⚔️</span>
-              <span className="text-xs mt-1">挑战</span>
-            </button>
-            <button
-              onClick={() => setShowEnemyInfo(true)}
-              className="w-20 h-20 bg-gray-600/80 hover:bg-gray-500/80 backdrop-blur-sm rounded-xl border-2 border-gray-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
-            >
-              <span className="text-2xl">🔍</span>
-              <span className="text-xs mt-1">查看</span>
-            </button>
-            <button
-              onClick={() => setShowInteraction(false)}
-              className="w-20 h-20 bg-gray-600/80 hover:bg-gray-500/80 backdrop-blur-sm rounded-xl border-2 border-gray-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
-            >
-              <span className="text-2xl">←</span>
-              <span className="text-xs mt-1">返回</span>
-            </button>
-          </div>
-        </div>
-      )}
+      <InteractionButtons
+        open={!!(showInteraction && nearbyEnemy && !showBattle)}
+        onChallenge={() => {
+          if (!nearbyEnemy) return
+          const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
+          startBattle({ player: { ...playerPos }, enemy: { ...ep } })
+        }}
+        onInspect={() => setShowEnemyInfo(true)}
+        onClose={() => setShowInteraction(false)}
+      />
 
       {/* 敌人信息弹窗 */}
-      {showEnemyInfo && nearbyEnemy && (
-        <div className="absolute inset-0 flex items-center justify-center z-40 bg-black/50">
-          <div className="bg-gray-900/90 backdrop-blur-md rounded-xl p-6 w-72 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4 text-center">{nearbyEnemy.name}</h3>
-            <div className="flex justify-center mb-4">
-              <img src="/enemy.png" alt="Enemy" className="h-32 object-contain" />
-            </div>
-            <div className="space-y-2 text-white">
-              <div className="flex justify-between">
-                <span className="text-gray-400">等级</span>
-                <span className="font-bold text-yellow-400">
-                  Lv.{enemyPreview.level}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">类型</span>
-                <span className="font-bold text-red-400">恶魔族</span>
-              </div>
-              <div className="text-xs text-gray-500 -mt-1 mb-1">
-                以下为本次遭遇的实际战斗属性
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">HP</span>
-                <span className="font-bold text-green-400">{enemyPreview.stats.maxHp}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">攻击</span>
-                <span className="font-bold text-red-400">{enemyPreview.stats.atk}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">防御</span>
-                <span className="font-bold text-blue-400">{enemyPreview.stats.def}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">速度</span>
-                <span className="font-bold text-yellow-400">{enemyPreview.stats.spd}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowEnemyInfo(false)}
-              className="mt-4 w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
-            >
-              关闭
-            </button>
-          </div>
-        </div>
-      )}
+      <EnemyInfoModal
+        open={!!(showEnemyInfo && nearbyEnemy)}
+        enemyName={nearbyEnemy?.name ?? 'Enemy'}
+        enemyPreview={enemyPreview}
+        onClose={() => setShowEnemyInfo(false)}
+      />
     </main>
   )
 }
