@@ -96,6 +96,8 @@ export async function GET(request: Request) {
           id: string
           width: number
           height: number
+          /** Optional background image overlay (generated PNG). */
+          backgroundImageUrl?: string
           tilesetId?: string
           tileLayers?: { ground?: { data?: number[] } }
           collisionLayer?: number[]
@@ -161,6 +163,7 @@ export async function GET(request: Request) {
       mapId: map.id,
       width: map.width,
       height: map.height,
+      backgroundImageUrl: typeof map.backgroundImageUrl === 'string' ? map.backgroundImageUrl : null,
       ground: map.tileLayers?.ground?.data ?? [],
       collision: map.collisionLayer ?? [],
       tileset: tileset
