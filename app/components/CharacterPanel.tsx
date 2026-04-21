@@ -67,7 +67,7 @@ export default function CharacterPanel({ game }: Props) {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
-                <img src="/player.png" alt="Player" className="h-12 w-12 object-contain" />
+                <img src="/player/idle/south.png" alt="Player" className="h-12 w-12 object-contain" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 flex items-center justify-between text-[12px] font-bold text-slate-700">

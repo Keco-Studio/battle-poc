@@ -89,9 +89,57 @@ type RotationKey = (typeof ROTATION_KEYS)[number]
 
 const DEFAULT_DIRECTION: RotationKey = 'south'
 
-const toEnemyGifPath = (direction: RotationKey) => `/enemy/${direction}.gif`
-const toEnemySpritePath = (direction: RotationKey) => `/enemy/${direction}.png`
-const toPlayerSpritePath = (direction: RotationKey) => `/player/${direction}.png`
+type MoveAnim = 'idle' | 'walk' | 'running'
+
+const toEnemyIdlePngPath = (direction: RotationKey) => `/enemy/idle/${direction}.png`
+const toPlayerIdlePngPath = (direction: RotationKey) => `/player/idle/${direction}.png`
+
+const ENEMY_WALK_FRAMES_BY_FACING: Record<RotationKey, number> = {
+  north: 8,
+  south: 8,
+  east: 8,
+  west: 8,
+  'north-east': 8,
+  'north-west': 8,
+  'south-east': 8,
+  'south-west': 8,
+}
+
+// Your player walk export uses hashed folder names for some directions.
+const PLAYER_WALK_DIR_BY_FACING: Record<RotationKey, string> = {
+  north: 'north',
+  south: 'south',
+  east: 'east-9b803dd5',
+  west: 'west-44afc449',
+  'north-east': 'north-east-76d09498',
+  'north-west': 'north-west-6213b10b',
+  'south-east': 'south-east-b3963b75',
+  'south-west': 'south-west-326192d3',
+}
+
+function framePath(baseDir: string, frames: number, tick: number): string {
+  const safeFrames = Math.max(1, Math.floor(frames))
+  const frame = ((tick % safeFrames) + safeFrames) % safeFrames
+  const name = `frame_${String(frame).padStart(3, '0')}.png`
+  return `${baseDir}/${name}`
+}
+
+function toEnemyWalkFramePath(direction: RotationKey, tick: number): string {
+  return framePath(`/enemy/walk/${direction}`, ENEMY_WALK_FRAMES_BY_FACING[direction] ?? 8, tick)
+}
+
+function toEnemyRunningFramePath(direction: RotationKey, tick: number): string {
+  return framePath(`/enemy/running/${direction}`, 8, tick)
+}
+
+function toPlayerWalkFramePath(direction: RotationKey, tick: number): string {
+  const dir = PLAYER_WALK_DIR_BY_FACING[direction] ?? direction
+  return framePath(`/player/walk/${dir}`, 8, tick)
+}
+
+function toPlayerRunningFramePath(direction: RotationKey, tick: number): string {
+  return framePath(`/player/running/${direction}`, 8, tick)
+}
 
 /** 与 ai-rpg-poc PixelLab pack `meta.json` 中 `directions` 数组行顺序一致 */
 const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
@@ -1563,16 +1611,23 @@ export default function GameMap({ game }: Props) {
                     )
                   }
                   /* 非 PixelLab：统一用 battle-poc public/enemy 方向精灵（gif/png） */
+                  const chase = mapBattleControllerRef.current?.session.chaseState
+                  const isFleePending =
+                    !!showBattle &&
+                    combatEnemyId !== null &&
+                    enemy.id === combatEnemyId &&
+                    chase?.status === 'flee_pending'
                   return (
                     <img
-                      src={toEnemyGifPath(facing)}
+                      src={isFleePending ? toEnemyRunningFramePath(facing, walkAnimTick) : toEnemyWalkFramePath(facing, walkAnimTick)}
                       alt={enemy.name}
                       className="animate-pulse object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]"
                       style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
                       onError={(e) => {
                         const target = e.currentTarget
                         target.onerror = null
-                        target.src = toEnemySpritePath(facing)
+                        // If a frame is missing (incomplete export), fall back to idle.
+                        target.src = toEnemyIdlePngPath(facing)
                       }}
                     />
                   )
@@ -1621,14 +1676,20 @@ export default function GameMap({ game }: Props) {
               )
             ) : (
               <img
-                src={toPlayerSpritePath(playerFacing)}
+                src={
+                  mapBattleControllerRef.current?.session.chaseState.status === 'flee_pending'
+                    ? toPlayerRunningFramePath(playerFacing, walkAnimTick)
+                    : Date.now() - playerLastMoveAt < 480
+                      ? toPlayerWalkFramePath(playerFacing, walkAnimTick)
+                      : toPlayerIdlePngPath(playerFacing)
+                }
                 alt="你"
                 className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
                 style={{ width: actorPx, height: actorPx, imageRendering: 'pixelated' }}
                 onError={(e) => {
                   const target = e.currentTarget
                   target.onerror = null
-                  target.src = toPlayerSpritePath(DEFAULT_DIRECTION)
+                  target.src = toPlayerIdlePngPath(playerFacing)
                 }}
               />
             )}
@@ -1757,7 +1818,7 @@ export default function GameMap({ game }: Props) {
         className="absolute top-4 left-4 z-20 bg-gray-900/80 backdrop-blur-md rounded-xl p-4 border border-blue-500/30 min-w-48 cursor-pointer hover:bg-gray-900/90 transition-colors"
       >
         <div className="flex items-center gap-3 mb-3">
-          <img src="/player.png" alt="Player" className="w-12 h-12 object-contain rounded-lg bg-gray-800" />
+          <img src="/player/idle/south.png" alt="Player" className="w-12 h-12 object-contain rounded-lg bg-gray-800" />
           <div>
             <div className="text-white font-bold">战士</div>
             <div className="text-yellow-400 text-sm">Lv.{playerLevel}</div>
@@ -2094,7 +2155,7 @@ export default function GameMap({ game }: Props) {
           <div className="bg-gray-900/90 backdrop-blur-md rounded-xl p-6 w-72 border border-gray-700">
             <h3 className="text-xl font-bold text-white mb-4 text-center">{nearbyEnemy.name}</h3>
             <div className="flex justify-center mb-4">
-              <img src="/enemy.png" alt="Enemy" className="h-32 object-contain" />
+              <img src="/enemy/idle/south.png" alt="Enemy" className="h-32 object-contain" />
             </div>
             <div className="space-y-2 text-white">
               <div className="flex justify-between">
