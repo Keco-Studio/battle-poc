@@ -18,6 +18,8 @@ import BattleResultOverlay from './map-ui/BattleResultOverlay'
 import InteractionButtons from './map-ui/InteractionButtons'
 import EnemyInfoModal from './map-ui/EnemyInfoModal'
 import { ENEMY_MESSAGES, actionLabel, reasonLabel, rejectReasonLabel, strategyLabel } from './map-ui/battleText'
+import PixellabMapGeneratorModal from './map-ui/PixellabMapGeneratorModal'
+import CollisionEditorModal from './map-ui/CollisionEditorModal'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
@@ -363,6 +365,10 @@ export default function GameMap({ game }: Props) {
   const [enemyLastMoveAt, setEnemyLastMoveAt] = useState<Record<number, number>>({})
   const [playerLastMoveAt, setPlayerLastMoveAt] = useState(0)
   const [pixellabSyncHint, setPixellabSyncHint] = useState<string | null>(null)
+  const [showPixellabMapGen, setShowPixellabMapGen] = useState(false)
+  const [showCollisionEditor, setShowCollisionEditor] = useState(false)
+  const [mapBgUrl, setMapBgUrl] = useState<string | null>(null)
+  const [mapBgImage, setMapBgImage] = useState<HTMLImageElement | null>(null)
   const prevEnemyGridRef = useRef<Record<number, { x: number; y: number }>>({})
   const prevPlayerGridRef = useRef<{ x: number; y: number } | null>(null)
 
@@ -479,6 +485,62 @@ export default function GameMap({ game }: Props) {
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [, setCdUiTick] = useState(0)
 
+  const refreshMapsCatalog = useCallback(async (preferSelectId?: string) => {
+    try {
+      const res = await fetch('/api/maps')
+      if (!res.ok) return
+      const data = (await res.json()) as {
+        maps: Array<{ id: string; fileName: string }>
+        defaultMapId: string | null
+      }
+      setAvailableMaps(data.maps)
+      if (preferSelectId) {
+        setSelectedMapId(preferSelectId)
+      }
+    } catch (error) {
+      console.warn('refresh maps catalog failed:', error)
+    }
+  }, [])
+
+  const reloadCurrentMap = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
+      if (!res.ok) return
+      const data = (await res.json()) as {
+        width: number
+        height: number
+        backgroundImageUrl?: string | null
+        ground: number[]
+        collision: number[]
+        mapId: string
+        tileset: MapTileset | null
+        playerSpawn: { x: number; y: number }
+        playerVisualId?: MapCharacterVisualId
+        enemies: Array<{
+          id: number
+          name: string
+          x: number
+          y: number
+          level: number
+          profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
+          visualId?: MapCharacterVisualId | null
+          mapSpriteTileIndex?: number
+        }>
+      }
+      setMapInfo({
+        width: data.width,
+        height: data.height,
+        ground: data.ground,
+        collision: data.collision,
+        mapId: data.mapId,
+        tileset: data.tileset,
+      })
+      setMapBgUrl(typeof data.backgroundImageUrl === 'string' && data.backgroundImageUrl.length > 0 ? data.backgroundImageUrl : null)
+    } catch (e) {
+      console.warn('reload current map failed:', e)
+    }
+  }, [selectedMapId])
+
   useEffect(() => {
     if (!showBattle) {
       setFloatTexts([])
@@ -523,6 +585,7 @@ export default function GameMap({ game }: Props) {
         const data = (await res.json()) as {
           width: number
           height: number
+          backgroundImageUrl?: string | null
           ground: number[]
           collision: number[]
           mapId: string
@@ -549,6 +612,7 @@ export default function GameMap({ game }: Props) {
           mapId: data.mapId,
           tileset: data.tileset,
         })
+        setMapBgUrl(typeof data.backgroundImageUrl === 'string' && data.backgroundImageUrl.length > 0 ? data.backgroundImageUrl : null)
         if (data.playerVisualId) {
           setPlayerVisualId(data.playerVisualId)
         }
@@ -680,6 +744,17 @@ export default function GameMap({ game }: Props) {
   }, [mapInfo.tileset?.publicImagePath])
 
   useEffect(() => {
+    if (!mapBgUrl) {
+      setMapBgImage(null)
+      return
+    }
+    const img = new Image()
+    img.src = mapBgUrl
+    img.onload = () => setMapBgImage(img)
+    img.onerror = () => setMapBgImage(null)
+  }, [mapBgUrl])
+
+  useEffect(() => {
     const canvas = mapCanvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -694,10 +769,17 @@ export default function GameMap({ game }: Props) {
     ctx.fillStyle = '#0b1220'
     ctx.fillRect(0, 0, width, height)
 
+    // Background image overlay (generated maps). Draw before tiles/grid.
+    if (mapBgImage) {
+      ctx.imageSmoothingEnabled = false
+      ctx.drawImage(mapBgImage, renderOffsetX, renderOffsetY, renderWidth, renderHeight)
+    }
+
     const cellW = renderWidth / mapInfo.width
     const cellH = renderHeight / mapInfo.height
     const tileset = mapInfo.tileset
     const useSprite = !!(tileset && tilesetImage && tilesetReady)
+    const hasBg = !!mapBgImage
 
     for (let y = 0; y < mapInfo.height; y++) {
       for (let x = 0; x < mapInfo.width; x++) {
@@ -714,25 +796,40 @@ export default function GameMap({ game }: Props) {
         })
         const dx = renderOffsetX + x * cellW
         const dy = renderOffsetY + y * cellH
+        // When a generated background image is present, we avoid painting the fallback "ground color layer"
+        // to prevent the "overlay mask" look. We only draw a tileset layer if one exists.
         if (useSprite && tileId > 0 && tileset && tileId <= tileset.tileCount) {
           const tile = tileId - 1
           const sx = (tile % tileset.columns) * tileset.tileWidth
           const sy = Math.floor(tile / tileset.columns) * tileset.tileHeight
           ctx.imageSmoothingEnabled = false
           ctx.drawImage(tilesetImage!, sx, sy, tileset.tileWidth, tileset.tileHeight, dx, dy, cellW, cellH)
-        } else {
+        } else if (!hasBg) {
           if (tileId >= 40) ctx.fillStyle = 'rgba(71, 85, 105, 0.85)'
           else if (tileId >= 9) ctx.fillStyle = 'rgba(6, 95, 70, 0.85)'
           else ctx.fillStyle = 'rgba(20, 83, 45, 0.85)'
           ctx.fillRect(dx, dy, cellW, cellH)
         }
-        ctx.strokeStyle = blocked ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 0, 0, 0.18)'
-        ctx.lineWidth = 1
-        ctx.strokeRect(dx, dy, cellW, cellH)
+
+        // Grid lines:
+        // - no background: show faint grid always (and red for blocked)
+        // - has background: hide grid by default; only show blocked cells faintly to help navigation
+        if (hasBg) {
+          if (blocked) {
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.22)'
+            ctx.lineWidth = 1
+            ctx.strokeRect(dx, dy, cellW, cellH)
+          }
+        } else {
+          ctx.strokeStyle = blocked ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 0, 0, 0.18)'
+          ctx.lineWidth = 1
+          ctx.strokeRect(dx, dy, cellW, cellH)
+        }
       }
     }
   }, [
     mapInfo,
+    mapBgImage,
     renderHeight,
     renderOffsetX,
     renderOffsetY,
@@ -1803,11 +1900,42 @@ export default function GameMap({ game }: Props) {
         >
           同步 PixelLab 资源
         </button>
+        <button
+          type="button"
+          onClick={() => setShowPixellabMapGen(true)}
+          className="rounded bg-sky-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600"
+        >
+          生成 PixelLab 地图
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowCollisionEditor(true)}
+          className="rounded bg-emerald-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-600"
+        >
+          编辑碰撞
+        </button>
         {pixellabSyncHint && <span className="text-[10px] leading-snug text-amber-200/90">{pixellabSyncHint}</span>}
-        <span className="text-[10px] leading-snug text-slate-400">
-          从 ai-rpg-poc 的 demo-project 拷贝到 public/assets/characters
-        </span>
+
       </div>
+
+      <PixellabMapGeneratorModal
+        open={showPixellabMapGen}
+        onClose={() => setShowPixellabMapGen(false)}
+        onCreatedMap={(mapId) => {
+          void refreshMapsCatalog(mapId)
+          setShowPixellabMapGen(false)
+        }}
+      />
+
+      <CollisionEditorModal
+        open={showCollisionEditor}
+        mapId={selectedMapId}
+        width={mapInfo.width}
+        height={mapInfo.height}
+        collision={mapInfo.collision}
+        onClose={() => setShowCollisionEditor(false)}
+        onSaved={() => void reloadCurrentMap()}
+      />
 
       {/* 右下角 Dock：深色圆角方块，active 为橙色+绿色描边；悬停左侧气泡标签
           z-index 高于 Chat 侧栏，保证在侧栏开启时仍可切换 */}
