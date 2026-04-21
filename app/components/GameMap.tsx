@@ -14,6 +14,9 @@ import {
 } from '../constants'
 import type { DockPanelId } from '../hooks/useGameState'
 import DockFeatureModal from './DockFeatureModal'
+import BattleResultOverlay from './map-ui/BattleResultOverlay'
+import InteractionButtons from './map-ui/InteractionButtons'
+import EnemyInfoModal from './map-ui/EnemyInfoModal'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
@@ -2007,196 +2010,39 @@ export default function GameMap({ game }: Props) {
             </div>
           </div>
 
-          {isGameOver && (
-            <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-              {/* 结果颜色蒙版（胜利淡绿/失败红色 vignette） */}
-              <div
-                className={`absolute inset-0 ${battleResult === 'win'
-                  ? 'bg-emerald-900/40'
-                  : 'oc-defeat-vignette'
-                  }`}
-              />
-
-              {/* 胜利彩带 */}
-              {battleResult === 'win' && (
-                <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                  {Array.from({ length: 36 }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="animate-confetti-fall absolute top-0 h-3 w-2 rounded-sm opacity-90"
-                      style={{
-                        left: `${(i * 13 + (i % 5) * 7) % 100}%`,
-                        animationDelay: `${(i % 10) * 0.08}s`,
-                        animationDuration: `${2 + (i % 5) * 0.2}s`,
-                        backgroundColor: `hsl(${(i * 37) % 360} 80% 58%)`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="relative z-10 flex w-[min(460px,calc(100vw-1rem))] flex-col items-center gap-5 text-center">
-                <h2
-                  className={`font-arcade text-[44px] leading-none ${battleResult === 'win' ? 'oc-title-victory' : 'oc-title-defeat'
-                    }`}
-                >
-                  {battleResult === 'win' ? 'VICTORY!' : 'DEFEAT'}
-                </h2>
-
-                <div className="font-arcade text-[14px] tracking-[0.12em] text-white/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)]">
-                  {battleResult === 'win' ? (
-                    <>
-                      <span className="text-yellow-200">◆ YOU DEFEATED </span>
-                      <span className="text-orange-300">
-                        {nearbyEnemy?.name?.toUpperCase() ?? 'ENEMY'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-yellow-200">◆ YOU WERE DEFEATED BY </span>
-                      <span className="text-orange-300">
-                        {nearbyEnemy?.name?.toUpperCase() ?? 'ENEMY'}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* 奖励 / 惩罚信息（小卡片） */}
-                <div className="flex w-full flex-col gap-1 rounded-xl bg-black/40 px-4 py-2 text-[11px] text-white backdrop-blur-sm">
-                  <div>
-                    时长{' '}
-                    <span className="font-mono font-bold">
-                      {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
-                      {lastBattleTickCount > 0 ? ` · ${lastBattleTickCount} tick` : ''}
-                    </span>
-                  </div>
-                  {battleResult === 'win' && (
-                    <div className="text-yellow-200">
-                      💰 +{gainedGold} · ⭐ +{gainedExp}
-                      {battleLootDrop ? ` · 掉落 ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
-                    </div>
-                  )}
-                  {battleResult === 'lose' && (
-                    <div className="text-rose-200">已失去全部金币；装备与背包保留。</div>
-                  )}
-                </div>
-
-                <div className="flex w-full max-w-[320px] flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={finishBattleAndClose}
-                    className={`oc-arcade-btn ${battleResult === 'win'
-                      ? 'oc-arcade-btn-primary'
-                      : 'oc-arcade-btn-danger'
-                      }`}
-                  >
-                    CONTINUE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={finishBattleAndClose}
-                    className="oc-arcade-btn"
-                    style={{
-                      background: battleResult === 'win' ? '#fff' : '#0f172a',
-                      color: battleResult === 'win' ? '#0f172a' : '#f3f4f6',
-                      borderColor: battleResult === 'win' ? '#cbd5e1' : '#7f1d1d',
-                      boxShadow:
-                        battleResult === 'win'
-                          ? '0 4px 0 0 #cbd5e1'
-                          : '0 4px 0 0 #7f1d1d',
-                    }}
-                  >
-                    BATTLE AGAIN
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <BattleResultOverlay
+            open={isGameOver}
+            battleResult={battleResult}
+            enemyName={nearbyEnemy?.name ?? 'Enemy'}
+            battleTimeSec={battleTimeSec}
+            lastBattleTickCount={lastBattleTickCount}
+            gainedGold={gainedGold}
+            gainedExp={gainedExp}
+            battleLootDrop={battleLootDrop}
+            onContinue={finishBattleAndClose}
+          />
         </>
       )}
 
       {/* 交互按钮（战斗中隐藏，由底部技能栏操作） */}
-      {showInteraction && nearbyEnemy && !showBattle && (
-        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-          <div className="flex gap-4 pointer-events-auto">
-            <button
-              type="button"
-              onClick={() => {
-                if (!nearbyEnemy) return
-                const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
-                startBattle({ player: { ...playerPos }, enemy: { ...ep } })
-              }}
-              className="w-20 h-20 bg-blue-600/80 hover:bg-blue-500/80 backdrop-blur-sm rounded-xl border-2 border-blue-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
-            >
-              <span className="text-2xl">⚔️</span>
-              <span className="text-xs mt-1">挑战</span>
-            </button>
-            <button
-              onClick={() => setShowEnemyInfo(true)}
-              className="w-20 h-20 bg-gray-600/80 hover:bg-gray-500/80 backdrop-blur-sm rounded-xl border-2 border-gray-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
-            >
-              <span className="text-2xl">🔍</span>
-              <span className="text-xs mt-1">查看</span>
-            </button>
-            <button
-              onClick={() => setShowInteraction(false)}
-              className="w-20 h-20 bg-gray-600/80 hover:bg-gray-500/80 backdrop-blur-sm rounded-xl border-2 border-gray-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
-            >
-              <span className="text-2xl">←</span>
-              <span className="text-xs mt-1">返回</span>
-            </button>
-          </div>
-        </div>
-      )}
+      <InteractionButtons
+        open={!!(showInteraction && nearbyEnemy && !showBattle)}
+        onChallenge={() => {
+          if (!nearbyEnemy) return
+          const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
+          startBattle({ player: { ...playerPos }, enemy: { ...ep } })
+        }}
+        onInspect={() => setShowEnemyInfo(true)}
+        onClose={() => setShowInteraction(false)}
+      />
 
       {/* 敌人信息弹窗 */}
-      {showEnemyInfo && nearbyEnemy && (
-        <div className="absolute inset-0 flex items-center justify-center z-40 bg-black/50">
-          <div className="bg-gray-900/90 backdrop-blur-md rounded-xl p-6 w-72 border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4 text-center">{nearbyEnemy.name}</h3>
-            <div className="flex justify-center mb-4">
-              <img src="/enemy/idle/south.png" alt="Enemy" className="h-32 object-contain" />
-            </div>
-            <div className="space-y-2 text-white">
-              <div className="flex justify-between">
-                <span className="text-gray-400">等级</span>
-                <span className="font-bold text-yellow-400">
-                  Lv.{enemyPreview.level}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">类型</span>
-                <span className="font-bold text-red-400">恶魔族</span>
-              </div>
-              <div className="text-xs text-gray-500 -mt-1 mb-1">
-                以下为本次遭遇的实际战斗属性
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">HP</span>
-                <span className="font-bold text-green-400">{enemyPreview.stats.maxHp}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">攻击</span>
-                <span className="font-bold text-red-400">{enemyPreview.stats.atk}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">防御</span>
-                <span className="font-bold text-blue-400">{enemyPreview.stats.def}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">速度</span>
-                <span className="font-bold text-yellow-400">{enemyPreview.stats.spd}</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowEnemyInfo(false)}
-              className="mt-4 w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
-            >
-              关闭
-            </button>
-          </div>
-        </div>
-      )}
+      <EnemyInfoModal
+        open={!!(showEnemyInfo && nearbyEnemy)}
+        enemyName={nearbyEnemy?.name ?? 'Enemy'}
+        enemyPreview={enemyPreview}
+        onClose={() => setShowEnemyInfo(false)}
+      />
     </main>
   )
 }
