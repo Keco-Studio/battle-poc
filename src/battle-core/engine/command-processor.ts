@@ -159,6 +159,7 @@ function applySingleCommand(
   const target = command.targetId
     ? getEntityById(session, command.targetId)
     : getOpponent(session, actor.id)
+  const movementState = getMovementState(session, actor.id)
 
   if (command.action === 'basic_attack') {
     if (!target || !target.alive) {
@@ -195,7 +196,7 @@ function applySingleCommand(
       targetId: target.id
     })
     const withResult = resolveChaseByPosition(applyVictoryIfNeeded(withActionEvent))
-    return { session: withResult, applied: true }
+    return { session: applyDashCooldownIfNeeded(withResult, actor.id), applied: true }
   }
 
   if (command.action === 'defend') {
@@ -224,19 +225,42 @@ function applySingleCommand(
           maxShield: nextActor.resources.maxShield
         })
         : withDefend
+    const nextSession = resolveChaseByPosition(
+      appendEvent(withShieldEvent, 'action_executed', {
+        commandId: command.commandId,
+        actorId: actor.id,
+        action: command.action
+      })
+    )
     return {
-      session: resolveChaseByPosition(
-        appendEvent(withShieldEvent, 'action_executed', {
-          commandId: command.commandId,
-          actorId: actor.id,
-          action: command.action
-        })
-      ),
+      session: applyDashCooldownIfNeeded(nextSession, actor.id),
       applied: true
     }
   }
 
   if (command.action === 'dash') {
+    if (movementState.dashCooldownUntilTick >= session.tick) {
+      return {
+        session: appendEvent(session, 'command_rejected', {
+          commandId: command.commandId,
+          actorId: actor.id,
+          reason: 'dash_on_cooldown',
+          readyAtTick: movementState.dashCooldownUntilTick
+        }),
+        applied: false
+      }
+    }
+    if (movementState.consecutiveDashCount >= 3) {
+      return {
+        session: appendEvent(session, 'command_rejected', {
+          commandId: command.commandId,
+          actorId: actor.id,
+          reason: 'dash_streak_limit_reached',
+          maxConsecutive: 3
+        }),
+        applied: false
+      }
+    }
     const opponent = getOpponent(session, actor.id)
     const rawTargetX =
       typeof command.metadata?.moveTargetX === 'number'
@@ -285,7 +309,11 @@ function applySingleCommand(
         y: safeY
       }
     }
-    const movedSession = resolveChaseByPosition(updateEntity(session, nextActor))
+    let movedSession = resolveChaseByPosition(updateEntity(session, nextActor))
+    movedSession = setMovementState(movedSession, actor.id, {
+      consecutiveDashCount: movementState.consecutiveDashCount + 1,
+      dashCooldownUntilTick: movementState.dashCooldownUntilTick
+    })
     return {
       session: appendEvent(movedSession, 'action_executed', {
         commandId: command.commandId,
@@ -358,14 +386,15 @@ function applySingleCommand(
       evadeChance: Number(evadeChance.toFixed(2)),
       staminaCost: cost
     })
+    const nextSession = appendEvent(withAction, 'effect_applied', {
+      effectType: 'dodge_ready',
+      ownerId: actor.id,
+      sourceId: actor.id,
+      durationTick: 1,
+      evadeChance: Number(evadeChance.toFixed(2))
+    })
     return {
-      session: appendEvent(withAction, 'effect_applied', {
-        effectType: 'dodge_ready',
-        ownerId: actor.id,
-        sourceId: actor.id,
-        durationTick: 1,
-        evadeChance: Number(evadeChance.toFixed(2))
-      }),
+      session: applyDashCooldownIfNeeded(nextSession, actor.id),
       applied: true
     }
   }
@@ -458,13 +487,14 @@ function applySingleCommand(
         autoFleeFailStreak: 0
       }
     }
+    const nextSession = appendEvent(withChaseState, 'chase_started', {
+      runnerId: actor.id,
+      chaserId: chaser.id,
+      startTick: withAction.tick,
+      expireTick: withAction.tick + CHASE_WINDOW_TICKS
+    })
     return {
-      session: appendEvent(withChaseState, 'chase_started', {
-        runnerId: actor.id,
-        chaserId: chaser.id,
-        startTick: withAction.tick,
-        expireTick: withAction.tick + CHASE_WINDOW_TICKS
-      }),
+      session: applyDashCooldownIfNeeded(nextSession, actor.id),
       applied: true
     }
   }
@@ -605,8 +635,9 @@ function applySingleCommand(
     if (skill.applyFreezeTicks && latestTarget && latestTarget.alive) {
       nextSession = applyFreezeToEntity(nextSession, latestTarget, actor.id, skill.applyFreezeTicks)
     }
+    const resolvedSession = resolveChaseByPosition(applyVictoryIfNeeded(nextSession))
     return {
-      session: resolveChaseByPosition(applyVictoryIfNeeded(nextSession)),
+      session: applyDashCooldownIfNeeded(resolvedSession, actor.id),
       applied: true
     }
   }
@@ -620,6 +651,42 @@ function applySingleCommand(
     }),
     applied: false
   }
+}
+
+function getMovementState(
+  session: BattleSession,
+  actorId: string
+): { consecutiveDashCount: number; dashCooldownUntilTick: number } {
+  return (
+    session.movementState[actorId] || {
+      consecutiveDashCount: 0,
+      dashCooldownUntilTick: -1
+    }
+  )
+}
+
+function setMovementState(
+  session: BattleSession,
+  actorId: string,
+  state: { consecutiveDashCount: number; dashCooldownUntilTick: number }
+): BattleSession {
+  return {
+    ...session,
+    movementState: {
+      ...session.movementState,
+      [actorId]: state
+    }
+  }
+}
+
+function applyDashCooldownIfNeeded(session: BattleSession, actorId: string): BattleSession {
+  const movementState = getMovementState(session, actorId)
+  if (movementState.consecutiveDashCount <= 0) return session
+  return setMovementState(session, actorId, {
+    consecutiveDashCount: 0,
+    // Stop moving this tick => cooldown starts this tick and lasts equal rounds.
+    dashCooldownUntilTick: session.tick + movementState.consecutiveDashCount - 1
+  })
 }
 
 function isBlockedInPreparation(action: BattleCommand['action']): boolean {

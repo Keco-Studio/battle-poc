@@ -78,6 +78,13 @@ export function normalizeDecisionToCommand(input: {
   }
 
   if (action === 'basic_attack') {
+    const distance = getDistance(actor, target)
+    if (distance > 1.6) {
+      return {
+        ok: false,
+        reason: 'target_out_of_range'
+      }
+    }
     return {
       ok: true,
       command: buildCommand(

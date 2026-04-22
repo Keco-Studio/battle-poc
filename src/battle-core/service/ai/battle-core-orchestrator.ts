@@ -12,16 +12,21 @@ type ActorState = {
   pending: boolean
   cachedDecision: RawBattleDecision | null
   lastError: string | null
-  nextDueTick: number
 }
 
 type OrchestratorOptions = {
   llmConfig?: LlmProviderConfig
 }
 
+export type RawSequenceData = {
+  actorId: string
+  raw: Record<string, unknown>
+}
+
 export type PrepareDecisionResult = {
   session: BattleSession
   failedActorIds: string[]
+  sequences?: RawSequenceData[]
 }
 
 export class BattleCoreOrchestrator {
@@ -55,17 +60,21 @@ export class BattleCoreOrchestrator {
     }
     let nextSession = session
     const failedActorIds: string[] = []
+    const sequences: RawSequenceData[] = []
     this.prefetchDecision(nextSession, nextSession.left.id)
     this.prefetchDecision(nextSession, nextSession.right.id)
     const leftResult = this.maybeEnqueueDecision(nextSession, nextSession.left.id, executeAtTick)
     nextSession = leftResult.session
     if (leftResult.failed) failedActorIds.push(nextSession.left.id)
+    if (leftResult.sequenceData) sequences.push(leftResult.sequenceData)
     const rightResult = this.maybeEnqueueDecision(nextSession, nextSession.right.id, executeAtTick)
     nextSession = rightResult.session
     if (rightResult.failed) failedActorIds.push(nextSession.right.id)
+    if (rightResult.sequenceData) sequences.push(rightResult.sequenceData)
     return {
       session: nextSession,
-      failedActorIds
+      failedActorIds,
+      sequences: sequences.length > 0 ? sequences : undefined,
     }
   }
 
@@ -110,27 +119,27 @@ export class BattleCoreOrchestrator {
     session: BattleSession,
     actorId: string,
     executeAtTick: number
-  ): { session: BattleSession; failed: boolean } {
+  ): { session: BattleSession; failed: boolean; sequenceData?: RawSequenceData } {
     const actor = session.left.id === actorId ? session.left : session.right
     if (!actor.alive) return { session, failed: false }
-    const state = this.getActorState(actorId, actor.spd)
-    if (executeAtTick < state.nextDueTick) return { session, failed: false }
-    if (state.pending) return { session, failed: false }
-    if (!state.cachedDecision) {
-      if (state.lastError) {
-        state.nextDueTick = executeAtTick + intervalTicksForSpd(actor.spd)
-        state.lastError = null
-        return {
-          session,
-          failed: true
-        }
-      }
-      return { session, failed: false }
-    }
+    const state = this.getActorState(actorId)
     const hasFutureCommand = session.commandQueue.some(
       (command) => command.actorId === actorId && command.tick >= executeAtTick
     )
     if (hasFutureCommand) return { session, failed: false }
+    if (!state.cachedDecision) {
+      if (state.lastError) {
+        state.lastError = null
+      }
+      return { session, failed: true }
+    }
+
+    if (Array.isArray(state.cachedDecision.sequence) && state.cachedDecision.sequence.length > 0) {
+      const raw = state.cachedDecision as unknown as Record<string, unknown>
+      state.cachedDecision = null
+      return { session, failed: true, sequenceData: { actorId, raw } }
+    }
+
     const normalized = normalizeDecisionToCommand({
       session,
       actorId,
@@ -139,14 +148,12 @@ export class BattleCoreOrchestrator {
     })
     if (!normalized.ok || !normalized.command) {
       state.cachedDecision = null
-      state.nextDueTick = executeAtTick + intervalTicksForSpd(actor.spd)
       return {
         session,
         failed: true
       }
     }
     state.cachedDecision = null
-    state.nextDueTick = executeAtTick + intervalTicksForSpd(actor.spd)
     let command = normalized.command
     command = {
       ...command,
@@ -192,21 +199,16 @@ export class BattleCoreOrchestrator {
       })
   }
 
-  private getActorState(actorId: string, spd: number): ActorState {
+  private getActorState(actorId: string): ActorState {
     const existing = this.actorStates.get(actorId)
     if (existing) return existing
     const created: ActorState = {
       pending: false,
       cachedDecision: null,
-      lastError: null,
-      nextDueTick: Math.max(1, intervalTicksForSpd(spd))
+      lastError: null
     }
     this.actorStates.set(actorId, created)
     return created
   }
-}
-
-function intervalTicksForSpd(spd: number): number {
-  return Math.max(2, Math.min(12, 10 - Math.floor(spd / 4)))
 }
 
