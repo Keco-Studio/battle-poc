@@ -8,16 +8,28 @@ import { getPocBattleUiOutcome } from './battleOutcome'
 import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '../../app/constants'
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
 import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
-import { BattleCoreOrchestrator } from '../battle-core/service/ai/battle-core-orchestrator'
+import { BattleCoreOrchestrator, type RawSequenceData } from '../battle-core/service/ai/battle-core-orchestrator'
+import { ActionSequenceStore, parseSequenceFromLlm } from '../battle-core/service/ai/decision-tree/action-sequence'
 import { clampDashDestination } from './walkability'
+import {
+  selectTacticalMode,
+  selectAction,
+  applyGuardrail,
+  remapDashToAlternative,
+  IntentStore,
+  inferRoleProfile,
+  defaultTemplateForRole,
+  executeStrategyTemplate,
+  type DecisionContext,
+  type DecisionAction,
+  type TacticalMode,
+  type ReadySkill,
+} from '../battle-core/service/ai/decision-tree'
 
 const MELEE_RANGE = 1.6
 const RANGE_BUFFER = BATTLE_BALANCE.tacticalRangeBuffer
-const KITE_MIN_DISTANCE = BATTLE_BALANCE.tacticalKiteMinDistance
-const LOW_HP_RETREAT_RATIO = BATTLE_BALANCE.tacticalLowHpRetreatRatio
-const TARGET_LOW_HP_FINISH_RATIO = BATTLE_BALANCE.tacticalTargetLowHpFinishRatio
-
-type TacticalMode = 'aggressive_finish' | 'kite_and_cast' | 'flee_and_reset' | 'steady_trade'
+const DEFAULT_BATTLE_TICK_MS = 200
+const MAX_BATTLE_TICKS = 300
 
 function distBetween(session: BattleSession): number {
   const a = session.left.position
@@ -27,64 +39,72 @@ function distBetween(session: BattleSession): number {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-function intervalTicksForSpd(spd: number): number {
-  return Math.max(2, Math.min(12, 10 - Math.floor(spd / 4)))
+function intervalTicksForSpd(spd: number, battleTickMs: number): number {
+  const mappedAttackSpeed = Math.max(0.4, 0.8 + (Math.max(1, spd) - 3) * 0.05)
+  const secondsPerAction = Math.max(0.8, 0.8 / mappedAttackSpeed)
+  const ticks = Math.round((secondsPerAction * 1000) / Math.max(80, battleTickMs))
+  return Math.max(1, ticks)
 }
 
-function pickTacticalMode(input: {
-  actorHpRatio: number
-  targetHpRatio: number
-  distance: number
-  preferredRange: number
-}): TacticalMode {
-  if (input.actorHpRatio <= LOW_HP_RETREAT_RATIO && input.distance <= KITE_MIN_DISTANCE) {
-    return 'flee_and_reset'
+function buildReadySkills(actor: BattleEntity, tick: number, distance: number): ReadySkill[] {
+  const result: ReadySkill[] = []
+  for (let i = 0; i < actor.skillSlots.length; i++) {
+    const slot = actor.skillSlots[i]
+    const def = getBattleSkillDefinition(slot.skillId)
+    if (!def) continue
+    if (slot.cooldownTick > tick) continue
+    if (actor.resources.mp < def.mpCost) continue
+    result.push({
+      definition: def,
+      slotIndex: i,
+      inRange: distance <= def.range + RANGE_BUFFER,
+    })
   }
-  if (
-    input.targetHpRatio <= TARGET_LOW_HP_FINISH_RATIO &&
-    input.distance <= Math.max(MELEE_RANGE + 0.4, input.preferredRange)
-  ) {
-    return 'aggressive_finish'
-  }
-  if (input.preferredRange > MELEE_RANGE + 0.6) {
-    return 'kite_and_cast'
-  }
-  return 'steady_trade'
+  return result
 }
 
-function computeApproachX(input: {
-  actorTeam: 'left' | 'right'
-  targetX: number
-  preferredRange: number
-  minX: number
-  maxX: number
-}): number {
-  const stayDistance = Math.max(1.1, input.preferredRange - 0.5)
-  if (input.actorTeam === 'left') {
-    return Math.min(input.maxX - 0.5, input.targetX - stayDistance)
+function buildDecisionContext(
+  session: BattleSession,
+  actor: BattleEntity,
+  target: BattleEntity,
+  tick: number,
+  distance: number,
+  readySkills: ReadySkill[],
+): DecisionContext {
+  const bestRanged = readySkills.reduce(
+    (best, s) => (s.definition.range > best ? s.definition.range : best),
+    MELEE_RANGE,
+  )
+  const preferredRange = readySkills.length > 0 ? bestRanged : MELEE_RANGE
+  const isControlled = actor.effects.some(
+    (e) => e.effectType === 'freeze' || e.effectType === 'stun',
+  )
+  return {
+    session,
+    actor,
+    target,
+    tick,
+    distance,
+    actorHpRatio: actor.resources.maxHp > 0 ? actor.resources.hp / actor.resources.maxHp : 1,
+    targetHpRatio: target.resources.maxHp > 0 ? target.resources.hp / target.resources.maxHp : 1,
+    readySkills,
+    preferredRange,
+    isControlled,
+    mapBounds: {
+      minX: session.mapBounds.minX,
+      maxX: session.mapBounds.maxX,
+      minY: session.mapBounds.minY,
+      maxY: session.mapBounds.maxY,
+    },
+    actorRole: inferRoleProfile(actor),
+    targetRole: inferRoleProfile(target),
   }
-  return Math.max(input.minX + 0.5, input.targetX + stayDistance)
-}
-
-function computeRetreatX(input: {
-  actorX: number
-  actorTeam: 'left' | 'right'
-  preferredRange: number
-  minX: number
-  maxX: number
-}): number {
-  const retreatStep = Math.max(1.2, Math.min(3.6, input.preferredRange * 0.55))
-  const raw =
-    input.actorTeam === 'left' ? input.actorX - retreatStep : input.actorX + retreatStep
-  return Math.max(input.minX + 0.5, Math.min(input.maxX - 0.5, raw))
 }
 
 export type MapBattleStepResult = {
   session: BattleSession
   uiOutcome: ReturnType<typeof getPocBattleUiOutcome>
-  /** 本步内新产生的事件（用于飘字 / 演出） */
   newEventCount: number
-  /** 准备阶段剩余 tick（若已进入 battle 则为 0） */
   remainingPreparationTicks: number
 }
 
@@ -100,6 +120,9 @@ export class MapBattleController {
   private readonly mapW: number
   private readonly mapH: number
   private readonly isWalkable?: (gx: number, gy: number) => boolean
+  private readonly intentStore = new IntentStore()
+  private readonly sequenceStore = new ActionSequenceStore()
+  private battleStartTick = 0
 
   constructor(cfg: MapBattleStartConfig) {
     this.session = createMapBattleSession(cfg)
@@ -107,18 +130,19 @@ export class MapBattleController {
     this.llmOrchestrator =
       this.decisionMode === 'dual_llm'
         ? new BattleCoreOrchestrator({
-            llmConfig: cfg.llmConfig
-          })
+          llmConfig: cfg.llmConfig
+        })
         : null
     this.llmOrchestrator?.ensureLlmAvailability()
-    this.playerInterval = intervalTicksForSpd(this.session.left.spd)
-    this.enemyInterval = intervalTicksForSpd(this.session.right.spd)
+    const battleTickMs = Math.max(80, Math.floor(Number(cfg.battleTickMs || DEFAULT_BATTLE_TICK_MS)))
+    this.playerInterval = intervalTicksForSpd(this.session.left.spd, battleTickMs)
+    this.enemyInterval = intervalTicksForSpd(this.session.right.spd, battleTickMs)
     this.mapW = cfg.mapWidth
     this.mapH = cfg.mapHeight
     this.isWalkable = cfg.isWalkable
+    this.battleStartTick = this.session.preparationEndTick
   }
 
-  /** dash 目标沿射线裁剪到可走区域；未提供 isWalkable 时原样返回 */
   private clampDashMoveTarget(actor: BattleEntity, tx: number, ty: number): { x: number; y: number } {
     if (!this.isWalkable) {
       return { x: tx, y: ty }
@@ -132,10 +156,48 @@ export class MapBattleController {
     })
   }
 
-  /** 裁剪后是否仍能产生有效位移（避免穿墙导致每 tick 空 dash 卡死） */
   private canDashToward(actor: BattleEntity, tx: number, ty: number): boolean {
     const c = this.clampDashMoveTarget(actor, tx, ty)
     return Math.hypot(c.x - actor.position.x, c.y - actor.position.y) > 0.12
+  }
+
+  private previewDashDestination(
+    actor: BattleEntity,
+    target: BattleEntity,
+    action: Extract<DecisionAction, { type: 'dash' }>,
+  ): { x: number; y: number } | null {
+    if (!this.canDashToward(actor, action.target.x, action.target.y)) return null
+    const c = this.clampDashMoveTarget(actor, action.target.x, action.target.y)
+    const moveStep =
+      action.moveStep != null
+        ? Math.max(0.4, Math.min(4.2, Number(action.moveStep)))
+        : 2.2
+    const minX = this.session.mapBounds.minX + 0.5
+    const maxX = this.session.mapBounds.maxX - 0.5
+    const minY = this.session.mapBounds.minY + 0.5
+    const maxY = this.session.mapBounds.maxY - 0.5
+
+    const deltaX = c.x - actor.position.x
+    const movedX =
+      deltaX === 0
+        ? actor.position.x
+        : actor.position.x + Math.sign(deltaX) * Math.min(Math.abs(deltaX), moveStep)
+    const minGap = 1.2
+    const safeX = actor.team === 'left'
+      ? Math.max(minX, Math.min(maxX, Math.min(movedX, target.position.x - minGap)))
+      : Math.max(minX, Math.min(maxX, Math.max(movedX, target.position.x + minGap)))
+
+    const deltaY = c.y - actor.position.y
+    const movedY =
+      deltaY === 0
+        ? actor.position.y
+        : actor.position.y + Math.sign(deltaY) * Math.min(Math.abs(deltaY), moveStep * 0.6)
+    const safeY = Math.max(minY, Math.min(maxY, movedY))
+
+    if (Math.hypot(safeX - actor.position.x, safeY - actor.position.y) <= 0.12) {
+      return null
+    }
+    return { x: safeX, y: safeY }
   }
 
   step(input: {
@@ -167,7 +229,7 @@ export class MapBattleController {
         action: 'flee',
         targetId: this.session.right.id,
       }
-      this.enqueueIntentCommand(cmd, 'flee_and_reset', fleeReason)
+      this.enqueueIntentCommand(cmd, 'retreat', fleeReason, 'root>flee')
       const out = this.engine.tick(this.session)
       this.session = out.session
     } else if (this.decisionMode === 'dual_llm' && this.llmOrchestrator) {
@@ -179,30 +241,31 @@ export class MapBattleController {
         const out = this.engine.tick(this.session)
         this.session = out.session
       } else {
-      const prepared = this.llmOrchestrator.prepareCommands(this.session, input.executeAtTick)
-      this.session = prepared.session
-      if (prepared.failedActorIds.length > 0) {
-        const dist = distBetween(this.session)
-        if (prepared.failedActorIds.includes(this.session.right.id)) {
-          this.enqueueEnemyIntent(input.executeAtTick, dist)
+        const prepared = this.llmOrchestrator.prepareCommands(this.session, input.executeAtTick)
+        this.session = prepared.session
+        this.registerLlmSequences(prepared.sequences, input.executeAtTick)
+        if (prepared.failedActorIds.length > 0) {
+          const dist = distBetween(this.session)
+          if (prepared.failedActorIds.includes(this.session.right.id)) {
+            this.enqueueEnemyIntent(input.executeAtTick, dist)
+          }
+          if (prepared.failedActorIds.includes(this.session.left.id)) {
+            this.enqueuePlayerIntent(input.executeAtTick, dist, input)
+          }
         }
-        if (prepared.failedActorIds.includes(this.session.left.id)) {
-          this.enqueuePlayerIntent(input.executeAtTick, dist, input)
-        }
-      }
-      const out = this.engine.tick(this.session)
-      this.session = out.session
-      this.llmOrchestrator.onTickFinished(this.session)
+        const out = this.engine.tick(this.session)
+        this.session = out.session
+        this.llmOrchestrator.onTickFinished(this.session)
       }
     } else {
       const dist = distBetween(this.session)
-
       this.enqueueEnemyIntent(input.executeAtTick, dist)
-
       this.enqueuePlayerIntent(input.executeAtTick, dist, input)
       const out = this.engine.tick(this.session)
       this.session = out.session
     }
+
+    this.applyStalemateTimeoutIfNeeded()
 
     const uiOutcome = getPocBattleUiOutcome(this.session)
     return {
@@ -213,192 +276,135 @@ export class MapBattleController {
     }
   }
 
+  private applyStalemateTimeoutIfNeeded(): void {
+    if (this.session.result !== 'ongoing') return
+    if (this.session.phase !== 'battle') return
+    if (this.session.tick < MAX_BATTLE_TICKS) return
+
+    const left = this.session.left.resources
+    const right = this.session.right.resources
+    const leftRatio = left.maxHp > 0 ? left.hp / left.maxHp : 0
+    const rightRatio = right.maxHp > 0 ? right.hp / right.maxHp : 0
+    const scoreDiff = leftRatio - rightRatio
+
+    const result: 'left_win' | 'right_win' =
+      Math.abs(scoreDiff) > 1e-6
+        ? scoreDiff > 0
+          ? 'left_win'
+          : 'right_win'
+        : left.hp >= right.hp
+          ? 'left_win'
+          : 'right_win'
+
+    this.session = {
+      ...this.session,
+      result,
+      chaseState: { status: 'none' },
+      events: [
+        ...this.session.events,
+        {
+          eventId: newCommandId(),
+          sessionId: this.session.id,
+          tick: this.session.tick,
+          type: 'battle_ended',
+          payload: {
+            result,
+            reason: 'timeout_hp_compare',
+            leftHp: left.hp,
+            leftMaxHp: left.maxHp,
+            rightHp: right.hp,
+            rightMaxHp: right.maxHp,
+          },
+          createdAt: Date.now(),
+        },
+      ],
+      updatedAt: Date.now(),
+    }
+  }
+
+  private resolveDecision(ctx: DecisionContext, actorId: string, mode: TacticalMode): DecisionAction {
+    this.sequenceStore.updateHpSnapshot(actorId, ctx.actorHpRatio)
+    const seqStep = this.sequenceStore.nextStep(actorId, ctx)
+    if (seqStep) {
+      return {
+        ...seqStep.step.action,
+        path: `llm_seq:${seqStep.sequenceName}>${seqStep.step.action.path}`,
+      } as DecisionAction
+    }
+
+    const refreshReason = this.intentStore.needsRefresh(actorId, ctx)
+    if (!refreshReason) {
+      const cached = this.intentStore.get(actorId, ctx.tick, mode)
+      if (cached) return cached.action
+    }
+
+    const role = ctx.actorRole ?? inferRoleProfile(ctx.actor)
+    const phaseTick = Math.max(0, ctx.tick - this.battleStartTick)
+
+    let action: DecisionAction
+
+    if (refreshReason === 'target_frozen_window') {
+      action = selectAction(ctx, 'finish')
+    } else if (refreshReason === 'hp_spike' || refreshReason === 'being_controlled') {
+      action = selectAction(ctx, mode)
+    } else {
+      const template = defaultTemplateForRole(role.role)
+      action = executeStrategyTemplate(template, ctx, phaseTick)
+    }
+
+    this.intentStore.set(actorId, mode, action, ctx.tick, defaultTemplateForRole(role.role))
+    return action
+  }
+
+  private registerLlmSequences(sequences: RawSequenceData[] | undefined, currentTick: number): void {
+    if (!sequences) return
+    for (const { actorId, raw } of sequences) {
+      const parsed = parseSequenceFromLlm(raw, 'llm')
+      if (!parsed) continue
+      const actor = this.session.left.id === actorId ? this.session.left : this.session.right
+      const readySkills = buildReadySkills(actor, currentTick, distBetween(this.session))
+      const ctx = buildDecisionContext(this.session, actor,
+        actorId === this.session.left.id ? this.session.right : this.session.left,
+        currentTick, distBetween(this.session), readySkills)
+      const mode = selectTacticalMode(ctx)
+      this.sequenceStore.register(actorId, parsed.name, parsed.steps, mode, currentTick, parsed.ttlTicks)
+    }
+  }
+
   private enqueueEnemyIntent(executeAtTick: number, dist: number): void {
     if (this.session.result !== 'ongoing') return
     const actor = this.session.right
     const target = this.session.left
     if (!actor.alive || !target.alive) return
+    if (executeAtTick < this.nextEnemyDue) return
 
-    const hpRatio = actor.resources.maxHp > 0 ? actor.resources.hp / actor.resources.maxHp : 1
-    const targetHpRatio = target.resources.maxHp > 0 ? target.resources.hp / target.resources.maxHp : 1
-    const frostSlot = actor.skillSlots.find((slot) => slot.skillId === 'frost_lock')
-    const boltSlot = actor.skillSlots.find((slot) => slot.skillId === 'arcane_bolt')
-    const canUseFrost =
-      !!frostSlot &&
-      frostSlot.cooldownTick <= executeAtTick &&
-      actor.resources.mp >= (getBattleSkillDefinition('frost_lock')?.mpCost ?? 6)
-    const canUseBolt =
-      !!boltSlot &&
-      boltSlot.cooldownTick <= executeAtTick &&
-      actor.resources.mp >= (getBattleSkillDefinition('arcane_bolt')?.mpCost ?? 4)
-    const frostRange = getBattleSkillDefinition('frost_lock')?.range ?? 7.2
-    const boltRange = getBattleSkillDefinition('arcane_bolt')?.range ?? 6.5
-    const preferredRange = canUseFrost ? frostRange : canUseBolt ? boltRange : MELEE_RANGE
-    const mode = pickTacticalMode({
-      actorHpRatio: hpRatio,
-      targetHpRatio,
-      distance: dist,
-      preferredRange,
-    })
+    const readySkills = buildReadySkills(actor, executeAtTick, dist)
+    const ctx = buildDecisionContext(this.session, actor, target, executeAtTick, dist, readySkills)
+    const mode = selectTacticalMode(ctx)
 
-    // 近战贴脸且未到敌方「普攻节奏」窗口时整段跳过（沿用原意）；远程技能必须与 nextEnemyDue 对齐，
-    // 否则在 gcd 窗口内仍会每技能冷却 tick 射一箭，日志与体感都会刷屏。
-    if (executeAtTick < this.nextEnemyDue && dist <= MELEE_RANGE + 0.2) return
+    this.intentStore.updateSnapshot(actor.id, executeAtTick, ctx.actorHpRatio)
+    const action = this.resolveDecision(ctx, actor.id, mode)
+    const recentActions = this.intentStore.getRecentActionKeys(actor.id, 4)
+    const guarded = applyGuardrail(ctx, action, recentActions)
+    if (guarded.rewritten) {
+      this.intentStore.recordReject(actor.id)
+    }
 
-    if (
-      canUseFrost &&
-      executeAtTick >= this.nextEnemyDue &&
-      dist <= frostRange + RANGE_BUFFER &&
-      targetHpRatio > 0.15
-    ) {
-      const cmd: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'cast_skill',
-        targetId: target.id,
-        skillId: 'frost_lock',
-      }
-      this.enqueueIntentCommand(cmd, mode, 'enemy_cast_control')
+    const resolved = this.resolveActionToCommand(ctx, actor, target, executeAtTick, guarded.action)
+    if (!resolved.command) {
+      this.intentStore.recordReject(actor.id)
       this.nextEnemyDue = executeAtTick + this.enemyInterval
       return
     }
 
-    if (canUseBolt && executeAtTick >= this.nextEnemyDue && dist <= boltRange + RANGE_BUFFER) {
-      const cmd: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'cast_skill',
-        targetId: target.id,
-        skillId: 'arcane_bolt',
-      }
-      this.enqueueIntentCommand(cmd, mode, 'enemy_cast_burst')
-      this.nextEnemyDue = executeAtTick + this.enemyInterval
-      return
-    }
-
-    if (mode === 'flee_and_reset' && actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
-      if (executeAtTick < this.nextEnemyDue) return
-      const dodge: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'dodge',
-      }
-      this.enqueueIntentCommand(dodge, mode, 'enemy_dodge_retreat')
-      this.nextEnemyDue = executeAtTick + this.enemyInterval
-      const rawTx = actor.team === 'right' ? this.session.mapBounds.maxX - 0.5 : this.session.mapBounds.minX + 0.5
-      const rawTy = actor.position.y
-      if (this.canDashToward(actor, rawTx, rawTy)) {
-        const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
-        const retreat: BattleCommand = {
-          commandId: newCommandId(),
-          sessionId: this.session.id,
-          actorId: actor.id,
-          tick: executeAtTick,
-          action: 'dash',
-          targetId: target.id,
-          metadata: {
-            moveTargetX: c.x,
-            moveTargetY: c.y,
-            moveStep: 2.8,
-          },
-        }
-        this.enqueueIntentCommand(retreat, mode, 'enemy_dash_retreat')
-      }
-      return
-    }
-
-    // 即使已在射程内，kite 模式也要主动拉开，避免站桩。
-    if (mode === 'kite_and_cast' && dist < Math.max(MELEE_RANGE + 0.4, preferredRange - 1.2)) {
-      if (executeAtTick < this.nextEnemyDue) return
-      const rawTx = computeRetreatX({
-        actorX: actor.position.x,
-        actorTeam: actor.team,
-        preferredRange,
-        minX: this.session.mapBounds.minX,
-        maxX: this.session.mapBounds.maxX,
-      })
-      const rawTy = actor.position.y
-      if (this.canDashToward(actor, rawTx, rawTy)) {
-        const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
-        const reposition: BattleCommand = {
-          commandId: newCommandId(),
-          sessionId: this.session.id,
-          actorId: actor.id,
-          tick: executeAtTick,
-          action: 'dash',
-          targetId: target.id,
-          metadata: {
-            moveTargetX: c.x,
-            moveTargetY: c.y,
-            moveStep: 2.4,
-          },
-        }
-        this.enqueueIntentCommand(reposition, mode, 'enemy_dash_kite')
-        this.nextEnemyDue = executeAtTick + this.enemyInterval
-        return
-      }
-      // 无法沿风筝方向位移（贴墙等）：不 return，交给下方普攻/接近逻辑，避免每 tick 空 dash 卡死
-    }
-
-    if (dist > MELEE_RANGE) {
-      if (executeAtTick < this.nextEnemyDue) return
-      const desired =
-        mode === 'aggressive_finish'
-          ? MELEE_RANGE - 0.1
-          : canUseBolt && dist > boltRange
-            ? boltRange - 0.6
-            : canUseFrost && dist > frostRange
-              ? frostRange - 0.6
-              : preferredRange - 0.4
-      const closeEnough = dist <= desired + RANGE_BUFFER
-      if (closeEnough) return
-      const rawTx = computeApproachX({
-        actorTeam: actor.team,
-        targetX: target.position.x,
-        preferredRange: desired,
-        minX: this.session.mapBounds.minX,
-        maxX: this.session.mapBounds.maxX,
-      })
-      const rawTy = target.position.y
-      if (this.canDashToward(actor, rawTx, rawTy)) {
-        const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
-        const cmd: BattleCommand = {
-          commandId: newCommandId(),
-          sessionId: this.session.id,
-          actorId: actor.id,
-          tick: executeAtTick,
-          action: 'dash',
-          targetId: target.id,
-          metadata: {
-            moveTargetX: c.x,
-            moveTargetY: c.y,
-          },
-        }
-        this.enqueueIntentCommand(cmd, mode, 'enemy_dash_approach')
-        this.nextEnemyDue = executeAtTick + this.enemyInterval
-        return
-      }
-      // 仍远离且无法沿直线接近：本 tick 不出手，避免 basic_attack 超距被拒刷屏
-      return
-    }
-    if (dist <= MELEE_RANGE + RANGE_BUFFER && executeAtTick >= this.nextEnemyDue) {
-      const cmd: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'basic_attack',
-        targetId: target.id,
-      }
-      this.enqueueIntentCommand(cmd, mode, 'enemy_basic_attack')
-      this.nextEnemyDue = executeAtTick + this.enemyInterval
-    }
+    const finalAction = resolved.action
+    const reason =
+      resolved.rewriteReason
+      ?? guarded.rewriteReason
+      ?? this.reasonForAction(finalAction, 'enemy')
+    this.intentStore.recordAction(actor.id, executeAtTick, finalAction)
+    this.enqueueIntentCommand(resolved.command, mode, reason, finalAction.path)
+    this.nextEnemyDue = executeAtTick + this.enemyInterval
   }
 
   private enqueuePlayerIntent(
@@ -418,198 +424,197 @@ export class MapBattleController {
     const skillId = input.nextAttackSkillId
     const chosen = skillId !== null && skillId !== BASIC_ATTACK.id ? skillId : BASIC_ATTACK.id
     const selectedSkill = chosen === BASIC_ATTACK.id ? BASIC_ATTACK : getSkillById(chosen)
-    const action = selectedSkill?.action
-    const preferredRange =
-      selectedSkill?.action === 'cast_skill' && selectedSkill.coreSkillId
-        ? (getBattleSkillDefinition(selectedSkill.coreSkillId)?.range ?? selectedSkill.range ?? MELEE_RANGE)
-        : MELEE_RANGE
-    const hpRatio = actor.resources.maxHp > 0 ? actor.resources.hp / actor.resources.maxHp : 1
-    const targetHpRatio = target.resources.maxHp > 0 ? target.resources.hp / target.resources.maxHp : 1
-    const mode = pickTacticalMode({
-      actorHpRatio: hpRatio,
-      targetHpRatio,
-      distance: dist,
-      preferredRange,
-    })
-    // 必须与 command-processor 中 basic_attack 的射程一致（>1.6 会 command_rejected），
-    // 不能用 MELEE_RANGE+BUFFER 误判“已在普攻射程内”，否则会在 1.6~1.8 反复入队普攻刷屏。
-    const inPreferredRange =
-      selectedSkill?.action === 'cast_skill' && selectedSkill.coreSkillId
-        ? dist <= preferredRange + RANGE_BUFFER
-        : dist <= MELEE_RANGE
+    const skillAction = selectedSkill?.action
 
-    const playerHasManualQueuedSkill = chosen !== BASIC_ATTACK.id
-    if (mode === 'flee_and_reset') {
-      // 低血撤离阶段不再因手选技能而主动贴近，优先清空队列并尝试脱离。
-      if (playerHasManualQueuedSkill) {
+    const readySkills = buildReadySkills(actor, executeAtTick, dist)
+    const ctx = buildDecisionContext(this.session, actor, target, executeAtTick, dist, readySkills)
+    const mode = selectTacticalMode(ctx)
+
+    this.intentStore.updateSnapshot(actor.id, executeAtTick, ctx.actorHpRatio)
+
+    if (mode === 'retreat') {
+      if (chosen !== BASIC_ATTACK.id) {
         input.onClearQueuedSkill?.()
       }
-      // 撤离动作按玩家节奏窗口执行；flee 由 step.pendingFlee（自动/手动）统一触发，
-      // 这里仅做撤步，不在低血时无条件强制发 flee，避免“阈值到了但未满足自动逃跑判定时卡住”。
       if (executeAtTick < this.nextPlayerDue) return
-
       if (actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
         this.nextPlayerDue = executeAtTick + this.playerInterval
-        const dodge: BattleCommand = {
-          commandId: newCommandId(),
-          sessionId: this.session.id,
-          actorId: actor.id,
-          tick: executeAtTick,
-          action: 'dodge',
+        const dodgeAction: DecisionAction = { type: 'dodge', path: 'root>player>retreat>dodge' }
+        const cmd = this.decisionActionToCommand(actor, target, executeAtTick, dodgeAction)
+        if (cmd) {
+          this.intentStore.recordAction(actor.id, executeAtTick, dodgeAction)
+          this.enqueueIntentCommand(cmd, mode, 'player_dodge_retreat', dodgeAction.path)
         }
-        this.enqueueIntentCommand(dodge, mode, 'player_dodge_retreat')
         return
       }
-
-      // 体力不足时回落到常规分支（可能普攻/施法），避免整段空转。
-      // 不 return；且不在此处推进 nextPlayerDue，否则会在下方 468 行被永久挡住。
     }
 
     if (executeAtTick < this.nextPlayerDue) return
     this.nextPlayerDue = executeAtTick + this.playerInterval
 
-    if (!inPreferredRange) {
-      const approachRange = mode === 'aggressive_finish' ? MELEE_RANGE : preferredRange
-      const rawTx = computeApproachX({
-        actorTeam: actor.team,
-        targetX: target.position.x,
-        preferredRange: approachRange,
-        minX: this.session.mapBounds.minX,
-        maxX: this.session.mapBounds.maxX,
-      })
-      const rawTy = target.position.y
-      if (this.canDashToward(actor, rawTx, rawTy)) {
-        const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
-        const cmd: BattleCommand = {
-          commandId: newCommandId(),
-          sessionId: this.session.id,
-          actorId: actor.id,
-          tick: executeAtTick,
-          action: 'dash',
-          targetId: target.id,
-          metadata: {
-            moveTargetX: c.x,
-            moveTargetY: c.y,
-          },
+    if (chosen !== BASIC_ATTACK.id && skillAction && selectedSkill) {
+      const playerAction = this.resolvePlayerManualAction(ctx, selectedSkill, chosen, dist)
+      if (playerAction) {
+        const recentActions = this.intentStore.getRecentActionKeys(actor.id, 4)
+        const guarded = applyGuardrail(ctx, playerAction, recentActions)
+        const resolved = this.resolveActionToCommand(ctx, actor, target, executeAtTick, guarded.action)
+        if (resolved.command) {
+          const finalAction = resolved.action
+          const reason =
+            resolved.rewriteReason
+            ?? guarded.rewriteReason
+            ?? this.reasonForAction(finalAction, 'player')
+          this.intentStore.recordAction(actor.id, executeAtTick, finalAction)
+          this.enqueueIntentCommand(resolved.command, mode, reason, finalAction.path)
+
+          if (finalAction.type === 'defend' && selectedSkill.cooldownTicks > 0) {
+            input.onSkillCooldown?.(selectedSkill.id, cooldownMsFromTicks(selectedSkill.cooldownTicks))
+          }
+          if (finalAction.type !== 'dash') {
+            input.onClearQueuedSkill?.()
+          }
         }
-        this.enqueueIntentCommand(cmd, mode, 'player_dash_approach')
         return
       }
-      // 无法沿直线接近：不 return，继续尝试施法/普攻分支（避免贴墙时整局空转）
     }
 
-    // 玩家处于风筝策略时，若贴得太近则优先后撤再打。若本 tick 已手选技能且已在理想射程内，勿每 tick 后撤，
-    // 否则会与技能施放分支死锁（看起来「不动」），并与敌方走位叠加成左右抖动。
-    if (
-      !playerHasManualQueuedSkill &&
-      mode === 'kite_and_cast' &&
-      dist < Math.max(MELEE_RANGE + 0.4, preferredRange - 1.2)
-    ) {
-      const rawTx = computeRetreatX({
-        actorX: actor.position.x,
-        actorTeam: actor.team,
-        preferredRange,
-        minX: this.session.mapBounds.minX,
-        maxX: this.session.mapBounds.maxX,
-      })
-      const rawTy = actor.position.y
-      if (this.canDashToward(actor, rawTx, rawTy)) {
-        const c = this.clampDashMoveTarget(actor, rawTx, rawTy)
-        const reposition: BattleCommand = {
-          commandId: newCommandId(),
-          sessionId: this.session.id,
-          actorId: actor.id,
-          tick: executeAtTick,
-          action: 'dash',
-          targetId: target.id,
-          metadata: {
-            moveTargetX: c.x,
-            moveTargetY: c.y,
-            moveStep: 2.3,
-          },
-        }
-        this.enqueueIntentCommand(reposition, mode, 'player_dash_kite')
-        return
-      }
-      // 无法后撤时允许本 tick 继续出手，避免与技能队列死锁
+    const treeAction = this.resolveDecision(ctx, actor.id, mode)
+    const recentActions = this.intentStore.getRecentActionKeys(actor.id, 4)
+    const guarded = applyGuardrail(ctx, treeAction, recentActions)
+    if (guarded.rewritten) {
+      this.intentStore.recordReject(actor.id)
     }
 
-    if (!selectedSkill || chosen === BASIC_ATTACK.id || !action) {
-      // 与引擎 basic_attack 判定一致；避免「位移差一点仍 >1.6」时入队普攻被拒刷屏
-      if (dist > MELEE_RANGE) {
-        return
-      }
-      const cmd: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'basic_attack',
-        targetId: target.id,
-      }
-      this.enqueueIntentCommand(cmd, mode, 'player_basic_attack')
+    const resolved = this.resolveActionToCommand(ctx, actor, target, executeAtTick, guarded.action)
+    if (!resolved.command) return
+
+    const finalAction = resolved.action
+    const reason =
+      resolved.rewriteReason
+      ?? guarded.rewriteReason
+      ?? this.reasonForAction(finalAction, 'player')
+    this.intentStore.recordAction(actor.id, executeAtTick, finalAction)
+    this.enqueueIntentCommand(resolved.command, mode, reason, finalAction.path)
+    if (finalAction.type === 'basic_attack' || finalAction.type === 'defend') {
       input.onClearQueuedSkill?.()
-      return
+    }
+  }
+
+  private resolvePlayerManualAction(
+    ctx: DecisionContext,
+    selectedSkill: ReturnType<typeof getSkillById>,
+    _chosenId: string,
+    dist: number,
+  ): DecisionAction | null {
+    if (!selectedSkill) return null
+
+    if (selectedSkill.action === 'defend') {
+      return { type: 'defend', path: 'root>player>manual>defend' }
     }
 
-    if (action === 'defend') {
-      const cmd: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'defend',
-      }
-      this.enqueueIntentCommand(cmd, mode, 'player_defend')
-      if (selectedSkill.cooldownTicks > 0) {
-        input.onSkillCooldown?.(selectedSkill.id, cooldownMsFromTicks(selectedSkill.cooldownTicks))
-      }
-      input.onClearQueuedSkill?.()
-      return
-    }
-
-    if (action === 'cast_skill' && selectedSkill.coreSkillId) {
-      const cmd: BattleCommand = {
-        commandId: newCommandId(),
-        sessionId: this.session.id,
-        actorId: actor.id,
-        tick: executeAtTick,
-        action: 'cast_skill',
-        targetId: target.id,
+    if (selectedSkill.action === 'cast_skill' && selectedSkill.coreSkillId) {
+      return {
+        type: 'cast_skill',
         skillId: selectedSkill.coreSkillId,
+        path: 'root>player>manual>cast_skill',
       }
-      this.enqueueIntentCommand(cmd, mode, 'player_cast_skill')
-      // 冷却在 GameMap 于 action_executed(cast_skill) 时再写 UI，避免入队后遭拒绝仍进入冷却
-      // 不在入队时清空 nextAttackSkillId：拒绝时由 GameMap 清队列；成功施放亦在 action_executed 时清空
-      return
     }
 
-    // 兜底：技能条里可能存在当前 map-battle 不可执行的条目（无 coreSkillId 或 action 不匹配）。
-    // 若直接 return 会导致 nextAttackSkillId 长期不清空，玩家回合持续空转“看起来打不出伤害”。
-    if (dist > MELEE_RANGE) {
-      input.onClearQueuedSkill?.()
-      return
+    if (dist <= MELEE_RANGE) {
+      return { type: 'basic_attack', path: 'root>player>manual>basic_fallback' }
     }
-    const fallback: BattleCommand = {
+    return null
+  }
+
+  /**
+   * Converts a DecisionAction into a command. When a `dash` action cannot
+   * actually produce any movement (wall / map edge / corner), we remap it
+   * to the guardrail's "dash unavailable" fallback (best skill → basic
+   * attack → noop). Without this remap a blocked dash silently kills the
+   * actor's whole turn, producing the "player only dashes once then does
+   * nothing" symptom.
+   */
+  private resolveActionToCommand(
+    ctx: DecisionContext,
+    actor: BattleEntity,
+    target: BattleEntity,
+    tick: number,
+    action: DecisionAction,
+  ): { command: BattleCommand | null; action: DecisionAction; rewriteReason?: string } {
+    const primary = this.decisionActionToCommand(actor, target, tick, action)
+    if (primary || action.type !== 'dash') {
+      return { command: primary, action }
+    }
+    const remap = remapDashToAlternative(ctx, action, 'dash_blocked_by_walkability')
+    const fallback = this.decisionActionToCommand(actor, target, tick, remap.action)
+    return { command: fallback, action: remap.action, rewriteReason: remap.rewriteReason }
+  }
+
+  private decisionActionToCommand(
+    actor: BattleEntity,
+    target: BattleEntity,
+    tick: number,
+    action: DecisionAction,
+  ): BattleCommand | null {
+    const base = {
       commandId: newCommandId(),
       sessionId: this.session.id,
       actorId: actor.id,
-      tick: executeAtTick,
-      action: 'basic_attack',
-      targetId: target.id,
+      tick,
     }
-    this.enqueueIntentCommand(fallback, mode, 'player_basic_attack_fallback')
-    input.onClearQueuedSkill?.()
-    return
+    switch (action.type) {
+      case 'basic_attack':
+        return { ...base, action: 'basic_attack', targetId: target.id }
+      case 'cast_skill':
+        return { ...base, action: 'cast_skill', targetId: target.id, skillId: action.skillId }
+      case 'dodge':
+        return { ...base, action: 'dodge' }
+      case 'defend':
+        return { ...base, action: 'defend' }
+      case 'dash': {
+        const nextPos = this.previewDashDestination(actor, target, action)
+        if (!nextPos) return null
+        return {
+          ...base,
+          action: 'dash',
+          targetId: target.id,
+          metadata: {
+            moveTargetX: nextPos.x,
+            moveTargetY: nextPos.y,
+            ...(action.moveStep != null ? { moveStep: action.moveStep } : {}),
+          },
+        }
+      }
+      case 'noop':
+        return null
+    }
   }
 
-  private enqueueIntentCommand(command: BattleCommand, strategy: TacticalMode, reason: string): void {
+  private reasonForAction(action: DecisionAction, side: 'player' | 'enemy'): string {
+    const prefix = side
+    switch (action.type) {
+      case 'basic_attack': return `${prefix}_basic_attack`
+      case 'cast_skill': return `${prefix}_cast_${action.skillId}`
+      case 'dodge': return `${prefix}_dodge`
+      case 'defend': return `${prefix}_defend`
+      case 'dash': return `${prefix}_dash`
+      case 'noop': return `${prefix}_noop`
+    }
+  }
+
+  private enqueueIntentCommand(
+    command: BattleCommand,
+    strategy: TacticalMode,
+    reason: string,
+    decisionPath: string,
+  ): void {
     const nextCommand: BattleCommand = {
       ...command,
       metadata: {
         ...(command.metadata || {}),
         strategy,
         reason,
+        decisionPath,
       },
     }
     this.session = enqueueBattleCommand(this.session, nextCommand)

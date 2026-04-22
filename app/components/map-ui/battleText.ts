@@ -1,14 +1,18 @@
-export type TacticalMode = 'aggressive_finish' | 'kite_and_cast' | 'flee_and_reset' | 'steady_trade'
+export type TacticalMode = 'finish' | 'kite' | 'retreat' | 'trade'
 
 export function strategyLabel(strategy: unknown): string | null {
   if (typeof strategy !== 'string') return null
-  const map: Record<TacticalMode, string> = {
+  const map: Record<string, string> = {
+    finish: '强攻收割',
+    kite: '拉扯施法',
+    retreat: '撤离重整',
+    trade: '稳态换血',
     aggressive_finish: '强攻收割',
     kite_and_cast: '拉扯施法',
     flee_and_reset: '撤离重整',
     steady_trade: '稳态换血',
   }
-  return map[strategy as TacticalMode] ?? null
+  return map[strategy] ?? null
 }
 
 export function reasonLabel(reason: unknown): string | null {
@@ -30,6 +34,21 @@ export function reasonLabel(reason: unknown): string | null {
     player_basic_attack_fallback: '技能不可用，回退普攻',
     player_defend: '玩家防御',
     player_cast_skill: '玩家施放技能',
+    player_dash_approach_retry: '追击补偿步',
+    player_noop: '玩家待机',
+    enemy_noop: '敌方待机',
+    basic_attack_out_of_range: '普攻超距→改走位',
+    basic_attack_out_of_range_no_dash: '普攻超距→待机',
+    skill_on_cooldown: '技能冷却→换技能',
+    skill_on_cooldown_fallback_basic: '技能冷却→普攻',
+    skill_on_cooldown_no_fallback: '技能冷却→待机',
+    insufficient_mp: 'MP不足→普攻',
+    insufficient_mp_no_fallback: 'MP不足→待机',
+    skill_out_of_range: '技能超距→走位',
+    skill_out_of_range_no_dash: '技能超距→待机',
+    insufficient_stamina: '体力不足→普攻',
+    insufficient_stamina_no_fallback: '体力不足→待机',
+    skill_not_found: '技能未知→待机',
   }
   return map[reason] ?? reason
 }

@@ -16,7 +16,7 @@ import {
 describe('calcPlayerStats', () => {
   it('should calculate level 1 stats correctly', () => {
     const stats = calcPlayerStats(1)
-    expect(stats.maxHp).toBe(100)  // 100 + 0*30
+    expect(stats.maxHp).toBe(500)  // (100 + 0*30) * 5
     expect(stats.atk).toBe(5)      // 5 + 0*5
     expect(stats.def).toBe(3)      // 3 + 0*3
     expect(stats.spd).toBe(3)      // 3 + 0*3
@@ -24,7 +24,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 2 stats correctly', () => {
     const stats = calcPlayerStats(2)
-    expect(stats.maxHp).toBe(130)  // 100 + 1*30
+    expect(stats.maxHp).toBe(650)  // (100 + 1*30) * 5
     expect(stats.atk).toBe(10)     // 5 + 1*5
     expect(stats.def).toBe(6)      // 3 + 1*3
     expect(stats.spd).toBe(6)      // 3 + 1*3
@@ -32,7 +32,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 5 stats correctly', () => {
     const stats = calcPlayerStats(5)
-    expect(stats.maxHp).toBe(220)   // 100 + 4*30
+    expect(stats.maxHp).toBe(1100) // (100 + 4*30) * 5
     expect(stats.atk).toBe(25)     // 5 + 4*5
     expect(stats.def).toBe(15)     // 3 + 4*3
     expect(stats.spd).toBe(15)     // 3 + 4*3
@@ -40,7 +40,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 10 stats correctly', () => {
     const stats = calcPlayerStats(10)
-    expect(stats.maxHp).toBe(370)  // 100 + 9*30
+    expect(stats.maxHp).toBe(1850) // (100 + 9*30) * 5
     expect(stats.atk).toBe(50)     // 5 + 9*5
     expect(stats.def).toBe(30)     // 3 + 9*3
     expect(stats.spd).toBe(30)     // 3 + 9*3
@@ -50,7 +50,7 @@ describe('calcPlayerStats', () => {
 describe('calcEnemyStats', () => {
   it('level 1: 使用敌人独立基础值', () => {
     const e = calcEnemyStats(1)
-    expect(e.maxHp).toBe(120)
+    expect(e.maxHp).toBe(600)
     expect(e.atk).toBe(6)
     expect(e.def).toBe(3)
     expect(e.spd).toBe(3)
@@ -58,7 +58,7 @@ describe('calcEnemyStats', () => {
 
   it('level 5: 使用敌人独立成长值', () => {
     const e = calcEnemyStats(5)
-    expect(e.maxHp).toBe(264)
+    expect(e.maxHp).toBe(1320)
     expect(e.atk).toBe(30)
     expect(e.def).toBe(15)
     expect(e.spd).toBe(15)
@@ -94,7 +94,7 @@ describe('createEnemyEncounter', () => {
     const encounter = createEnemyEncounter(5, { maxHp: 999, def: 20 }, () => 0)
     expect(encounter.level).toBe(4)
     expect(encounter.stats).toEqual({
-      maxHp: 999,
+      maxHp: 1140,
       atk: 24,
       def: 20,
       spd: 12,

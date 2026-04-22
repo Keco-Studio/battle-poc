@@ -48,6 +48,7 @@ export const BASIC_ATTACK: Skill = {
 }
 
 const MAP_BATTLE_TICK_MS = 115
+const DEFEND_COOLDOWN_TICKS = 20
 
 export function cooldownMsFromTicks(cooldownTicks: number): number {
   return Math.max(0, cooldownTicks) * MAP_BATTLE_TICK_MS
@@ -160,8 +161,8 @@ export const allSkills: Skill[] = [
     multiplier: 0,
     desc: '进入防御姿态并获得护盾（domain 动作）',
     mpCost: 0,
-    cooldownTicks: 2,
-    cooldownMs: cooldownMsFromTicks(2),
+    cooldownTicks: DEFEND_COOLDOWN_TICKS,
+    cooldownMs: cooldownMsFromTicks(DEFEND_COOLDOWN_TICKS),
   },
   ...getAllBattleSkillDefinitions().map(buildSkillFromDefinition),
 ]
@@ -190,13 +191,14 @@ export const equipmentTypes: Record<EquipmentType, EquipmentInfo> = {
 // 玩家等级/属性计算
 export const BASE_STATS = { hp: 100, atk: 5, def: 3, spd: 3 }
 export const LEVEL_UP = { hp: 30, atk: 5, def: 3, spd: 3 }
+export const HP_MULTIPLIER = 5
 
 // 敌人等级/属性计算
 export const ENEMY_BASE_STATS = { hp: 120, atk: 6, def: 3, spd: 3 }
 export const ENEMY_LEVEL_UP = { hp: 36, atk: 6, def: 3, spd: 3 }
 
 export const calcPlayerStats = (level: number) => ({
-  maxHp: BASE_STATS.hp + (level - 1) * LEVEL_UP.hp,
+  maxHp: (BASE_STATS.hp + (level - 1) * LEVEL_UP.hp) * HP_MULTIPLIER,
   atk: BASE_STATS.atk + (level - 1) * LEVEL_UP.atk,
   def: BASE_STATS.def + (level - 1) * LEVEL_UP.def,
   spd: BASE_STATS.spd + (level - 1) * LEVEL_UP.spd,
@@ -217,7 +219,7 @@ export interface EnemyCombatStats {
 /** 按等级取敌人四维：使用独立基础值与成长值 */
 export function calcEnemyStats(level: number): EnemyCombatStats {
   return {
-    maxHp: ENEMY_BASE_STATS.hp + (level - 1) * ENEMY_LEVEL_UP.hp,
+    maxHp: (ENEMY_BASE_STATS.hp + (level - 1) * ENEMY_LEVEL_UP.hp) * HP_MULTIPLIER,
     atk: ENEMY_BASE_STATS.atk + (level - 1) * ENEMY_LEVEL_UP.atk,
     def: ENEMY_BASE_STATS.def + (level - 1) * ENEMY_LEVEL_UP.def,
     spd: ENEMY_BASE_STATS.spd + (level - 1) * ENEMY_LEVEL_UP.spd,

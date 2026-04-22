@@ -28,6 +28,13 @@ export type BattleSession = {
     expireTick?: number
     autoFleeFailStreak?: number
   }
+  movementState: Record<
+    string,
+    {
+      consecutiveDashCount: number
+      dashCooldownUntilTick: number
+    }
+  >
   events: BattleEvent[]
   createdAt: number
   updatedAt: number
@@ -59,6 +66,7 @@ export function createBattleSession(input: {
     chaseState: {
       status: 'none'
     },
+    movementState: {},
     events: [],
     createdAt: now,
     updatedAt: now

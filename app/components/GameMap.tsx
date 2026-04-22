@@ -209,8 +209,13 @@ const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
   return 'south'
 }
 
-/** battle-core 地图战 tick 间隔（越大越慢） */
-const BASE_BATTLE_TICK_MS = 340
+/**
+ * battle-core 地图战 tick 间隔。
+ * 采用 200ms 作为时间粒度，可表达：
+ * - 1.0s/次 = 5 tick
+ * - 0.8s/次 = 4 tick
+ */
+const BASE_BATTLE_TICK_MS = 200
 
 type BattleSpeedMultiplier = 0.5 | 1 | 2
 
@@ -255,6 +260,14 @@ type CombatFxState = {
   untilMs: number
   offsetX: number
   offsetY: number
+}
+
+type ReceivedCommandMeta = {
+  actorId: string
+  targetId: string
+  action: string
+  skillId: string
+  metadata: Record<string, unknown>
 }
 
 /** 地图上与战斗同步的格子位移动画时长 */
@@ -526,8 +539,10 @@ export default function GameMap({ game }: Props) {
   })
   const [enemyCombatFx, setEnemyCombatFx] = useState<Record<number, CombatFxState>>({})
   const projectileTargetByCommandRef = useRef<Record<string, { target: 'player' | 'enemy' }>>({})
+  const commandMetaByIdRef = useRef<Record<string, ReceivedCommandMeta>>({})
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [, setCdUiTick] = useState(0)
+  const [battlePlayerMaxHp, setBattlePlayerMaxHp] = useState(0)
 
   const refreshMapsCatalog = useCallback(async (preferSelectId?: string) => {
     try {
@@ -594,6 +609,7 @@ export default function GameMap({ game }: Props) {
       setPlayerCombatFx({ anim: 'idle', untilMs: 0, offsetX: 0, offsetY: 0 })
       setEnemyCombatFx({})
       projectileTargetByCommandRef.current = {}
+      commandMetaByIdRef.current = {}
     }
   }, [showBattle])
 
@@ -1150,6 +1166,7 @@ export default function GameMap({ game }: Props) {
     const cfg = {
       mapWidth: mapInfo.width,
       mapHeight: mapInfo.height,
+      battleTickMs: BASE_BATTLE_TICK_MS,
       isWalkable: isWalkableForBattle,
       playerName: `战士 Lv.${playerLevel}`,
       playerGrid: { ...battleGridAnchor.player },
@@ -1176,6 +1193,7 @@ export default function GameMap({ game }: Props) {
     }
     const ctrl = new MapBattleController(cfg)
     mapBattleControllerRef.current = ctrl
+    setBattlePlayerMaxHp(ctrl.session.left.resources.maxHp)
     setBattleTimeSec(0)
     setLastBattleTickCount(0)
     setFloatTexts([])
@@ -1362,6 +1380,8 @@ export default function GameMap({ game }: Props) {
       setPlayerHP(s.left.resources.hp)
       setPlayerMP(s.left.resources.mp)
       setEnemyHP(s.right.resources.hp)
+      setEnemyMaxHp(s.right.resources.maxHp)
+      setBattlePlayerMaxHp(s.left.resources.maxHp)
       // 战斗中保留小数坐标，避免位移被整格取整吞掉导致“看起来不动”。
       setPlayerPos({ x: s.left.position.x, y: s.left.position.y })
       if (s.phase === 'preparation') {
@@ -1417,14 +1437,34 @@ export default function GameMap({ game }: Props) {
           const commandId = String(ev.payload.commandId ?? '')
           const actorId = typeof ev.payload.actorId === 'string' ? ev.payload.actorId : ''
           const targetId = typeof ev.payload.targetId === 'string' ? ev.payload.targetId : ''
+          const action = String(ev.payload.action ?? '')
+          const skillId = String(ev.payload.skillId ?? '')
+          const metadata = (ev.payload.metadata ?? {}) as Record<string, unknown>
+          if (commandId) {
+            commandMetaByIdRef.current[commandId] = {
+              actorId,
+              targetId,
+              action,
+              skillId,
+              metadata,
+            }
+          }
+        }
+        if (ev.type === 'action_executed') {
+          const commandId = String(ev.payload.commandId ?? '')
+          const actorId = String(ev.payload.actorId ?? '')
+          const action = String(ev.payload.action ?? '')
+          const commandMeta = commandId ? commandMetaByIdRef.current[commandId] : undefined
+          const targetId = commandMeta?.targetId ?? String(ev.payload.targetId ?? '')
+          const skillId = commandMeta?.skillId ?? String(ev.payload.skillId ?? '')
+          const metadata = commandMeta?.metadata ?? {}
           const actorRole = roleByEntityId(actorId)
           const targetRole = roleByEntityId(targetId)
           const actorPos = posByEntityId(actorId)
           const targetPos = posByEntityId(targetId)
-          const action = String(ev.payload.action ?? '')
-          const skillId = String(ev.payload.skillId ?? '')
+
           if (actorRole && targetRole && actorPos && targetPos) {
-            // 攻击/施法发生时强制对向目标，避免位移后出现背对背出手。
+            // 攻击/施法执行成功后再触发朝向与动作特效，避免“假动作”视觉噪音。
             if (action === 'basic_attack' || action === 'cast_skill') {
               triggerCombatFx(actorRole, action === 'cast_skill' ? 'cast' : 'attack', {
                 toward: {
@@ -1451,6 +1491,7 @@ export default function GameMap({ game }: Props) {
                 setEnemyFacings((prevFacing) => ({ ...prevFacing, [combatEnemyId]: targetFacing }))
               }
             }
+
             const fxProfile = resolveSkillFxProfile({
               action,
               skillId,
@@ -1472,21 +1513,19 @@ export default function GameMap({ game }: Props) {
               }
             }
           }
-          const actStr = actionLabel(ev.payload.action)
-          const md = (ev.payload.metadata ?? {}) as Record<string, unknown>
-          const strategy = strategyLabel(md.strategy)
-          const reason = reasonLabel(md.reason)
+
+          const actStr = actionLabel(action)
+          const strategy = strategyLabel(metadata.strategy)
+          const reason = reasonLabel(metadata.reason)
+          const isAiDecision = metadata.decisionSource === 'llm'
           const actorName = actorId === 'poc-player' ? '玩家' : '敌方'
           const head = `${actorName}${actStr}`
           const parts = [head]
+          if (isAiDecision) parts.push('[AI]')
           if (strategy) parts.push(`[${strategy}]`)
-          // metadata.reason 与「玩家+行动名」同文案时不重复拼接（否则「玩家普通攻击 · 玩家普通攻击」）
           if (reason && reason !== head) parts.push(`· ${reason}`)
           setBattleLog((prev) => [...prev, parts.join(' ')])
-        }
-        if (ev.type === 'action_executed') {
-          const actorId = String(ev.payload.actorId ?? '')
-          const action = String(ev.payload.action ?? '')
+
           if (actorId === s.left.id && action === 'cast_skill') {
             setNextAttackSkillId(null)
             const coreId = String(ev.payload.skillId ?? '')
@@ -1499,6 +1538,9 @@ export default function GameMap({ game }: Props) {
                 }))
               }
             }
+          }
+          if (commandId) {
+            delete commandMetaByIdRef.current[commandId]
           }
         }
         if (ev.type === 'damage_applied') {
@@ -1569,6 +1611,12 @@ export default function GameMap({ game }: Props) {
             setBattleLog((prev) => [...prev, '追逐结束：未满足逃脱条件，战斗继续'])
           }
         }
+        if (ev.type === 'battle_ended') {
+          const reason = String(ev.payload.reason ?? '')
+          if (reason === 'timeout_hp_compare') {
+            setBattleLog((prev) => [...prev, '战斗僵持过久：按剩余生命值判定胜负'])
+          }
+        }
         if (ev.type === 'command_rejected') {
           const reason = String(ev.payload.reason ?? '')
           const actorId = String(ev.payload.actorId ?? '')
@@ -1606,6 +1654,9 @@ export default function GameMap({ game }: Props) {
               })
               delete projectileTargetByCommandRef.current[commandId]
             }
+          }
+          if (commandId) {
+            delete commandMetaByIdRef.current[commandId]
           }
           if (reason === 'flee_failed' && actorId === s.left.id) {
             setBattleLog((prev) => [...prev, '逃跑失败（概率未通过），靠向地图边缘或再次尝试'])
@@ -1693,6 +1744,7 @@ export default function GameMap({ game }: Props) {
     return () => {
       clearTimers()
       mapBattleControllerRef.current = null
+      setBattlePlayerMaxHp(0)
     }
     // 会话由 battleSessionNonce / combatEnemyId 标识；仅依赖开战瞬间与地图尺寸。
     // 勿加入 HP/坐标/playerPos，否则会每 tick 重建控制器导致战斗卡死。
@@ -1855,6 +1907,8 @@ export default function GameMap({ game }: Props) {
 
   const enemyLevelRangeMin = Math.max(1, playerLevel - 2)
   const enemyLevelRangeMax = Math.max(1, playerLevel - 1)
+  const playerHpMaxForUi = showBattle ? Math.max(1, battlePlayerMaxHp) : Math.max(1, totalStats.maxHp)
+  const playerHpRatioForUi = Math.max(0, Math.min(100, (playerHP / playerHpMaxForUi) * 100))
 
   const handlePixellabSync = useCallback(async () => {
     setPixellabSyncHint('同步中…')
@@ -2227,12 +2281,12 @@ export default function GameMap({ game }: Props) {
           <div>
             <div className="flex justify-between text-xs text-gray-400 mb-1">
               <span>HP</span>
-              <span>{playerHP}/{totalStats.maxHp}</span>
+              <span>{playerHP}/{playerHpMaxForUi}</span>
             </div>
             <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-green-500 transition-all duration-300"
-                style={{ width: `${(playerHP / totalStats.maxHp) * 100}%` }}
+                style={{ width: `${playerHpRatioForUi}%` }}
               />
             </div>
           </div>
