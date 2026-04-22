@@ -10,7 +10,10 @@ const ZONE = {
   player: { xMin: 90, xMax: MID_X - 90, yMin: 120, yMax: H - 120 },
   enemy: { xMin: MID_X + 90, xMax: W - 90, yMin: 120, yMax: H - 120 },
 };
-
+const FLOAT_TEXT_DURATION_MS = 700;
+const HIT_FLASH_DURATION_MS = 200;
+const KNOCKBACK_DURATION_MS = 110;
+const SHAKE_STEP_DURATION_MS = 55;
 export class BattleScene extends Phaser.Scene {
   private getState!: () => BattleVisualState;
 
@@ -165,7 +168,7 @@ export class BattleScene extends Phaser.Scene {
       targets: t,
       y: worldY - 70,
       alpha: 0,
-      duration: 820,
+      duration: FLOAT_TEXT_DURATION_MS,
       ease: 'Sine.easeOut',
       onComplete: () => t.destroy(),
     });
@@ -184,7 +187,7 @@ export class BattleScene extends Phaser.Scene {
     if (state.floatTexts.length === 0) this.processedFloatIds.clear();
   }
 
-  private flashSprite(sprite: Phaser.GameObjects.Sprite, duration = 140): void {
+  private flashSprite(sprite: Phaser.GameObjects.Sprite, duration = HIT_FLASH_DURATION_MS): void {
     sprite.setTint(0xffffff);
     this.time.delayedCall(duration, () => sprite.clearTint());
   }
@@ -193,7 +196,7 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({
       targets: sprite,
       x: sprite.x + deltaX,
-      duration: 70,
+      duration: KNOCKBACK_DURATION_MS,
       yoyo: true,
       ease: 'Quad.easeOut',
     });
@@ -204,7 +207,7 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({
       targets: sprite,
       x: ox - 6,
-      duration: 40,
+      duration: SHAKE_STEP_DURATION_MS,
       yoyo: true,
       repeat: 3,
       onComplete: () => {
@@ -320,7 +323,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private hitFlash(sprite: Phaser.GameObjects.Sprite): void {
-    this.flashSprite(sprite);
+    this.flashSprite(sprite, HIT_FLASH_DURATION_MS);
   }
 
   private syncFx(state: BattleVisualState): void {

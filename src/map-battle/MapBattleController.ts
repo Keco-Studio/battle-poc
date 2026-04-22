@@ -447,9 +447,9 @@ export class MapBattleController {
       // 撤离动作按玩家节奏窗口执行；flee 由 step.pendingFlee（自动/手动）统一触发，
       // 这里仅做撤步，不在低血时无条件强制发 flee，避免“阈值到了但未满足自动逃跑判定时卡住”。
       if (executeAtTick < this.nextPlayerDue) return
-      this.nextPlayerDue = executeAtTick + this.playerInterval
 
       if (actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
+        this.nextPlayerDue = executeAtTick + this.playerInterval
         const dodge: BattleCommand = {
           commandId: newCommandId(),
           sessionId: this.session.id,
@@ -462,7 +462,7 @@ export class MapBattleController {
       }
 
       // 体力不足时回落到常规分支（可能普攻/施法），避免整段空转。
-      // 不 return
+      // 不 return；且不在此处推进 nextPlayerDue，否则会在下方 468 行被永久挡住。
     }
 
     if (executeAtTick < this.nextPlayerDue) return
@@ -533,9 +533,6 @@ export class MapBattleController {
       }
       // 无法后撤时允许本 tick 继续出手，避免与技能队列死锁
     }
-
-    if (executeAtTick < this.nextPlayerDue) return
-    this.nextPlayerDue = executeAtTick + this.playerInterval
 
     if (!selectedSkill || chosen === BASIC_ATTACK.id || !action) {
       // 与引擎 basic_attack 判定一致；避免「位移差一点仍 >1.6」时入队普攻被拒刷屏
