@@ -859,14 +859,8 @@ export default function GameMap({ game }: Props) {
 
         // Grid lines:
         // - no background: show faint grid always (and red for blocked)
-        // - has background: hide grid by default; only show blocked cells faintly to help navigation
-        if (hasBg) {
-          if (blocked) {
-            ctx.strokeStyle = 'rgba(239, 68, 68, 0.22)'
-            ctx.lineWidth = 1
-            ctx.strokeRect(dx, dy, cellW, cellH)
-          }
-        } else {
+        // - has background: hide grid by default (to avoid "debug red squares" look)
+        if (!hasBg) {
           ctx.strokeStyle = blocked ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 0, 0, 0.18)'
           ctx.lineWidth = 1
           ctx.strokeRect(dx, dy, cellW, cellH)
@@ -1916,11 +1910,15 @@ export default function GameMap({ game }: Props) {
                   const facing = enemyFacings[enemy.id] || DEFAULT_DIRECTION
                   const vid = enemy.visualId
                   const plMeta = typeof vid === 'string' && vid.startsWith('pixellab:') ? pixelLabPacks[vid] : undefined
-                  const movedAt = enemyLastMoveAt[enemy.id]
                   const nowMs = Date.now()
                   const fx = enemyCombatFx[enemy.id]
                   const activeFx = fx && nowMs < fx.untilMs ? fx : null
-                  const isWalking = movedAt !== undefined && Date.now() - movedAt < 480
+                  // Prefer "distance to current target" to decide walking, because frame-based sprites
+                  // should animate reliably even if timestamps drift or are missed.
+                  const curTarget = enemyTargetsRef.current[enemy.id]
+                  const isWalking =
+                    !!curTarget &&
+                    Math.hypot(curTarget.x - pos.x, curTarget.y - pos.y) > 0.02
                   const animWalking = isWalking || activeFx?.anim === 'attack' || activeFx?.anim === 'cast'
                   const spriteTransform = activeFx
                     ? `translate(${(activeFx.offsetX * mapCellDisplayPx).toFixed(1)}px, ${(activeFx.offsetY * mapCellDisplayPx).toFixed(1)}px)`
@@ -1972,8 +1970,19 @@ export default function GameMap({ game }: Props) {
                       }}
                       onError={(e) => {
                         const target = e.currentTarget
+                        // Some directions may only export frame_000.png; if a later frame 404s,
+                        // fall back to frame_000 first to keep "walking" look, then finally idle.
+                        const stage = (target.dataset['fallbackStage'] ?? '0')
+                        if (stage === '0') {
+                          target.dataset['fallbackStage'] = '1'
+                          target.src = isFleePending
+                            ? toEnemyRunningFramePath(facing, 0)
+                            : animWalking
+                              ? toEnemyWalkFramePath(facing, 0)
+                              : toEnemyIdlePngPath(facing)
+                          return
+                        }
                         target.onerror = null
-                        // If a frame is missing (incomplete export), fall back to idle.
                         target.src = toEnemyIdlePngPath(facing)
                       }}
                     />
