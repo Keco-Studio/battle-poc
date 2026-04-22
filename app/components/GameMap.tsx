@@ -460,6 +460,11 @@ export default function GameMap({ game }: Props) {
     ],
   )
 
+  const playerPosRef = useRef(playerPos)
+  playerPosRef.current = playerPos
+  const isWalkableRef = useRef(isWalkable)
+  isWalkableRef.current = isWalkable
+
   const mapAspect = mapInfo.width / Math.max(1, mapInfo.height)
   const viewAspect = viewportSize.width / Math.max(1, viewportSize.height)
   const renderWidth =
@@ -1006,6 +1011,13 @@ export default function GameMap({ game }: Props) {
       const code = typeof e.code === 'string' ? e.code.toLowerCase() : ''
       return CODE_TO_KEY[code] ?? ''
     }
+    const isTypingInEditableField = (): boolean => {
+      const el = document.activeElement
+      if (!el || !(el instanceof HTMLElement)) return false
+      const tag = el.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      return el.isContentEditable
+    }
     const debugInput = (...args: unknown[]) => {
       if (typeof window === 'undefined') return
       if ((window as Window & { __MAP_DEBUG_INPUT__?: boolean }).__MAP_DEBUG_INPUT__) {
@@ -1036,6 +1048,10 @@ export default function GameMap({ game }: Props) {
         debugInput('skip:showBattle')
         return
       }
+      if (isTypingInEditableField()) {
+        debugInput('skip:typing')
+        return
+      }
 
       const k = keysRef.current
       const dx = (k.d || k.arrowright ? 1 : 0) + (k.a || k.arrowleft ? -1 : 0)
@@ -1054,18 +1070,19 @@ export default function GameMap({ game }: Props) {
       }
       lastKeyboardMoveAtRef.current = now
 
-      const baseX = Math.floor(playerPos.x)
-      const baseY = Math.floor(playerPos.y)
+      const p = playerPosRef.current
+      const baseX = Math.floor(p.x)
+      const baseY = Math.floor(p.y)
       const nx = baseX + stepDx
       const ny = baseY + stepDy
-      if (!isWalkable(nx, ny)) {
-        debugInput('skip:notWalkable', { from: { x: playerPos.x, y: playerPos.y }, to: { x: nx, y: ny } })
+      if (!isWalkableRef.current(nx, ny)) {
+        debugInput('skip:notWalkable', { from: { x: p.x, y: p.y }, to: { x: nx, y: ny } })
         return
       }
 
       setPlayerFacing(resolveDirectionByDelta(stepDx, stepDy))
       setPlayerPos({ x: nx, y: ny })
-      debugInput('move', { from: { x: playerPos.x, y: playerPos.y }, to: { x: nx, y: ny } })
+      debugInput('move', { from: { x: p.x, y: p.y }, to: { x: nx, y: ny } })
     }
 
     window.addEventListener('keydown', handleKeyDown, { capture: true })
@@ -1085,7 +1102,7 @@ export default function GameMap({ game }: Props) {
       window.removeEventListener('keyup', handleKeyUp, { capture: true })
       window.removeEventListener('blur', handleBlur)
     }
-  }, [isWalkable, playerPos.x, playerPos.y, setPlayerPos, showBattle])
+  }, [setPlayerFacing, setPlayerPos, showBattle])
 
   // battle-core tick：仅在地图上更新交战双方格子坐标（无 Phaser、无全屏遮罩）
   // 必须用 combatEnemyId 而非 nearbyEnemy：拉扯后双方距离会超过 INTERACTION_RANGE，
