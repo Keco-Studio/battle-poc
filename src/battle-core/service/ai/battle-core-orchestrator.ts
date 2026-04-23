@@ -175,7 +175,7 @@ export class BattleCoreOrchestrator {
     const actor = session.left.id === actorId ? session.left : session.right
     const target = actor.id === session.left.id ? session.right : session.left
     if (!actor.alive || !target.alive) return
-    const state = this.getActorState(actorId, actor.spd)
+    const state = this.getActorState(actorId)
     if (state.pending || state.cachedDecision) return
     const memory = buildShortTermMemory(session, actorId)
     state.pending = true

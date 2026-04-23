@@ -218,7 +218,7 @@ function breakLoop(
   }
 
   const approach = computeFallbackApproach(ctx)
-  if (approach && current !== 'dash') {
+  if (approach) {
     return {
       action: { type: 'dash', target: approach, path: currentAction.path + '>break_loop:dash' },
       rewritten: true,

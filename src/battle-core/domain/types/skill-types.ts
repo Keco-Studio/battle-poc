@@ -10,5 +10,6 @@ export type BattleSkillDefinition = {
   applyFreezeTicks?: number
   shatterBonusRatio?: number
   consumeFreezeOnHit?: boolean
+  params?: Record<string, unknown>
 }
 
