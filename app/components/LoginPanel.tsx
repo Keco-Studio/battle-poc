@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { User, Lock, LogIn, Sparkles } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
+import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 
 interface Props {
   game: GameState
@@ -35,35 +36,58 @@ function PixelBot({ hue }: { hue: string }) {
 }
 
 export default function LoginPanel({ game }: Props) {
-  const { login, setShowLogin } = game
-  const [username, setUsername] = useState('kaokao@kecostudio.com')
+  const { setShowLogin } = game
+  const supabaseClient = useSupabaseOptional()
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('')
-    if (!username.trim()) {
-      setError('Please enter account')
+    if (!username.trim()) { setError('Please enter email'); return }
+    if (!password.trim()) { setError('Please enter password'); return }
+
+    // No Supabase configured — guest mode fallback
+    if (!supabaseClient) {
+      setShowLogin(false)
       return
     }
-    if (!password.trim()) {
-      setError('Please enter password')
-      return
+
+    setLoading(true)
+    // Try sign in first; if user not found, auto sign up
+    const { error: signInErr } = await supabaseClient.auth.signInWithPassword({
+      email: username.trim(),
+      password: password.trim(),
+    })
+
+    if (signInErr) {
+      if (signInErr.message.toLowerCase().includes('invalid login credentials')) {
+        // Account doesn't exist — auto register
+        const { error: signUpErr } = await supabaseClient.auth.signUp({
+          email: username.trim(),
+          password: password.trim(),
+        })
+        if (signUpErr) {
+          setError(signUpErr.message)
+          setLoading(false)
+          return
+        }
+      } else {
+        setError(signInErr.message)
+        setLoading(false)
+        return
+      }
     }
-    if (username.trim().length < 2) {
-      setError('Account must be at least 2 characters')
-      return
-    }
-    if (password.trim().length < 4) {
-      setError('Password must be at least 4 characters')
-      return
-    }
-    login(username)
+
+    setLoading(false)
+    // Auth state change in useGameState handles loading the save + setting accountLabel
+    setShowLogin(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleLogin()
+    if (e.key === 'Enter') void handleLogin()
   }
 
   return (
@@ -87,14 +111,14 @@ export default function LoginPanel({ game }: Props) {
 
         <label className="mb-4 block">
           <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-            <User size={12} /> Username
+            <User size={12} /> Email
           </span>
           <input
-            type="text"
+            type="email"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Enter account"
+            placeholder="Enter email"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
           />
         </label>
@@ -126,8 +150,13 @@ export default function LoginPanel({ game }: Props) {
           <div className="mb-2 text-center text-[11px] font-bold text-rose-500">{error}</div>
         )}
 
-        <button type="button" onClick={handleLogin} className="oc-arcade-btn oc-arcade-btn-cta mt-4">
-          ENTER WORLD
+        <button
+          type="button"
+          onClick={handleLogin}
+          disabled={loading}
+          className="oc-arcade-btn oc-arcade-btn-cta mt-4 disabled:opacity-50"
+        >
+          {loading ? 'CONNECTING...' : 'ENTER WORLD'}
         </button>
 
         <div className="mt-3 text-center">

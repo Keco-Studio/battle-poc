@@ -15,6 +15,9 @@ import {
   getBattleRewards,
   getDefaultCarriedSkillIds,
 } from '../constants'
+import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
+import { loadPlayerSave, savePlayerSave, recordBattle, fetchBattleHistory } from '@/src/lib/db'
+import type { PlayerSaveRow } from '@/src/lib/db'
 
 export interface EquippedItem {
   name: string
@@ -180,6 +183,18 @@ export function useGameState() {
    */
   const [storageHydrated, setStorageHydrated] = useState(false)
 
+  /**
+   * True once we have confirmed the auth state (user or no user).
+   * Prevents DB auto-save from firing before the initial DB load completes,
+   * which would overwrite cloud data with stale localStorage defaults.
+   */
+  const [dbHydrated, setDbHydrated] = useState(false)
+
+  /** Supabase user id when logged in, null for guests. */
+  const [authedUserId, setAuthedUserId] = useState<string | null>(null)
+
+  const supabaseClient = useSupabaseOptional()
+
   // Player state (default = new game without save, consistent with server first render)
   const [playerLevel, setPlayerLevel] = useState(1)
   const [playerExp, setPlayerExp] = useState(0)
@@ -326,7 +341,111 @@ export function useGameState() {
     setChatMessages(loadChatMessages())
   }, [])
 
-  // Auto save (avoid first frame using default values to overwrite localStorage)
+  // Apply a DB save row to local state — used on login and initial auth check
+  const applyDbSave = useCallback((save: PlayerSaveRow) => {
+    const lv = save.level ?? 1
+    setPlayerLevel(lv)
+    setPlayerExp(save.exp ?? 0)
+    setPlayerGold(save.gold ?? 0)
+    const gear = {
+      weapon: (save.equipped_weapon as EquippedItem | null) ?? null,
+      ring:   (save.equipped_ring   as EquippedItem | null) ?? null,
+      armor:  (save.equipped_armor  as EquippedItem | null) ?? null,
+      shoes:  (save.equipped_shoes  as EquippedItem | null) ?? null,
+    }
+    setEquippedGear(gear)
+    setInventory(Array.isArray(save.inventory) ? (save.inventory as InventoryItem[]) : [])
+    setPlayerPos({ x: save.pos_x, y: save.pos_y })
+    const maxHp = calcPlayerStats(lv).maxHp + (gear.ring ? lv * equipmentTypes.ring.bonus : 0)
+    const hp = save.current_hp ?? maxHp
+    setPlayerHP(Math.min(Math.max(0, hp), maxHp))
+    const maxMp = Math.floor(maxHp / 2)
+    setPlayerMaxMp(maxMp)
+    setPlayerMP(maxMp)
+    const carried = Array.isArray(save.carried_skill_ids) && save.carried_skill_ids.length > 0
+      ? save.carried_skill_ids
+      : getDefaultCarriedSkillIds('archer', 6)
+    setCarriedSkillIds(carried.slice(0, 6))
+  }, [])
+
+  // Supabase auth: detect session, load from DB on login, set authedUserId
+  useEffect(() => {
+    if (!supabaseClient) {
+      setDbHydrated(true)
+      return
+    }
+
+    async function initFromAuth() {
+      try {
+        const { data: { user } } = await supabaseClient!.auth.getUser()
+        if (user) {
+          setAuthedUserId(user.id)
+          setAccountLabel(user.email ?? user.id)
+          const save = await loadPlayerSave()
+          if (save && save.level > 1) {
+            // Only overwrite local state if DB has real progress (level > 1)
+            // This lets a first-time login inherit localStorage progress
+            applyDbSave(save)
+          }
+          const logs = await fetchBattleHistory(50)
+          if (logs.length > 0) {
+            setBattleLogs(logs.map(r => ({
+              id: r.id,
+              result: r.result,
+              timestamp: new Date(r.created_at).getTime(),
+              rounds: r.rounds ?? 0,
+              expGained: r.exp_gained,
+              goldGained: r.gold_gained,
+              battleType: r.battle_type,
+              opponentName: r.opponent_name ?? undefined,
+            })))
+          }
+        }
+      } catch (e) {
+        console.warn('Auth init failed:', e)
+      } finally {
+        setDbHydrated(true)
+      }
+    }
+
+    initFromAuth()
+
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setAuthedUserId(session.user.id)
+        setAccountLabel(session.user.email ?? session.user.id)
+        try {
+          const save = await loadPlayerSave()
+          if (save) applyDbSave(save)
+          const logs = await fetchBattleHistory(50)
+          if (logs.length > 0) {
+            setBattleLogs(logs.map(r => ({
+              id: r.id,
+              result: r.result,
+              timestamp: new Date(r.created_at).getTime(),
+              rounds: r.rounds ?? 0,
+              expGained: r.exp_gained,
+              goldGained: r.gold_gained,
+              battleType: r.battle_type,
+              opponentName: r.opponent_name ?? undefined,
+            })))
+          }
+        } catch (e) {
+          console.warn('DB load on sign-in failed:', e)
+        }
+        setDbHydrated(true)
+      }
+      if (event === 'SIGNED_OUT') {
+        setAuthedUserId(null)
+        setAccountLabel(null)
+        setDbHydrated(true)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabaseClient, applyDbSave])
+
+  // Auto save — localStorage always; DB when logged in and DB hydrated
   useEffect(() => {
     if (!storageHydrated) return
     saveState({
@@ -339,8 +458,26 @@ export function useGameState() {
       playerPos,
       carriedSkillIds,
     })
+
+    if (!authedUserId || !dbHydrated) return
+    savePlayerSave({
+      level:             playerLevel,
+      exp:               playerExp,
+      gold:              playerGold,
+      current_hp:        playerHP,
+      pos_x:             playerPos.x,
+      pos_y:             playerPos.y,
+      equipped_weapon:   equippedGear.weapon,
+      equipped_ring:     equippedGear.ring,
+      equipped_armor:    equippedGear.armor,
+      equipped_shoes:    equippedGear.shoes,
+      inventory,
+      carried_skill_ids: carriedSkillIds,
+    }).catch(e => console.warn('DB auto-save failed:', e))
   }, [
     storageHydrated,
+    dbHydrated,
+    authedUserId,
     playerLevel,
     playerExp,
     playerGold,
@@ -564,24 +701,33 @@ export function useGameState() {
       const afterLevelUp = tryLevelUp(playerExp + expGain)
       setPlayerExp(afterLevelUp.exp)
       setBattleLog((prev) => [...prev, closingLog, `Gained ${expGain} EXP and ${goldGain} Gold!`])
-      setBattleLogs((prev) => [
-        ...prev,
-        {
-          id: `bh-${Date.now()}`,
-          result: 'win',
-          timestamp: Date.now(),
-          rounds: battleRound,
-          expGained: expGain,
-          goldGained: goldGain,
-          battleType: pvpOpponentName ? 'pvp' : 'pve',
-          opponentName: pvpOpponentName ?? nearbyEnemy?.name,
-        },
-      ])
+      const winEntry = {
+        id: `bh-${Date.now()}`,
+        result: 'win' as const,
+        timestamp: Date.now(),
+        rounds: battleRound,
+        expGained: expGain,
+        goldGained: goldGain,
+        battleType: (pvpOpponentName ? 'pvp' : 'pve') as 'pve' | 'pvp',
+        opponentName: pvpOpponentName ?? nearbyEnemy?.name,
+      }
+      setBattleLogs((prev) => [...prev, winEntry])
+      if (authedUserId) {
+        recordBattle({
+          result:        winEntry.result,
+          battle_type:   winEntry.battleType,
+          opponent_name: winEntry.opponentName ?? null,
+          enemy_level:   enemyLevel,
+          rounds:        winEntry.rounds,
+          exp_gained:    winEntry.expGained,
+          gold_gained:   winEntry.goldGained,
+        }).catch(e => console.warn('recordBattle failed:', e))
+      }
       if (afterLevelUp.level > playerLevel) {
         setBattleLog((prev) => [...prev, `Level up! Now Lv.${afterLevelUp.level}`])
       }
     },
-    [battleRound, enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
+    [authedUserId, battleRound, enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
   )
 
   /** Map battle: defeat */
@@ -591,18 +737,27 @@ export function useGameState() {
     setPlayerGold(0)
     setPlayerHP(totalStats.maxHp)
     setPlayerMP(playerMaxMp)
-    setBattleLogs((prev) => [
-      ...prev,
-      {
-        id: `bh-${Date.now()}`,
-        result: 'lose',
-        timestamp: Date.now(),
-        rounds: battleRound,
-        battleType: pvpOpponentName ? 'pvp' : 'pve',
-        opponentName: pvpOpponentName ?? nearbyEnemy?.name,
-      },
-    ])
-  }, [battleRound, playerMaxMp, pvpOpponentName, nearbyEnemy, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
+    const loseEntry = {
+      id: `bh-${Date.now()}`,
+      result: 'lose' as const,
+      timestamp: Date.now(),
+      rounds: battleRound,
+      battleType: (pvpOpponentName ? 'pvp' : 'pve') as 'pve' | 'pvp',
+      opponentName: pvpOpponentName ?? nearbyEnemy?.name,
+    }
+    setBattleLogs((prev) => [...prev, loseEntry])
+    if (authedUserId) {
+      recordBattle({
+        result:        loseEntry.result,
+        battle_type:   loseEntry.battleType,
+        opponent_name: loseEntry.opponentName ?? null,
+        enemy_level:   enemyLevel,
+        rounds:        loseEntry.rounds,
+        exp_gained:    0,
+        gold_gained:   0,
+      }).catch(e => console.warn('recordBattle failed:', e))
+    }
+  }, [authedUserId, battleRound, enemyLevel, playerMaxMp, pvpOpponentName, nearbyEnemy, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
 
   const closeDockPanel = useCallback(() => {
     setDockPanel(null)
