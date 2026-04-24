@@ -10,7 +10,7 @@ import {
   User,
   Sparkles,
   LogOut,
-  Search,
+  Search
 } from 'lucide-react'
 import type { DockPanelId, GameState } from '../hooks/useGameState'
 import { MOCK_PVP_USERS } from '../hooks/useGameState'
@@ -22,8 +22,8 @@ export type ChatTargetOption = {
   id: string
   label: string
   kind?: 'system' | 'enemy'
-  disabled?: boolean
-}
+    disabled?: boolean
+  }
 
 const PANEL_META: Record<
   DockPanelId,
