@@ -55,6 +55,22 @@ const DEFAULT_ACHIEVEMENTS: AchievementItem[] = [
   { id: 'a2', name: '百战老兵', desc: '累计战斗 10 次', icon: '🛡️', unlocked: false },
 ]
 
+/** PVP 对手数据 */
+export interface PVPUser {
+  id: string
+  name: string
+  level: number
+}
+
+/** 模拟 PVP 用户列表 */
+export const MOCK_PVP_USERS: PVPUser[] = [
+  { id: 'u1', name: '赤瞳', level: 3 },
+  { id: 'u2', name: '白木', level: 5 },
+  { id: 'u3', name: '黑羽', level: 7 },
+  { id: 'u4', name: '青叶', level: 2 },
+  { id: 'u5', name: '金井', level: 9 },
+]
+
 /** BattleLogPanel（遗留入口）条目 */
 export interface BattleHistoryLogItem {
   id: string
@@ -63,6 +79,8 @@ export interface BattleHistoryLogItem {
   rounds: number
   expGained?: number
   goldGained?: number
+  battleType: 'pve' | 'pvp'
+  opponentName?: string
 }
 
 /** 地图右下角功能入口对应的弹窗 */
@@ -221,6 +239,10 @@ export function useGameState() {
   const [battleCount, setBattleCount] = useState(0)
   const [achievements] = useState<AchievementItem[]>(() => [...DEFAULT_ACHIEVEMENTS])
   const [battleLogs, setBattleLogs] = useState<BattleHistoryLogItem[]>([])
+  /** 当前 PVP 对手名称（结算写入 battleLogs 时使用） */
+  const [pvpOpponentName, setPvpOpponentName] = useState<string | undefined>()
+  /** 当前是否为 PVP 战斗模式（禁用碰撞检测） */
+  const [isPVPMode, setIsPVPMode] = useState(false)
 
   // 战斗相关
   const [battleLog, setBattleLog] = useState<string[]>([])
@@ -425,8 +447,52 @@ export function useGameState() {
       setCombatEnemyId(nearbyEnemy?.id ?? null)
       setBattleSessionNonce((n) => n + 1)
       setBattleCount((c) => c + 1)
+      setIsPVPMode(false)
     },
     [enemyPreview, nearbyEnemy, playerLevel],
+  )
+
+  // 开始 PVP 战斗
+  const startPVPBattle = useCallback(
+    (userId: string) => {
+      const user = MOCK_PVP_USERS.find((u) => u.id === userId)
+      if (!user) return
+
+      const stats = calcPlayerStats(user.level)
+      if (enemies.length === 0) {
+        setEnemies([...initialEnemies])
+      }
+      const actorPool = enemies.length > 0 ? enemies : initialEnemies
+      const picked = actorPool[Math.floor(Math.random() * actorPool.length)] ?? null
+      const anchorPlayer = { x: Math.round(playerPos.x), y: Math.round(playerPos.y) }
+      const anchorEnemy = { x: anchorPlayer.x + 1, y: anchorPlayer.y }
+
+      setPvpOpponentName(user.name)
+      setShowBattle(true)
+      setBattleRound(1)
+      setBattleLog([`PVP 对决：vs ${user.name}！`])
+      setEnemyHP(stats.maxHp)
+      setEnemyMaxHp(stats.maxHp)
+      setEnemyLevel(user.level)
+      setEnemyCombatStats(stats)
+      setCurrentTurn('player')
+      setSelectedSkill(null)
+      setNextAttackSkillId(null)
+      setSkillCooldownEndAt({})
+      setIsGameOver(false)
+      setBattleResult(null)
+      setIsDefending(false)
+      setFleeSuccessMessage(null)
+      setBattleLootDrop(null)
+      setDockPanel(null)
+      setBattleGridAnchor({ player: anchorPlayer, enemy: anchorEnemy })
+      setCombatEnemyId(picked?.id ?? null)
+      setBattleSessionNonce((n) => n + 1)
+      setBattleCount((c) => c + 1)
+      setEnemyPreview({ level: user.level, stats })
+      setIsPVPMode(true)
+    },
+    [enemies, playerPos.x, playerPos.y],
   )
 
   // 关闭战斗
@@ -444,6 +510,7 @@ export function useGameState() {
     setBattleGridAnchor(null)
     setBattleLootDrop(null)
     setCombatEnemyId(null)
+    setIsPVPMode(false)
   }, [])
 
   /**
@@ -467,6 +534,7 @@ export function useGameState() {
     setBattleGridAnchor(null)
     setBattleLootDrop(null)
     setCombatEnemyId(null)
+    setIsPVPMode(false)
   }, [enemyPreview.stats.maxHp, setEnemyHP, setEnemyMaxHp])
 
   /** @deprecated 与 finalizeMapBattleFleeSuccess 相同；保留旧名称供遗留组件引用 */
@@ -505,6 +573,8 @@ export function useGameState() {
           rounds: battleRound,
           expGained: expGain,
           goldGained: goldGain,
+          battleType: pvpOpponentName ? 'pvp' : 'pve',
+          opponentName: pvpOpponentName ?? nearbyEnemy?.name,
         },
       ])
       if (afterLevelUp.level > playerLevel) {
@@ -528,9 +598,11 @@ export function useGameState() {
         result: 'lose',
         timestamp: Date.now(),
         rounds: battleRound,
+        battleType: pvpOpponentName ? 'pvp' : 'pve',
+        opponentName: pvpOpponentName ?? nearbyEnemy?.name,
       },
     ])
-  }, [battleRound, playerMaxMp, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
+  }, [battleRound, playerMaxMp, pvpOpponentName, nearbyEnemy, setBattleResult, setIsGameOver, setPlayerGold, setPlayerHP, setPlayerMP, totalStats.maxHp])
 
   const closeDockPanel = useCallback(() => {
     setDockPanel(null)
@@ -771,6 +843,7 @@ export function useGameState() {
     setShowAchievement,
     battleLogs,
     setShowBattleLog,
+    isPVPMode,
     login,
     setShowLogin,
     chatMessages,
@@ -808,6 +881,7 @@ export function useGameState() {
     getAvailableSkills,
     tryLevelUp,
     startBattle,
+    startPVPBattle,
     closeBattle,
     finalizeMapBattleFleeSuccess,
     handleFlee,

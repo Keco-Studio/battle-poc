@@ -10,7 +10,6 @@ export type BattleSkillDefinition = {
   applyFreezeTicks?: number
   shatterBonusRatio?: number
   consumeFreezeOnHit?: boolean
-  /** Extra numeric flags (DoT, slow, dash, etc.) read by skill-specific logic. */
-  params?: Record<string, number | string | boolean>
+  params?: Record<string, unknown>
 }
 

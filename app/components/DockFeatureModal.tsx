@@ -8,13 +8,21 @@ import {
   MessageSquare,
   Swords,
   User,
-  ArrowUp,
   Sparkles,
   LogOut,
 } from 'lucide-react'
 import type { DockPanelId, GameState } from '../hooks/useGameState'
+import { MOCK_PVP_USERS } from '../hooks/useGameState'
+import { calcPlayerStats } from '../constants'
 import ChatPanel from './ChatPanel'
 import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
+
+export type ChatTargetOption = {
+  id: string
+  label: string
+  kind?: 'system' | 'enemy'
+  disabled?: boolean
+}
 
 const PANEL_META: Record<
   DockPanelId,
@@ -60,44 +68,21 @@ type HistoryItem = {
   who: string
   summary: string
   outcome: 'win' | 'lose'
-  variant: 'up' | 'swords' | 'chat' | 'trophy'
+  battleType: 'pve' | 'pvp'
 }
 
-const HISTORY_DEMO: HistoryItem[] = [
-  { id: 'h1', who: 'lyra', summary: 'Dealt 245 damage in 3:…', outcome: 'lose', variant: 'up' },
-  { id: 'h2', who: 'kk', summary: 'Dealt 245 damage in 3:…', outcome: 'win', variant: 'swords' },
-  { id: 'h3', who: 'raven', summary: 'Dealt 310 damage in 4:…', outcome: 'win', variant: 'chat' },
-  { id: 'h4', who: 'orion', summary: 'Dealt 198 damage in 2:…', outcome: 'lose', variant: 'swords' },
-  { id: 'h5', who: 'selene', summary: 'Dealt 275 damage in 3:…', outcome: 'win', variant: 'trophy' },
-  { id: 'h6', who: 'fenrir', summary: 'Dealt 220 damage in 3:…', outcome: 'lose', variant: 'swords' },
-]
-
-function HistoryIcon({ variant }: { variant: HistoryItem['variant'] }) {
+function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
   const base = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm'
-  if (variant === 'up') {
+  if (battleType === 'pvp') {
     return (
-      <div className={`${base} bg-emerald-500`}>
-        <ArrowUp size={22} strokeWidth={2.6} />
-      </div>
-    )
-  }
-  if (variant === 'swords') {
-    return (
-      <div className={`${base} bg-rose-400`}>
-        <Swords size={22} strokeWidth={2.4} />
-      </div>
-    )
-  }
-  if (variant === 'chat') {
-    return (
-      <div className={`${base} bg-orange-400`}>
-        <MessageSquare size={22} strokeWidth={2.4} />
+      <div className={`${base} bg-violet-500`}>
+        <Trophy size={22} strokeWidth={2.4} />
       </div>
     )
   }
   return (
-    <div className={`${base} bg-violet-500`}>
-      <Trophy size={22} strokeWidth={2.4} />
+    <div className={`${base} bg-rose-400`}>
+      <Swords size={22} strokeWidth={2.4} />
     </div>
   )
 }
@@ -148,6 +133,7 @@ export default function DockFeatureModal({ game }: Props) {
   }, [dockPanel, closeDockPanel])
 
   const meta = useMemo(() => (dockPanel ? PANEL_META[dockPanel] : null), [dockPanel])
+  const [pvpSearchQuery, setPvpSearchQuery] = useState('')
 
   if (!dockPanel || !meta) return null
   const { title, subtitle, Icon } = meta
@@ -191,29 +177,47 @@ export default function DockFeatureModal({ game }: Props) {
         {/* Body */}
         {isChat ? (
           <div className="min-h-0 flex-1">
-            <ChatPanel game={game} embedded />
+            <ChatPanel
+              game={game}
+              embedded
+            />
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto bg-white p-3 text-sm text-slate-700">
             {dockPanel === 'achievements' && (
               <ul className="space-y-2">
-                {HISTORY_DEMO.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.06)]"
-                  >
-                    <HistoryIcon variant={item.variant} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[14px] font-bold text-slate-900">with {item.who}</div>
-                      <div className="truncate text-[12px] text-slate-500">{item.summary}</div>
-                      <div className="mt-1">
-                        <span className={`oc-pill ${item.outcome === 'win' ? 'oc-pill-win' : 'oc-pill-lose'}`}>
-                          {item.outcome === 'win' ? 'Won' : 'Failed'}
-                        </span>
-                      </div>
-                    </div>
+                {game.battleLogs.length === 0 ? (
+                  <li className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-6 text-center text-slate-400">
+                    <Swords size={28} className="opacity-40" />
+                    <span className="text-[13px]">暂无战斗记录</span>
+                    <span className="text-[11px]">开始战斗后会显示在这里</span>
                   </li>
-                ))}
+                ) : (
+                  game.battleLogs.slice().reverse().map((item) => {
+                    const date = new Date(item.timestamp)
+                    const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+                    const opponentLabel = item.opponentName ? `vs ${item.opponentName}` : item.battleType === 'pvp' ? 'vs 未知对手' : 'vs 野怪'
+                    const summary = item.expGained != null ? `${item.rounds}回合 · 经验+${item.expGained}` : `${item.rounds}回合`
+                    return (
+                      <li
+                        key={item.id}
+                        className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-[0_2px_6px_-2px_rgba(15,23,42,0.06)]"
+                      >
+                        <HistoryIcon battleType={item.battleType} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-bold text-slate-900">{opponentLabel}</div>
+                          <div className="truncate text-[12px] text-slate-500">{summary}</div>
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className={`oc-pill ${item.result === 'win' ? 'oc-pill-win' : 'oc-pill-lose'}`}>
+                              {item.result === 'win' ? 'Won' : 'Failed'}
+                            </span>
+                            <span className="text-[10px] text-slate-400">{timeStr}</span>
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })
+                )}
               </ul>
             )}
 
@@ -235,20 +239,69 @@ export default function DockFeatureModal({ game }: Props) {
             )}
 
             {dockPanel === 'battle_system' && (
-              <div className="space-y-3 text-[13px] leading-relaxed text-slate-700">
-                <div className="flex items-center gap-2 text-slate-900">
-                  <Sparkles size={16} className="text-orange-500" />
-                  <span className="font-bold">实时自动战斗</span>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-orange-500 shrink-0" />
+                  <span className="text-[13px] font-bold text-slate-900">搜索 PVP 对手</span>
                 </div>
-                <p>由定时器驱动；玩家与敌人各自按攻速间隔自动出手。可预选"下一发"技能并受冷却限制。</p>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="mb-1 text-[12px] font-bold text-slate-900">伤害</div>
-                  <p className="text-[12px] text-slate-600">平滑承伤公式；防御技能减半本次受到伤害。</p>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={pvpSearchQuery}
+                    onChange={(e) => setPvpSearchQuery(e.target.value)}
+                    placeholder="输入用户名搜索…"
+                    className="w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+                  />
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="mb-1 text-[12px] font-bold text-slate-900">逃跑</div>
-                  <p className="text-[12px] text-slate-600">可手动逃跑；也可按血量百分比自动撤离。</p>
+                <div className="space-y-1.5">
+                  {MOCK_PVP_USERS.filter((u) =>
+                    u.name.toLowerCase().includes(pvpSearchQuery.toLowerCase()),
+                  ).length === 0 ? (
+                    <div className="flex flex-col items-center gap-1 py-4 text-slate-400">
+                      <User size={24} className="opacity-40" />
+                      <span className="text-[12px]">未找到用户</span>
+                    </div>
+                  ) : (
+                    MOCK_PVP_USERS.filter((u) =>
+                      u.name.toLowerCase().includes(pvpSearchQuery.toLowerCase()),
+                    ).map((user) => {
+                      const stats = calcPlayerStats(user.level)
+                      return (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            game.startPVPBattle(user.id)
+                            closeDockPanel()
+                          }}
+                          className="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left hover:border-orange-300 hover:bg-orange-50 transition-colors"
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[18px] font-bold text-slate-600">
+                            {user.name[0]}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[13px] font-bold text-slate-900">{user.name}</span>
+                              <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">
+                                Lv.{user.level}
+                              </span>
+                            </div>
+                            <div className="flex gap-3 text-[11px] text-slate-500 mt-0.5">
+                              <span className="text-rose-500">攻 {stats.atk}</span>
+                              <span className="text-sky-500">防 {stats.def}</span>
+                              <span className="text-amber-500">速 {stats.spd}</span>
+                            </div>
+                          </div>
+                          <Swords size={14} className="text-slate-300 shrink-0" />
+                        </button>
+                      )
+                    })
+                  )}
                 </div>
+                <p className="text-[10px] text-slate-400 text-center">
+                  共 {MOCK_PVP_USERS.length} 位在线玩家 · 点击即开始战斗
+                </p>
               </div>
             )}
 
