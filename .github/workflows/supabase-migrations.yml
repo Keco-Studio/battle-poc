@@ -1,0 +1,109 @@
+name: Supabase Migrations
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Target Supabase environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - preview
+
+jobs:
+  migrate-database:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Check migration files exist
+        id: migration-check
+        run: |
+          if [ ! -d "supabase/migrations" ] || [ -z "$(ls -A supabase/migrations/*.sql 2>/dev/null)" ]; then
+            echo "has-migrations=false" >> "$GITHUB_OUTPUT"
+            echo "No migration files found in supabase/migrations, skipping."
+          else
+            echo "has-migrations=true" >> "$GITHUB_OUTPUT"
+            echo "Migration files found:"
+            ls -la supabase/migrations/*.sql
+          fi
+
+      - name: Select Supabase project and token
+        if: steps.migration-check.outputs.has-migrations == 'true'
+        id: select-project
+        env:
+          PROD_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_PROD }}
+          PREVIEW_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN_PREVIEW }}
+          GENERAL_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.target }}" == "preview" ]]; then
+            echo "project-ref=${{ secrets.SUPABASE_PROJECT_REF_PREVIEW }}" >> "$GITHUB_OUTPUT"
+            echo "environment=preview" >> "$GITHUB_OUTPUT"
+            if [ -n "$PREVIEW_TOKEN" ]; then
+              echo "access-token=$PREVIEW_TOKEN" >> "$GITHUB_OUTPUT"
+            else
+              echo "access-token=$GENERAL_TOKEN" >> "$GITHUB_OUTPUT"
+            fi
+            echo "Selected preview Supabase project."
+          else
+            echo "project-ref=${{ secrets.SUPABASE_PROJECT_REF_PROD }}" >> "$GITHUB_OUTPUT"
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+            if [ -n "$PROD_TOKEN" ]; then
+              echo "access-token=$PROD_TOKEN" >> "$GITHUB_OUTPUT"
+            else
+              echo "access-token=$GENERAL_TOKEN" >> "$GITHUB_OUTPUT"
+            fi
+            echo "Selected production Supabase project."
+          fi
+
+      - name: Validate selected secrets
+        if: steps.migration-check.outputs.has-migrations == 'true'
+        run: |
+          if [ -z "${{ steps.select-project.outputs.project-ref }}" ]; then
+            echo "Missing project ref secret for selected environment."
+            exit 1
+          fi
+          if [ -z "${{ steps.select-project.outputs.access-token }}" ]; then
+            echo "Missing Supabase access token secret."
+            exit 1
+          fi
+
+      - name: Link to Supabase project
+        if: steps.migration-check.outputs.has-migrations == 'true'
+        run: |
+          echo "Linking to Supabase project: ${{ steps.select-project.outputs.environment }}"
+          echo "Project ref: ${{ steps.select-project.outputs.project-ref }}"
+          supabase link --project-ref "${{ steps.select-project.outputs.project-ref }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ steps.select-project.outputs.access-token }}
+
+      - name: Push database migrations
+        if: steps.migration-check.outputs.has-migrations == 'true'
+        run: |
+          echo "Pushing migrations to ${{ steps.select-project.outputs.environment }}..."
+          supabase db push --include-all
+          echo "Migration completed."
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ steps.select-project.outputs.access-token }}
