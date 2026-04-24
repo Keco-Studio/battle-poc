@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 
 import type { MapCharacterVisualId } from '../constants'
 
-/** ai-rpg-poc 导出的角色表：768×256，32×32 帧，首帧为朝下的 idle */
+/** Character sheet exported from ai-rpg-poc: 768x256, 32x32 frames, first frame is downward idle */
 const CHAR_FRAME = 32
 const CHAR_SHEET_W = 768
 const CHAR_SHEET_H = 256

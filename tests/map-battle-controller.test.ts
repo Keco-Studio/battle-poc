@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MapBattleController } from '../src/map-battle/MapBattleController'
 
 describe('MapBattleController enemy cadence', () => {
-  it('enemy command 为空时也应推进 nextEnemyDue，避免每 tick 重试', () => {
+  it('when enemy command is empty should still advance nextEnemyDue to avoid retry every tick', () => {
     const controller = new MapBattleController({
       mapWidth: 24,
       mapHeight: 16,
@@ -62,7 +62,7 @@ describe('MapBattleController enemy cadence', () => {
     expect(anyController.nextEnemyDue).toBe(1 + anyController.enemyInterval)
   })
 
-  it('dash 预演后无有效位移时不应入队', () => {
+  it('dash preview with no valid displacement should not be enqueued', () => {
     const controller = new MapBattleController({
       mapWidth: 24,
       mapHeight: 16,
@@ -104,7 +104,7 @@ describe('MapBattleController enemy cadence', () => {
     expect(cmd).toBeNull()
   })
 
-  it('直线路径被阻挡时，dash 应尝试侧向绕行', () => {
+  it('when straight path is blocked, dash should try lateral detour', () => {
     const blocked = new Set(['8,8'])
     const controller = new MapBattleController({
       mapWidth: 24,
@@ -147,7 +147,7 @@ describe('MapBattleController enemy cadence', () => {
     expect(cmd).not.toBeNull()
   })
 
-  it('僵持超时后按剩余血量结束战斗', () => {
+  it('stalemate timeout ends battle by remaining HP', () => {
     const controller = new MapBattleController({
       mapWidth: 24,
       mapHeight: 16,

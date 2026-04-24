@@ -192,7 +192,7 @@ const SKILLS: BattleSkillDefinition[] = [
   },
 
   // ═══════════════════════════════════════════════════════════
-  // 冰奥法师 — 冰冻连锁 + 碎冰爆发 + 范围控制
+  // Frost Mage — Freeze chain + Shatter burst + AOE control
   // ═══════════════════════════════════════════════════════════
   {
     id: 'chilling_touch',
@@ -251,7 +251,7 @@ const SKILLS: BattleSkillDefinition[] = [
   },
 
   // ═══════════════════════════════════════════════════════════
-  // 火焰法师 — 灼烧DOT + 范围爆发 + 克制冰冻
+  // Fire Mage — Burn DOT + AOE burst + Anti-freeze
   // ═══════════════════════════════════════════════════════════
   {
     id: 'burning_ground',
@@ -267,7 +267,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'infernal_orb',
     name: 'Infernal Orb',
-    description: 'High damage AOE fireball;团战核心爆发.',
+    description: 'High damage AOE fireball; team fight core burst.',
     category: 'burst',
     ratio: 1.7,
     mpCost: 10,
@@ -277,7 +277,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'scorching_aura',
     name: 'Scorching Aura',
-    description: 'Reduces enemy healing; anti-sustain压制.',
+    description: 'Reduces enemy healing; anti-sustain pressure.',
     category: 'control',
     ratio: 0.9,
     mpCost: 5,
@@ -298,7 +298,7 @@ const SKILLS: BattleSkillDefinition[] = [
   },
 
   // ═══════════════════════════════════════════════════════════
-  // 重装坦克 — 群体嘲讽 + 格挡反伤 + 前排承伤
+  // Heavy Tank — Group taunt + Block retaliation + Frontline damage absorption
   // ═══════════════════════════════════════════════════════════
   {
     id: 'iron_bastion',
@@ -336,7 +336,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'aegis_blessing',
     name: 'Aegis Blessing',
-    description: 'Team-wide damage reduction aura;团队生存核心.',
+    description: 'Team-wide damage reduction aura; team survival core.',
     category: 'utility',
     ratio: 0.8,
     mpCost: 7,
@@ -347,7 +347,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'unstoppable_charge',
     name: 'Unstoppable Charge',
-    description: 'Immunity dash;开团 breakthrough skill.',
+    description: 'Immunity dash; team fight initiation breakthrough skill.',
     category: 'mobility',
     ratio: 1.25,
     mpCost: 8,
@@ -357,7 +357,7 @@ const SKILLS: BattleSkillDefinition[] = [
   },
 
   // ═══════════════════════════════════════════════════════════
-  // 远程弓箭手 — 穿透风筝 + 蓄力狙击 + 多段散射
+  // Ranged Archer — Pierce kiting + Charged sniper + Multi-shot scatter
   // ═══════════════════════════════════════════════════════════
   {
     id: 'piercing_arrow',
@@ -384,7 +384,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'frost_trap',
     name: 'Frost Trap',
-    description: 'Slow zone; remote kite and追人工具.',
+    description: 'Slow zone; remote kite and chase tool.',
     category: 'control',
     ratio: 1.05,
     mpCost: 4,
@@ -395,7 +395,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'rain_of_arrows',
     name: 'Rain of Arrows',
-    description: 'AOE sustained压制; group poke.',
+    description: 'AOE sustained pressure; group poke.',
     category: 'sustain',
     ratio: 1.2,
     mpCost: 7,
@@ -415,7 +415,7 @@ const SKILLS: BattleSkillDefinition[] = [
   },
 
   // ═══════════════════════════════════════════════════════════
-  // 暗影刺客 — 隐身潜行 + 多段位移 + 绕后斩杀
+  // Shadow Assassin — Stealth + Multi-hit displacement + Backstab execute
   // ═══════════════════════════════════════════════════════════
   {
     id: 'shadow_cloak',
@@ -473,7 +473,7 @@ const SKILLS: BattleSkillDefinition[] = [
   },
 
   // ═══════════════════════════════════════════════════════════
-  // 团队辅助 — 群体回血 + 攻防BUFF + 驱散减疗
+  // Team Support — Group heal + ATK/DEF buff + Cleanse and healing reduction
   // ═══════════════════════════════════════════════════════════
   {
     id: 'radiance',
@@ -489,7 +489,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'blessing_might',
     name: 'Blessing of Might',
-    description: 'Ally ATK buff;damage amp for allies.',
+    description: 'Ally ATK buff; damage amp for allies.',
     category: 'utility',
     ratio: 0.9,
     mpCost: 5,
@@ -500,7 +500,7 @@ const SKILLS: BattleSkillDefinition[] = [
   {
     id: 'weakening_hex',
     name: 'Weakening Hex',
-    description: 'Enemy ATK/DEF debuff;削弱敌方整体作战能力.',
+    description: 'Enemy ATK/DEF debuff; weakens overall enemy combat capability.',
     category: 'control',
     ratio: 0.95,
     mpCost: 6,

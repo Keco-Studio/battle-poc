@@ -1,6 +1,6 @@
 /**
- * @deprecated 已由 GameMap 内嵌 battle-core tick（MapBattleController + flee 命令）替代。
- * 保留供对照/回滚；验证通过后可手动删除。
+ * @deprecated Replaced by GameMap embedded battle-core tick (MapBattleController + flee command).
+ * Kept for reference/rollback; can be manually deleted after verification.
  */
 'use client'
 
@@ -89,14 +89,14 @@ export default function BattlePanel({ game }: Props) {
   const [floatTexts, setFloatTexts] = useState<Array<{ id: number; text: string; side: 'left' | 'right' }>>([])
   const [battleTimeSec, setBattleTimeSec] = useState(0)
   const [, setCdUiTick] = useState(0)
-  /** 开战时中央 ⚔ 只显示约 1 秒 */
+  /** Center ⚔ icon only shows for about 1 second when battle starts */
   const [showCenterBattleIcon, setShowCenterBattleIcon] = useState(true)
-  /** 重击：玩家前冲 + 敌人受击 */
+  /** Heavy strike: player charges forward + enemy takes hit */
   const [heavyStrikePlaying, setHeavyStrikePlaying] = useState(false)
 
   const battleVisualRef = useRef<BattleVisualState>({
-    playerName: '玩家',
-    enemyName: '敌人',
+    playerName: 'Player',
+    enemyName: 'Enemy',
     playerHP: 1,
     playerMaxHp: 1,
     enemyHP: 1,
@@ -113,7 +113,7 @@ export default function BattlePanel({ game }: Props) {
   const isGameOverRef = useRef(false)
   const nextPlayerAtkAtRef = useRef(0)
   const nextEnemyAtkAtRef = useRef(0)
-  /** 与防御技能同步，避免同一 tick 内敌人读不到刚设置的防御 */
+  /** Synced with defense skill to avoid enemy not reading newly set defense in same tick */
   const defendingRef = useRef(false)
   const snapRef = useRef<BattleSnap>({
     enemyHP: 0,
@@ -176,8 +176,8 @@ export default function BattlePanel({ game }: Props) {
   }
 
   battleVisualRef.current = {
-    playerName: `玩家 Lv.${playerLevel}`,
-    enemyName: nearbyEnemy?.name ? `${nearbyEnemy.name} Lv.${enemyLevel}` : `敌人 Lv.${enemyLevel}`,
+    playerName: `Player Lv.${playerLevel}`,
+    enemyName: nearbyEnemy?.name ? `${nearbyEnemy.name} Lv.${enemyLevel}` : `Enemy Lv.${enemyLevel}`,
     playerHP,
     playerMaxHp: totalStats.maxHp,
     enemyHP,
@@ -198,14 +198,15 @@ export default function BattlePanel({ game }: Props) {
     isGameOverRef.current = isGameOver
   }, [isGameOver])
 
-  /** 技能冷却遮罩需要周期性重绘 */
+  /** Skill cooldown overlay needs periodic redraw */
   useEffect(() => {
     if (!showBattle || isGameOver) return
     const id = window.setInterval(() => setCdUiTick((n) => n + 1), 150)
     return () => window.clearInterval(id)
   }, [showBattle, isGameOver])
 
-  /** 进入战斗后中央对战图标仅展示 1 秒 */
+    playerName: 'Player',
+    enemyName: 'Enemy',
   useEffect(() => {
     if (!showBattle) return
     setShowCenterBattleIcon(true)
@@ -247,13 +248,13 @@ export default function BattlePanel({ game }: Props) {
         const eq = equipmentTypes[randomType]
         setInventory((prev) => [...prev, { type: randomType, name: eq.name, icon: eq.icon }])
         setDroppedEquipment({ name: eq.name, icon: eq.icon })
-        setBattleLog((prev) => [...prev, `运气不错！获得了${eq.icon}${eq.name}！`])
+        setBattleLog((prev) => [...prev, `Lucky! Got ${eq.icon}${eq.name}!`])
       }
       const afterLevelUp = tryLevelUp(playerExp + expGain)
       setPlayerExp(afterLevelUp.exp)
-      setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
+      setBattleLog((prev) => [...prev, closingLog, `Gained ${expGain} EXP and ${goldGain} Gold!`])
       if (afterLevelUp.level > playerLevel) {
-        setBattleLog((prev) => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
+        setBattleLog((prev) => [...prev, `Level up! Now Lv.${afterLevelUp.level}`])
       }
     },
     [
@@ -284,7 +285,7 @@ export default function BattlePanel({ game }: Props) {
     if (playerHP <= 0 && !isGameOver) {
       setIsGameOver(true)
       setBattleResult('lose')
-      // 失败惩罚：仅清零金币，不修改背包与已装备（不调用 setInventory / setEquippedGear）
+      // Defeat penalty: only reset gold, don't modify backpack or equipped (don't call setInventory / setEquippedGear)
       setPlayerGold(0)
       setPlayerHP(totalStats.maxHp)
     }
@@ -340,12 +341,12 @@ export default function BattlePanel({ game }: Props) {
           setEnemyHP((prev) => {
             const newHP = Math.max(0, prev - totalDamage)
             if (newHP <= 0) {
-              queueMicrotask(() => handleVictory(`「${skill.name}」击败敌人！`))
+              queueMicrotask(() => handleVictory(`"${skill.name}" defeated the enemy!`))
             }
             return newHP
           })
           pushFloat(`-${totalDamage}`, 'right')
-          log = `${skill.name} 造成 ${totalDamage} 伤害`
+          log = `${skill.name} dealt ${totalDamage} damage`
         } else if (skill.type === 'heal') {
           flashFx('player-skill-support')
           const heal = Math.floor(s.totalStats.atk * skill.multiplier)
@@ -355,12 +356,12 @@ export default function BattlePanel({ game }: Props) {
             if (g > 0) queueMicrotask(() => pushFloat(`+${g}`, 'left'))
             return next
           })
-          log = `${skill.name} 恢复生命`
+          log = `${skill.name} restored health`
         } else if (skill.type === 'defense') {
           flashFx('player-skill-support')
           defendingRef.current = true
           setIsDefending(true)
-          log = `${skill.name} 准备防御`
+          log = `${skill.name} preparing defense`
         }
 
         setBattleLog((prev) => [...prev, log])
@@ -375,17 +376,17 @@ export default function BattlePanel({ game }: Props) {
 
         const rawEnemyHit = (enemyCombat.atk - snapRef.current.totalStats.def * 0.5 + Math.random() * 2) * BASIC_DAMAGE_MULTIPLIER
         let damage = mitigatedPhysicalDamage(rawEnemyHit, snapRef.current.totalStats.def)
-        let logMsg = `敌人攻击！`
+        let logMsg = `Enemy attacks!`
         if (defendingRef.current) {
           damage = Math.floor(damage * 0.5)
-          logMsg += `（防御减半）`
+          logMsg += ` (Defense halved)`
           defendingRef.current = false
           setIsDefending(false)
         }
         flashFx('player-hit')
         pushFloat(`-${damage}`, 'left')
         setPlayerHP((prev) => Math.max(0, prev - damage))
-        setBattleLog((prev) => [...prev, `${logMsg} ${damage} 伤害`])
+        setBattleLog((prev) => [...prev, `${logMsg} ${damage} damage`])
       }
     }, 40)
 
@@ -413,7 +414,7 @@ export default function BattlePanel({ game }: Props) {
     if (skillCooldownRemaining(skillCooldownEndAt, skill.id) > 0) return
     setSelectedSkill(skill.id)
     setNextAttackSkillId(skill.id)
-    setBattleLog((prev) => [...prev, `已就绪：下次自动攻击使用「${skill.name}」`])
+    setBattleLog((prev) => [...prev, `Ready: next auto-attack will use "${skill.name}"`])
   }
 
   const availableSkills = getAvailableSkills()
@@ -426,14 +427,14 @@ export default function BattlePanel({ game }: Props) {
 
       <div className="relative w-[1360px] max-w-[min(1360px,calc(100vw-1.5rem))] min-h-[min(800px,calc(100vh-2rem))] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         <div className="h-12 shrink-0 bg-gradient-to-b from-yellow-400 to-yellow-500 flex items-center justify-center border-b-4 border-orange-500 px-3">
-          <span className="text-orange-900 font-bold text-base">实时战斗 · {battleTimeSec}s</span>
+          <span className="text-orange-900 font-bold text-base">Real-time Battle · {battleTimeSec}s</span>
         </div>
 
         <div className="relative w-full h-[720px] max-h-[calc(100vh-12rem)] shrink-0 bg-black/20">
           <BattlePhaserCanvas stateRef={battleVisualRef} className="absolute inset-0 h-full w-full outline-none" />
 
           <div className="pointer-events-none absolute left-3 top-3 z-30 flex max-w-[min(200px,42vw)] flex-col gap-1 rounded-lg bg-black/45 px-2 py-1.5 text-[11px] leading-tight text-white shadow-md backdrop-blur-sm">
-            <span className="font-semibold text-sky-200">玩家</span>
+            <span className="font-semibold text-sky-200">Player</span>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
               <div
                 className="h-full rounded-full bg-green-500 transition-all"
@@ -446,7 +447,7 @@ export default function BattlePanel({ game }: Props) {
           </div>
 
           <div className="pointer-events-none absolute right-3 top-3 z-30 flex max-w-[min(200px,42vw)] flex-col items-end gap-1 rounded-lg bg-black/45 px-2 py-1.5 text-[11px] leading-tight text-white shadow-md backdrop-blur-sm">
-            <span className="font-semibold text-rose-200">{nearbyEnemy?.name || '敌人'}</span>
+            <span className="font-semibold text-rose-200">{nearbyEnemy?.name || 'Enemy'}</span>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
               <div
                 className="h-full rounded-full bg-red-500 transition-all"
@@ -460,11 +461,11 @@ export default function BattlePanel({ game }: Props) {
 
           <div className="pointer-events-none absolute left-3 top-[5.25rem] z-30 flex max-w-[160px] flex-col gap-0.5 text-[10px] leading-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
             <span>
-              攻速 <span className="font-mono text-cyan-200">{atkPerSec}</span>/s
+              Attack Speed <span className="font-mono text-cyan-200">{atkPerSec}</span>/s
             </span>
             {nextAttackSkillId !== null && (
               <span className="truncate text-amber-200">
-                下一发：{getSkillById(nextAttackSkillId)?.name ?? '?'}
+                Next: {getSkillById(nextAttackSkillId)?.name ?? '?'}
               </span>
             )}
           </div>
@@ -483,10 +484,10 @@ export default function BattlePanel({ game }: Props) {
             {!isGameOver && (
               <button
                 type="button"
-                onClick={() => handleFlee({ successMessage: '逃跑成功！已离开战斗。' })}
+                onClick={() => handleFlee({ successMessage: 'Flee success! Left battle.' })}
                 className="px-4 py-2 bg-gray-500 hover:bg-gray-400 rounded-lg text-white font-bold text-sm border-2 border-gray-300"
               >
-                逃跑
+                Flee
               </button>
             )}
             {availableSkills.map((skill) => {
@@ -527,7 +528,7 @@ export default function BattlePanel({ game }: Props) {
               </div>
               <div className="text-gray-300 text-xs text-center mb-1">{hoveredSkill.desc}</div>
               <div className="text-yellow-400 text-xs text-center">
-                点击：下一发自动攻击使用 · CD {((hoveredSkill.cooldownMs ?? 0) / 1000).toFixed(1)}s
+                Click: Use for next auto-attack · CD {((hoveredSkill.cooldownMs ?? 0) / 1000).toFixed(1)}s
               </div>
             </div>
           )}
@@ -546,23 +547,23 @@ export default function BattlePanel({ game }: Props) {
           <div className="relative bg-gradient-to-b from-yellow-400 to-orange-500 border-4 border-orange-600 rounded-3xl p-8 w-80 text-center overflow-hidden">
             {battleResult === 'win' && <ConfettiCelebration />}
             <div className="relative z-10 bg-red-500 text-white font-black text-xl px-6 py-2 rounded-xl border-4 border-red-300 mx-auto mb-4 -mt-10">
-              {battleResult === 'win' ? '胜利！' : '失败...'}
+              {battleResult === 'win' ? 'Victory!' : 'Defeat...'}
             </div>
             <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
-              <div className="text-orange-900 text-sm">战斗时长</div>
+              <div className="text-orange-900 text-sm">Battle Duration</div>
               <div className="text-4xl font-black text-orange-900">{battleTimeSec}s</div>
             </div>
             {battleResult === 'win' && (
               <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
-                <div className="text-orange-900 text-sm mb-2">战斗奖励</div>
+                <div className="text-orange-900 text-sm mb-2">Battle Rewards</div>
                 <div className="flex justify-around">
                   <div>
                     <div className="text-2xl">💰</div>
-                    <div className="text-xs text-orange-900">金币+{gainedGold}</div>
+                    <div className="text-xs text-orange-900">Gold+{gainedGold}</div>
                   </div>
                   <div>
                     <div className="text-2xl">⭐</div>
-                    <div className="text-xs text-orange-900">经验+{gainedExp}</div>
+                    <div className="text-xs text-orange-900">EXP+{gainedExp}</div>
                   </div>
                 </div>
               </div>
@@ -570,13 +571,13 @@ export default function BattlePanel({ game }: Props) {
             {battleResult === 'lose' && (
               <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
                 <div className="text-orange-900 text-sm leading-relaxed">
-                  已失去全部金币；装备与背包保留。
+                  Lost all gold; equipment and backpack retained.
                 </div>
               </div>
             )}
             {droppedEquipment && (
               <div className="relative z-10 bg-green-500/80 rounded-xl p-4 mb-4 animate-bounce">
-                <div className="text-white font-bold mb-1">🎉 装备掉落！</div>
+                <div className="text-white font-bold mb-1">🎉 Equipment Drop!</div>
                 <div className="text-4xl mb-1">{droppedEquipment.icon}</div>
                 <div className="text-white text-sm">{droppedEquipment.name}</div>
               </div>
@@ -586,7 +587,7 @@ export default function BattlePanel({ game }: Props) {
               onClick={closeBattle}
               className="relative z-10 w-full py-2 bg-blue-500 hover:bg-blue-400 rounded-xl text-white font-bold border-2 border-blue-300"
             >
-              返回大厅
+              Return to Lobby
             </button>
           </div>
         </div>

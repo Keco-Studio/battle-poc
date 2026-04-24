@@ -5,7 +5,7 @@ const W = 1600;
 const H = 900;
 const MID_X = W / 2;
 
-/** 左/右半场巡逻范围（留出边距） */
+/** Left/right half-field patrol range (with margin) */
 const ZONE = {
   player: { xMin: 90, xMax: MID_X - 90, yMin: 120, yMax: H - 120 },
   enemy: { xMin: MID_X + 90, xMax: W - 90, yMin: 120, yMax: H - 120 },
@@ -93,12 +93,12 @@ export class BattleScene extends Phaser.Scene {
     });
 
     this.playerNameLabel = this.add
-      .text(this.player.x, this.player.y - 110, '玩家', { fontSize: '16px', color: '#a7f3d0' })
+      .text(this.player.x, this.player.y - 110, 'Player', { fontSize: '16px', color: '#a7f3d0' })
       .setOrigin(0.5)
       .setVisible(true)
       .setDepth(15);
     this.enemyNameLabel = this.add
-      .text(this.enemy.x, this.enemy.y - 110, '敌人', { fontSize: '16px', color: '#fecaca' })
+      .text(this.enemy.x, this.enemy.y - 110, 'Enemy', { fontSize: '16px', color: '#fecaca' })
       .setOrigin(0.5)
       .setVisible(true)
       .setDepth(15);
@@ -123,7 +123,7 @@ export class BattleScene extends Phaser.Scene {
     const py = this.player.y;
     const ex = this.enemy.x;
     const ey = this.enemy.y;
-    // 偶尔把巡逻点拉向对手方向，形成「追逐」感
+    // Occasionally pull patrol point toward opponent direction to create "chase" feeling
     if (Math.random() < 0.35) {
       this.playerTarget.x = Phaser.Math.Linear(ZONE.player.xMin, ZONE.player.xMax, Phaser.Math.FloatBetween(0.35, 0.85));
       this.playerTarget.y = Phaser.Math.Clamp(Phaser.Math.Linear(py, ey, 0.22), ZONE.player.yMin, ZONE.player.yMax);
@@ -234,7 +234,7 @@ export class BattleScene extends Phaser.Scene {
     this.animBusyUntil = this.time.now + wind + retreat + settle;
 
     if (kind === 'player-hit') {
-      // 敌人打玩家：敌人前冲，玩家受击
+      // Enemy hits player: enemy charges forward, player takes hit
       const ex = this.enemy.x;
       const ey = this.enemy.y;
       const px = this.player.x;
@@ -346,8 +346,8 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private syncLabels(state: BattleVisualState): void {
-    this.playerNameLabel.setText(state.playerName || '玩家');
-    this.enemyNameLabel.setText(state.enemyName || '敌人');
+    this.playerNameLabel.setText(state.playerName || 'Player');
+    this.enemyNameLabel.setText(state.enemyName || 'Enemy');
     this.playerNameLabel.setPosition(this.player.x, this.player.y - 110);
     this.enemyNameLabel.setPosition(this.enemy.x, this.enemy.y - 110);
   }

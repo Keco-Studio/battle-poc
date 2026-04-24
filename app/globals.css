@@ -22,13 +22,13 @@ body {
 
 /* === Shared UI utilities aligned with OpenClaw design === */
 
-/* Press Start 2P 像素字体：用于胜利/失败/CTA 等街机风标题 */
+/* Press Start 2P pixel font: for arcade-style titles like Victory/Defeat/CTA */
 .font-arcade {
   font-family: 'Press Start 2P', system-ui, sans-serif;
   letter-spacing: 0.08em;
 }
 
-/* 白色现代卡片：Battle history / Chat / Character 面板共用底 */
+/* White modern card: shared background for Battle history / Chat / Character panels */
 .oc-card {
   background: #ffffff;
   border-radius: 1rem;
@@ -37,7 +37,7 @@ body {
     0 8px 20px -12px rgba(15, 23, 42, 0.2);
 }
 
-/* 彩色渐变边框（登录卡片 / 突出卡片）*/
+/*
 .oc-rainbow-border {
   position: relative;
   border-radius: 1.25rem;
@@ -58,7 +58,7 @@ body {
   z-index: -1;
 }
 
-/* 状态 pill：Won / Failed */
+/* Status pill: Won / Failed */
 .oc-pill {
   display: inline-flex;
   align-items: center;
@@ -79,7 +79,7 @@ body {
   color: #b91c1c;
 }
 
-/* Dock 方形按钮（右下角导航）：深色圆角方块 + 活动时橙色+绿色描边，对齐图 1/2 */
+/* Dock square button (bottom-right navigation): dark rounded square + active orange+green border */
 .oc-dock-btn {
   width: 2.25rem;
   height: 2.25rem;
@@ -105,7 +105,7 @@ body {
     0 8px 18px -6px rgba(249, 115, 22, 0.55);
 }
 
-/* 像素风主按钮：CONTINUE / ENTER WORLD / BATTLE AGAIN */
+/* Pixel-style main button: CONTINUE / ENTER WORLD / BATTLE AGAIN */
 .oc-arcade-btn {
   display: inline-flex;
   align-items: center;
@@ -163,7 +163,7 @@ body {
   box-shadow: 0 3px 0 0 #7c2d12;
 }
 
-/* 胜利/失败标题光晕 */
+/* Victory/Defeat title glow */
 .oc-title-victory {
   color: #22c55e;
   text-shadow:
@@ -178,14 +178,14 @@ body {
     0 3px 0 #7f1d1d;
 }
 
-/* 失败红色遮罩 */
+/* Victory/Defeat title glow */
 .oc-defeat-vignette {
   background: radial-gradient(ellipse at center,
       rgba(127, 29, 29, 0.35) 0%,
       rgba(127, 29, 29, 0.78) 100%);
 }
 
-/* 悬停 Dock 标签气泡（左侧冒出，带箭头） */
+/* Hover dock label bubble (appears on left with arrow) */
 .oc-dock-tooltip {
   position: absolute;
   right: calc(100% + 8px);
@@ -219,7 +219,7 @@ body {
   opacity: 1;
 }
 
-/* 居中浮动面板：Battle history / log / battle_system / Profile / 角色 / 装备 / 技能 */
+/* Centered floating panel: Battle history / log / battle_system / Profile / Character / Equipment / Skills */
 .oc-floating-panel {
   position: fixed;
   left: 50%;
@@ -240,9 +240,9 @@ body {
   }
 }
 
-/* Chat 侧栏：作为真正的右侧侧边栏，直接替换右侧原黑色区域
-   - 占满屏幕高度、贴最右侧，无浮窗圆角/阴影
-   - 右侧预留空间给 Dock 图标（Dock z-index 更高会叠在上面） */
+/* Chat sidebar: acts as a real right-side sidebar, directly replacing the original black area on the right
+   - Fills full screen height, hugs the far right, no floating panel rounded corners/shadows
+   - Right side reserves space for Dock icons (Dock z-index higher will overlay) */
 .oc-chat-panel {
   position: fixed;
   top: 0;
@@ -256,7 +256,7 @@ body {
   background: #ffffff;
   border-left: 1px solid #e2e8f0;
   padding-right: 3.5rem;
-  /* 留出 Dock 栏位置 */
+  /* Reserve space for Dock bar */
   box-shadow: -8px 0 24px -14px rgba(15, 23, 42, 0.2);
 }
 
@@ -284,7 +284,7 @@ body {
   animation-fill-mode: forwards;
 }
 
-/* 战斗：重击撞击 */
+/* Battle: heavy strike impact */
 @keyframes battle-charge {
   0% {
     transform: translateX(0) scale(1);
@@ -319,7 +319,7 @@ body {
   animation: enemy-recoil 0.48s cubic-bezier(0.34, 1.2, 0.64, 1) both;
 }
 
-/* 防御：盾牌虚影脉动 */
+/* Defense: shield ghost pulse */
 @keyframes shield-pulse {
 
   0%,
@@ -338,7 +338,7 @@ body {
   animation: shield-pulse 1.4s ease-in-out infinite;
 }
 
-/* 战斗撤离类动画（遗留工具类，当前主流程用 battle-core flee） */
+/* Battle flee animation (legacy utility class, main flow uses battle-core flee) */
 @keyframes battle-flee-escape {
   0% {
     transform: translateX(0) scale(1);
@@ -377,7 +377,7 @@ body {
   animation: flee-dust 1.05s ease-out forwards;
 }
 
-/* 大地图战斗：头顶飘字 — 自头顶上移，约 1s 内淡出并虚化 */
+/* Map battle: floating HP text above head — moves upward from head, fades and blurs within ~1s */
 @keyframes map-hp-float {
   0% {
     opacity: 1;

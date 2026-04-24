@@ -26,7 +26,7 @@ export default function EquipmentPanel({ game }: Props) {
   return (
     <div className="oc-floating-panel oc-card" role="dialog" aria-modal="false">
       <div className="flex h-full min-h-0 flex-col">
-        {/* 头部 */}
+        {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
             <Swords size={18} strokeWidth={2.4} />
@@ -34,7 +34,7 @@ export default function EquipmentPanel({ game }: Props) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">Equipment</div>
             <div className="truncate text-[11px] text-slate-500">
-              Lv.{playerLevel} · 背包 {inventory.length} 件
+              Lv.{playerLevel} · Inventory {inventory.length} items
             </div>
           </div>
           <button
@@ -43,28 +43,28 @@ export default function EquipmentPanel({ game }: Props) {
               setShowEquipment(false)
               setShowCharacter(true)
             }}
-            aria-label="返回角色"
+            aria-label="Back to character"
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            title="返回"
+            title="Back"
           >
             <ArrowLeft size={18} />
           </button>
           <button
             type="button"
             onClick={() => setShowEquipment(false)}
-            aria-label="关闭"
+            aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* 600x380：左列 已装备 / 右列 背包 */}
+        {/* 600x380: left column Equipped / right column Backpack */}
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden p-4">
-          {/* 已装备 */}
+          {/* Equipped */}
           <div className="flex min-h-0 flex-col">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              已装备 {hasAnyEquipment ? '' : '(空)'}
+              Equipped {hasAnyEquipment ? '' : '(empty)'}
             </div>
             <div className="grid grid-cols-2 gap-2">
               {(['weapon', 'ring', 'armor', 'shoes'] as EquipmentType[]).map((type) => {
@@ -91,7 +91,7 @@ export default function EquipmentPanel({ game }: Props) {
                         {equipmentTypes[type].stat.toUpperCase()}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-slate-400">空</div>
+                      <div className="text-[10px] text-slate-400">Empty</div>
                     )}
                   </button>
                 )
@@ -99,15 +99,15 @@ export default function EquipmentPanel({ game }: Props) {
             </div>
           </div>
 
-          {/* 背包 */}
+          {/* Backpack */}
           <div className="flex min-h-0 flex-col">
             <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
-              背包 ({inventory.length})
+              Backpack ({inventory.length})
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {inventory.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-6 text-center text-[12px] text-slate-400">
-                  暂无装备
+                  No equipment
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
@@ -134,14 +134,14 @@ export default function EquipmentPanel({ game }: Props) {
                           onClick={() => equipItem(item, idx)}
                           className="flex-1 rounded-md bg-emerald-500 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-400"
                         >
-                          装备
+                          Equip
                         </button>
                         <button
                           type="button"
                           onClick={() => sellItem(idx)}
                           className="flex-1 rounded-md bg-amber-500 py-0.5 text-[10px] font-bold text-white hover:bg-amber-400"
                         >
-                          出售
+                          Sell
                         </button>
                       </div>
                     </div>

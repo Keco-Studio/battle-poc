@@ -67,7 +67,7 @@ function makeContext(tick: number): DecisionContext {
 }
 
 describe('computeKiteRetreat near X edge', () => {
-  it('贴边且上下都可走时，不应仅因 tick 奇偶在上下方向反复横跳', () => {
+  it('when near edge and both up/down are walkable, should not alternate up/down due to tick parity', () => {
     const t10 = computeKiteRetreat(makeContext(10))
     const t11 = computeKiteRetreat(makeContext(11))
 
@@ -76,7 +76,7 @@ describe('computeKiteRetreat near X edge', () => {
     expect(t10!.y).toBe(t11!.y)
   })
 
-  it('贴左边界时，应优先向场地内侧脱困，避免长期只走Y轴', () => {
+  it('when near left edge, should prioritize moving toward field interior to escape, avoiding long-term Y-axis only movement', () => {
     const out = computeKiteRetreat(makeContext(10))
     expect(out).not.toBeNull()
     expect(out!.x).toBeGreaterThan(0.7)

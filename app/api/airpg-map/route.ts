@@ -40,7 +40,7 @@ function resolveNpcMapRender(def: EntityDefLike | undefined, entity: AirpgMapEnt
     effectiveVisual = def.visualId
   }
   if (effectiveVisual === 'warriorBlue' || effectiveVisual === 'archerGreen') {
-    // 弓手立绘留给玩家主角；NPC 若标成 archerGreen 仍用战士图，避免地图上出现第二个「你」
+    // Archer artwork reserved for player protagonist; NPCs marked as archerGreen still use warrior sprite to avoid duplicate "you" on map
     const mapVisual: MapCharacterVisualId = effectiveVisual === 'archerGreen' ? 'warriorBlue' : effectiveVisual
     return { visualId: mapVisual }
   }
@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       config?: {
         startingMap?: string
         playerSpawn?: { x: number; y: number }
-        /** 与 ai-rpg-poc 对齐：地图主角外观，默认弓手 */
+        /** Aligned with ai-rpg-poc: map protagonist appearance, default archer */
         playerVisualId?: MapCharacterVisualId
       }
       maps?: Record<

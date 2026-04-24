@@ -32,10 +32,10 @@ export default function EnemyInfoModal(props: EnemyInfoModalProps) {
             <div className="flex min-h-20 flex-1 flex-col justify-between py-0.5">
               <h3 className="text-xl font-black leading-none text-slate-800">{enemyName}</h3>
               <div className="inline-flex w-fit rounded-xl border border-violet-200 bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-700">
-                等级 Lv.{enemyPreview.level}
+                Level Lv.{enemyPreview.level}
               </div>
               <div className="inline-flex w-fit rounded-xl border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-600">
-                种族 恶魔族
+                Race: Demon
               </div>
             </div>
           </div>
@@ -74,7 +74,7 @@ export default function EnemyInfoModal(props: EnemyInfoModalProps) {
 
             <div>
               <div className="mb-1 flex items-center justify-between text-sm font-bold text-slate-700">
-                <span>攻击</span>
+                <span>Attack</span>
                 <span className="text-fuchsia-500">{enemyPreview.stats.atk}</span>
               </div>
               <div className="h-2 rounded-full bg-fuchsia-100">
@@ -87,7 +87,7 @@ export default function EnemyInfoModal(props: EnemyInfoModalProps) {
 
             <div>
               <div className="mb-1 flex items-center justify-between text-sm font-bold text-slate-700">
-                <span>防御</span>
+                <span>Defense</span>
                 <span className="text-orange-500">{enemyPreview.stats.def}</span>
               </div>
               <div className="h-2 rounded-full bg-orange-100">
@@ -99,7 +99,7 @@ export default function EnemyInfoModal(props: EnemyInfoModalProps) {
             </div>
 
             <div className="flex items-center justify-between text-sm font-bold text-slate-700">
-              <span>速度</span>
+              <span>Speed</span>
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-600">{enemyPreview.stats.spd}</span>
             </div>
           </div>
@@ -109,7 +109,7 @@ export default function EnemyInfoModal(props: EnemyInfoModalProps) {
           onClick={onClose}
           className="mt-4 w-full rounded-xl border border-slate-300 bg-white/80 py-2 font-bold text-slate-600 transition hover:bg-white"
         >
-          关闭
+          Close
         </button>
       </div>
     </div>

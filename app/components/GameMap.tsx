@@ -28,7 +28,7 @@ import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/ma
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
 import { mapCharacterIdleStyle } from '../lib/mapEntitySpriteStyles'
 
-/** 脱离战斗：双方沿连线方向各退几格（可走则移动） */
+/** Disengage from battle: both sides retreat a few tiles along the connection line (move if walkable) */
 function disengageGridPositions(
   player: { x: number; y: number },
   enemy: { x: number; y: number },
@@ -150,7 +150,7 @@ function toPlayerRunningFramePath(direction: RotationKey, tick: number): string 
   return framePath(`/player/running/${direction}`, 8, tick)
 }
 
-/** 与 ai-rpg-poc PixelLab pack `meta.json` 中 `directions` 数组行顺序一致 */
+/** Consistent with the row order of the `directions` array in ai-rpg-poc PixelLab pack `meta.json` */
 const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
   south: 0,
   'south-west': 1,
@@ -210,10 +210,10 @@ const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
 }
 
 /**
- * battle-core 地图战 tick 间隔。
- * 采用 200ms 作为时间粒度，可表达：
- * - 1.0s/次 = 5 tick
- * - 0.8s/次 = 4 tick
+ * battle-core map battle tick interval.
+ * Using 200ms as time granularity, can express:
+ * - 1.0s/shot = 5 tick
+ * - 0.8s/shot = 4 tick
  */
 const BASE_BATTLE_TICK_MS = 200
 
@@ -270,7 +270,7 @@ type ReceivedCommandMeta = {
   metadata: Record<string, unknown>
 }
 
-/** 地图上与战斗同步的格子位移动画时长 */
+/** Grid movement animation duration synchronized with battle on map */
 const BATTLE_MOVE_TRANSITION_MS = 300
 const MANUAL_FLEE_DEBOUNCE_MS = 450
 
@@ -414,14 +414,14 @@ export default function GameMap({ game }: Props) {
   const prevEnemyGridRef = useRef<Record<number, { x: number; y: number }>>({})
   const prevPlayerGridRef = useRef<{ x: number; y: number } | null>(null)
 
-  // 避免 SSR hydration 不匹配
+  // Avoid SSR hydration mismatch
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // 敌人独立位置状态（用于随机移动）
+  // Enemy independent position state (for random movement)
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
-  // 敌人消息气泡
+  // Enemy message bubble
   const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
   const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
   const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
@@ -439,7 +439,7 @@ export default function GameMap({ game }: Props) {
 
   const isWalkable = useCallback(
     (x: number, y: number, actorOpts?: ActorWalkOpts) => {
-      // PVP 模式下无碰撞检测，全地图可通行
+      // No collision detection in PVP mode, entire map is accessible
       if (isPVPMode) return true
       if (
         !isDemoDungeonCellWalkable({
@@ -496,7 +496,7 @@ export default function GameMap({ game }: Props) {
   const mapCellDisplayPx =
     Math.min(renderWidth / Math.max(1, mapInfo.width), renderHeight / Math.max(1, mapInfo.height)) * 0.92
 
-  /** 玩家与敌人统一显示尺寸，随格子缩放，与 ai-rpg-poc 观感对齐 */
+  /** Unified display size for player and enemy, scales with grid, aligned with ai-rpg-poc look and feel */
   const actorPx = Math.max(32, Math.round(mapCellDisplayPx * 1.5))
 
   const gridToScreen = (x: number, y: number) => ({
@@ -511,7 +511,7 @@ export default function GameMap({ game }: Props) {
   }
 
   const mapBattleControllerRef = useRef<MapBattleController | null>(null)
-  /** 胜利结算关闭弹窗时再同 id 重生野怪 */
+  /** Respawn wild monster with same id when victory settlement closes popup */
   const pendingRespawnEnemyIdRef = useRef<number | null>(null)
   const manualFleeRequestedRef = useRef(false)
   const lastManualFleeRequestAtRef = useRef(0)
@@ -520,16 +520,16 @@ export default function GameMap({ game }: Props) {
   const mapBattleEndedRef = useRef(false)
   const nextAttackSkillRef = useRef<string | null>(null)
   nextAttackSkillRef.current = nextAttackSkillId
-  /** 自动化模式中：不弹胜利/失败结算，直接继续下一场 */
+  /** In automation mode: don't show victory/defeat settlement, directly continue to next battle */
   const automationModeRef = useRef(false)
   automationModeRef.current = !!automationTask
-  /** 战斗 timer ID（用于自动化重启时清理） */
+  /** Battle timer ID (for cleanup when automation restarts) */
   const battleTimerRef = useRef<number | null>(null)
   const cdTimerRef = useRef<number | null>(null)
   const tickTimeoutRef = useRef<number | null>(null)
 
   const [battleTimeSec, setBattleTimeSec] = useState(0)
-  /** 结算用：battle-core 已推进的 tick（墙钟不足 1s 时仍可读） */
+  /** For settlement: ticks advanced by battle-core (still readable when wall clock is less than 1s) */
   const [lastBattleTickCount, setLastBattleTickCount] = useState(0)
   const [battleSpeed, setBattleSpeed] = useState<BattleSpeedMultiplier>(1)
   const battleSpeedRef = useRef<BattleSpeedMultiplier>(1)
@@ -903,7 +903,7 @@ export default function GameMap({ game }: Props) {
     viewportSize.width,
   ])
 
-  // 初始化敌人位置
+  // Initialize enemy position
   useEffect(() => {
     const initial: Record<number, { x: number; y: number }> = {}
     const facings: Record<number, RotationKey> = {}
@@ -916,7 +916,7 @@ export default function GameMap({ game }: Props) {
     enemyTargetsRef.current = { ...initial }
   }, [enemies])
 
-  // NPC 平滑巡逻：持续移动（非跳格），并根据位移实时转向
+  // NPC smooth patrol: continuous movement (non grid-snapping), and rotate in real-time based on displacement
   useEffect(() => {
     const tickMs = 80
     const speedCellPerSec = 0.95
@@ -980,14 +980,14 @@ export default function GameMap({ game }: Props) {
     return () => window.clearInterval(moveInterval)
   }, [combatEnemyId, enemies, isPVPMode, isWalkable, showBattle])
 
-  // 敌人随机消息
+  // Enemy random messages
   useEffect(() => {
     const msgInterval = setInterval(() => {
       const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)]
       if (randomEnemy) {
         const randomMsg = ENEMY_MESSAGES[Math.floor(Math.random() * ENEMY_MESSAGES.length)]
         setEnemyMessages(prev => ({ ...prev, [randomEnemy.id]: randomMsg }))
-        // 3秒后清除消息
+        // Clear message after 3 seconds
         setTimeout(() => {
           setEnemyMessages(prev => {
             const next = { ...prev }
@@ -1000,7 +1000,7 @@ export default function GameMap({ game }: Props) {
     return () => clearInterval(msgInterval)
   }, [enemies])
 
-  // 玩家键盘移动增强：支持 WASD + 方向键 控制移动，并保持按移动方向切换朝向
+  // Player keyboard movement enhancement: supports WASD + arrow keys for movement, and keeps facing direction updated based on movement
   useEffect(() => {
     const CONTROL_KEYS = new Set([
       'w',
@@ -1076,7 +1076,7 @@ export default function GameMap({ game }: Props) {
       const dy = (k.s || k.arrowdown ? 1 : 0) + (k.w || k.arrowup ? -1 : 0)
       if (dx === 0 && dy === 0) return
 
-      // 只走直线；同时按下时按“先纵后横”规则取一轴，避免对角穿模
+      // Only move in straight lines; when both keys pressed, follow “vertical first then horizontal” rule to take one axis, avoid diagonal clipping
       const stepDx = dy !== 0 ? 0 : Math.sign(dx)
       const stepDy = dy !== 0 ? Math.sign(dy) : 0
       if (stepDx === 0 && stepDy === 0) return
@@ -1122,15 +1122,15 @@ export default function GameMap({ game }: Props) {
     }
   }, [setPlayerFacing, setPlayerPos, showBattle])
 
-  // battle-core tick：仅在地图上更新交战双方格子坐标（无 Phaser、无全屏遮罩）
-  // 必须用 combatEnemyId 而非 nearbyEnemy：拉扯后双方距离会超过 INTERACTION_RANGE，
-  // nearbyEnemy 会被置空，若本 effect 依赖它会 cleanup 并停掉 scheduleTick，表现为战斗卡死。
+  // battle-core tick: only updates grid coordinates of both battling sides on map (no Phaser, no full-screen overlay)
+  // Must use combatEnemyId instead of nearbyEnemy: after pulling, distance between both sides will exceed INTERACTION_RANGE,
+  // nearbyEnemy will be set to null, if this effect depends on it, it will cleanup and stop scheduleTick, causing battle to freeze.
   useEffect(() => {
     if (!showBattle || !battleGridAnchor || combatEnemyId == null || !mounted) {
       mapBattleControllerRef.current = null
       return
     }
-    // 重置结束标记，确保新战斗的 runTick 能正常推进
+    // Reset end flag to ensure new battle's runTick can progress normally
     mapBattleEndedRef.current = false
 
     const battleEnemy = enemies.find((e) => e.id === combatEnemyId)
@@ -1143,9 +1143,9 @@ export default function GameMap({ game }: Props) {
     autoFleePendingRef.current = false
     autoFleeConsumedMapRef.current = false
 
-    /** 交战双方走位仍由 battle-core 处理；此处仅把「未参战」的野怪格当成地形外的阻挡，避免穿怪 */
+    /** Battle movement of both sides is still handled by battle-core; here only treats "not participating" wild monster tiles as obstacles outside the terrain to avoid clipping through monsters */
     const isWalkableForBattle = (gx: number, gy: number) => {
-      // PVP 对战演示：不做障碍检测，允许在地图中央直接对战。
+      // PVP battle demo: no obstacle detection, allows direct battle in the center of the map.
       if (isPVPMode) return true
       if (
         !isDemoDungeonCellWalkable({
@@ -1187,7 +1187,7 @@ export default function GameMap({ game }: Props) {
       mapHeight: mapInfo.height,
       battleTickMs: BASE_BATTLE_TICK_MS,
       isWalkable: isWalkableForBattle,
-      playerName: `战士 Lv.${playerLevel}`,
+      playerName: `Warrior Lv.${playerLevel}`,
       playerGrid: initialPlayerGrid,
       playerStats: totalStats,
       playerHp: playerHP,
@@ -1220,7 +1220,7 @@ export default function GameMap({ game }: Props) {
     setBattleTimeSec(0)
     setLastBattleTickCount(0)
     setFloatTexts([])
-    setBattleLog((prev) => [...prev, '准备阶段开始'])
+    setBattleLog((prev) => [...prev, 'Preparation phase started'])
 
     battleTimerRef.current = null
     cdTimerRef.current = null
@@ -1350,7 +1350,7 @@ export default function GameMap({ game }: Props) {
           autoFleeConsumedMapRef.current = true
           setBattleLog((prev) => [
             ...prev,
-            `自动逃跑触发：敌方单次伤害 ${lastEnemyDamage} 超过当前生命值 10%（阈值 ${Math.floor(autoFleeDamageThreshold)}）`,
+            `Auto-flee triggered: Enemy single damage ${lastEnemyDamage} exceeds 10% of current HP (threshold ${Math.floor(autoFleeDamageThreshold)})`,
           ])
         }
       } else {
@@ -1396,7 +1396,7 @@ export default function GameMap({ game }: Props) {
       }
       c.session = s
       if (prevPhase === 'preparation' && s.phase === 'battle') {
-        setBattleLog((prev) => [...prev, '准备阶段结束'])
+        setBattleLog((prev) => [...prev, 'Preparation phase ended'])
       }
       const evStart = Math.max(0, s.events.length - step.newEventCount)
 
@@ -1405,10 +1405,10 @@ export default function GameMap({ game }: Props) {
       setEnemyHP(s.right.resources.hp)
       setEnemyMaxHp(s.right.resources.maxHp)
       setBattlePlayerMaxHp(s.left.resources.maxHp)
-      // 战斗中保留小数坐标，避免位移被整格取整吞掉导致“看起来不动”。
+      // Keep decimal coordinates during battle to avoid displacement being swallowed by integer grid rounding causing “seems not moving”.
       setPlayerPos({ x: s.left.position.x, y: s.left.position.y })
       if (s.phase === 'preparation') {
-        // 准备阶段仅调整朝向：双方相互面向，不改任何坐标。
+        // Preparation phase only adjusts facing: both sides face each other, don't change any coordinates.
         setPlayerFacing(
           resolveDirectionByDelta(
             s.right.position.x - s.left.position.x,
@@ -1487,7 +1487,7 @@ export default function GameMap({ game }: Props) {
           const targetPos = posByEntityId(targetId)
 
           if (actorRole && targetRole && actorPos && targetPos) {
-            // 攻击/施法执行成功后再触发朝向与动作特效，避免“假动作”视觉噪音。
+            // Trigger facing and action effects only after attack/skill execution succeeds to avoid “fake action” visual noise.
             if (action === 'basic_attack' || action === 'cast_skill') {
               triggerCombatFx(actorRole, action === 'cast_skill' ? 'cast' : 'attack', {
                 toward: {
@@ -1541,7 +1541,7 @@ export default function GameMap({ game }: Props) {
           const strategy = strategyLabel(metadata.strategy)
           const reason = reasonLabel(metadata.reason)
           const isAiDecision = metadata.decisionSource === 'llm'
-          const actorName = actorId === 'poc-player' ? '玩家' : '敌方'
+          const actorName = actorId === 'poc-player' ? 'Player' : 'Enemy'
           const head = `${actorName}${actStr}`
           const parts = [head]
           if (isAiDecision) parts.push('[AI]')
@@ -1583,7 +1583,7 @@ export default function GameMap({ game }: Props) {
             })
           }
           if (tid === 'poc-player') {
-            setBattleLog((prev) => [...prev, `受到 ${dmg} 伤害`])
+            setBattleLog((prev) => [...prev, `Took ${dmg} damage`])
             if (dmg > 0) {
               pushFloat({
                 target: 'player',
@@ -1593,7 +1593,7 @@ export default function GameMap({ game }: Props) {
               })
             }
           } else if (tid === s.right.id) {
-            setBattleLog((prev) => [...prev, `造成 ${dmg} 伤害`])
+            setBattleLog((prev) => [...prev, `Dealt ${dmg} damage`])
             if (dmg > 0) {
               pushFloat({
                 target: 'enemy',
@@ -1620,24 +1620,24 @@ export default function GameMap({ game }: Props) {
           const ex = typeof ev.payload.expireTick === 'number' ? ev.payload.expireTick : '?'
           setBattleLog((prev) => [
             ...prev,
-            `追逐开始：${st}→${ex} tick，被追上则逃脱失败（战斗继续）、抵达边缘或拉开≥3.0 则逃脱成功`,
+            `Chase started: ${st}→${ex} tick, escape fails if caught (battle continues), edge reached or distance >= 3.0 escape succeeds`,
           ])
         }
         if (ev.type === 'chase_resolved') {
           const typ = ev.payload.type
           if (typ === 'captured') {
-            setBattleLog((prev) => [...prev, '追逐结束：被追上，逃跑失败，战斗继续'])
+            setBattleLog((prev) => [...prev, 'Chase ended: caught, escape failed, battle continues'])
           } else if (typ === 'escaped') {
-            const by = ev.payload.escapedBy === 'edge' ? '抵达边缘' : '拉开距离'
-            setBattleLog((prev) => [...prev, `追逐结束：逃脱（${by}）`])
+            const by = ev.payload.escapedBy === 'edge' ? 'edge reached' : 'pulled away distance'
+            setBattleLog((prev) => [...prev, `Chase ended: escaped (${by})`])
           } else if (typ === 'escape_failed') {
-            setBattleLog((prev) => [...prev, '追逐结束：未满足逃脱条件，战斗继续'])
+            setBattleLog((prev) => [...prev, 'Chase ended: escape conditions not met, battle continues'])
           }
         }
         if (ev.type === 'battle_ended') {
           const reason = String(ev.payload.reason ?? '')
           if (reason === 'timeout_hp_compare') {
-            setBattleLog((prev) => [...prev, '战斗僵持过久：按剩余生命值判定胜负'])
+            setBattleLog((prev) => [...prev, 'Battle stalemate too long: determining victory/defeat by remaining HP'])
           }
         }
         if (ev.type === 'command_rejected') {
@@ -1682,9 +1682,9 @@ export default function GameMap({ game }: Props) {
             delete commandMetaByIdRef.current[commandId]
           }
           if (reason === 'flee_failed' && actorId === s.left.id) {
-            setBattleLog((prev) => [...prev, '逃跑失败（概率未通过），靠向地图边缘或再次尝试'])
+            setBattleLog((prev) => [...prev, 'Flee failed (probability check failed), moving toward map edge or trying again'])
           } else if (actorId === s.left.id) {
-            setBattleLog((prev) => [...prev, `玩家行动被拒绝：${rejectReasonLabel(reason)}`])
+            setBattleLog((prev) => [...prev, `Player action rejected: ${rejectReasonLabel(reason)}`])
           }
         }
       }
@@ -1700,7 +1700,7 @@ export default function GameMap({ game }: Props) {
       mapBattleControllerRef.current = null
       setLastBattleTickCount(Math.max(0, s.tick))
 
-      // 处理自动化任务
+      // Handle automation task
       const battleOutcome: 'win' | 'lose' | null = ui === 'win' ? 'win' : ui === 'lose' ? 'lose' : null
       const automationResult = processAutomationAfterBattle(battleOutcome)
 
@@ -1709,10 +1709,10 @@ export default function GameMap({ game }: Props) {
       }
 
       if (automationResult.continue) {
-        // 自动化模式：弹结算UI，但用 useEffect 自动点 Continue
+        // Automation mode: show settlement UI, but use useEffect to automatically click Continue
         if (ui === 'win') {
           pendingRespawnEnemyIdRef.current = combatEnemyId
-          completeMapBattleVictory('战斗胜利！')
+          completeMapBattleVictory('Battle victory!')
         } else if (ui === 'lose') {
           completeMapBattleDefeat()
         } else if (ui === 'fled') {
@@ -1731,13 +1731,13 @@ export default function GameMap({ game }: Props) {
           setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
           setPlayerPos(sep.player)
           setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
-          finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
+          finalizeMapBattleFleeSuccess({ successMessage: 'Successfully escaped battle.', clearBattleLog: false })
         }
       } else {
-        // 非自动化模式：正常弹结算UI
+        // Non-automation mode: normally show settlement UI
         if (ui === 'win') {
           pendingRespawnEnemyIdRef.current = combatEnemyId
-          completeMapBattleVictory('战斗胜利！')
+          completeMapBattleVictory('Battle victory!')
         } else if (ui === 'lose') {
           completeMapBattleDefeat()
         } else if (ui === 'fled') {
@@ -1756,7 +1756,7 @@ export default function GameMap({ game }: Props) {
           setPlayerFacing(resolveDirectionByDelta(sep.player.x - p0.x, sep.player.y - p0.y))
           setPlayerPos(sep.player)
           setEnemyPositions((prev) => ({ ...prev, [combatEnemyId]: sep.enemy }))
-          finalizeMapBattleFleeSuccess({ successMessage: '成功脱离战斗。', clearBattleLog: false })
+          finalizeMapBattleFleeSuccess({ successMessage: 'Successfully escaped battle.', clearBattleLog: false })
         }
         cancelAutomation()
       }
@@ -1769,8 +1769,8 @@ export default function GameMap({ game }: Props) {
       mapBattleControllerRef.current = null
       setBattlePlayerMaxHp(0)
     }
-    // 会话由 battleSessionNonce / combatEnemyId 标识；仅依赖开战瞬间与地图尺寸。
-    // 勿加入 HP/坐标/playerPos，否则会每 tick 重建控制器导致战斗卡死。
+    // Session identified by battleSessionNonce / combatEnemyId; only depends on battle start moment and map dimensions.
+    // Do not add HP/coordinate/playerPos, otherwise will rebuild controller every tick causing battle to freeze.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     showBattle,
@@ -1786,9 +1786,9 @@ export default function GameMap({ game }: Props) {
     mapInfo.tileset?.id,
   ])
 
-  // 检测附近敌人（使用动态位置）
+  // Detect nearby enemies (using dynamic position)
   useEffect(() => {
-    // 战斗中坐标由 battle-core 驱动，若用距离判定会清空 nearbyEnemy，进而误伤其它逻辑；开战时 nearbyEnemy 已由 startBattle 设置
+    // In battle, coordinates driven by battle-core; if using distance check will clear nearbyEnemy, causing other logic to malfunction; nearbyEnemy is set by startBattle at battle start
     if (showBattle) return
     const found = enemies.find(enemy => {
       const pos = enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }
@@ -1800,7 +1800,7 @@ export default function GameMap({ game }: Props) {
     setShowInteraction(!!found)
   }, [playerPos, enemies, enemyPositions, setNearbyEnemy, setShowInteraction, playerLevel, showBattle])
 
-  /** 自动化：检测到附近敌人时自动开始战斗 */
+  /** Automation: auto-start battle when nearby enemy detected */
   useEffect(() => {
     if (!automationTask) return
     if (showBattle) return
@@ -1809,7 +1809,7 @@ export default function GameMap({ game }: Props) {
     startBattle({ player: { ...playerPos }, enemy: { ...ep } })
   }, [automationTask, showBattle, nearbyEnemy, enemyPositions, playerPos, startBattle])
 
-  /** 击败后保留同一 id，换名/换属性/换出生点，相当于野点刷新 */
+  /** After defeat, keep same id, change name/stats/spawn point, equivalent to wild monster refresh */
   const respawnDefeatedEnemy = useCallback(
     (defeatedId: number) => {
       const enc = createEnemyEncounter(playerLevel)
@@ -1867,7 +1867,7 @@ export default function GameMap({ game }: Props) {
   )
 
   const finishBattleAndClose = useCallback(() => {
-    // 回到大地图前收敛为整格，确保寻路/碰撞继续按网格语义工作。
+    // Converge to integer grid before returning to map to ensure pathfinding/collision continues to work with grid semantics.
     setPlayerPos((prev) => snapToGrid(prev))
     setEnemyPositions((prev) => {
       const next: Record<number, { x: number; y: number }> = {}
@@ -1884,7 +1884,7 @@ export default function GameMap({ game }: Props) {
     closeBattle()
   }, [closeBattle, respawnDefeatedEnemy, setEnemyPositions, setPlayerPos])
 
-  /** 自动化：结算页面出现时，自动点击 Continue */
+  /** Automation: auto-click Continue when settlement page appears */
   const prevIsGameOverRef = useRef(false)
   useEffect(() => {
     if (isGameOver && automationTask && !prevIsGameOverRef.current) {
@@ -1899,14 +1899,14 @@ export default function GameMap({ game }: Props) {
       if (skillCooldownRemaining(skillCooldownEndAt, skill.id) > 0) return
       setNextAttackSkillId((prev) => {
         if (prev === skill.id) return prev
-        setBattleLog((logPrev) => [...logPrev, `已就绪：下次行动使用「${skill.name}」`])
+        setBattleLog((logPrev) => [...logPrev, `Ready: next action will use "${skill.name}"`])
         return skill.id
       })
     },
     [isGameOver, skillCooldownEndAt, setNextAttackSkillId, setBattleLog],
   )
 
-  // 点击地图移动（可走格内）
+  // Click map to move (within walkable tiles)
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (showBattle) return
     const rect = e.currentTarget.getBoundingClientRect()
@@ -1937,14 +1937,14 @@ export default function GameMap({ game }: Props) {
   const enemyHpRatioForUi = Math.max(0, Math.min(100, (enemyHP / enemyHpMaxForUi) * 100))
 
   const handlePixellabSync = useCallback(async () => {
-    setPixellabSyncHint('同步中…')
+    setPixellabSyncHint('Syncing...')
     try {
       const res = await fetch('/api/pixellab-sync', { method: 'POST' })
       const data = (await res.json()) as { ok?: boolean; copiedFiles?: number; errors?: string[] }
       if (data.ok) {
-        setPixellabSyncHint(`已同步 ${data.copiedFiles ?? 0} 个文件`)
+        setPixellabSyncHint(`Synced ${data.copiedFiles ?? 0} files`)
       } else {
-        setPixellabSyncHint(data.errors?.[0] ?? '同步未完成')
+        setPixellabSyncHint(data.errors?.[0] ?? 'Sync incomplete')
       }
       const mapRes = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
       if (mapRes.ok) {
@@ -1956,14 +1956,14 @@ export default function GameMap({ game }: Props) {
         if (d.enemies?.length) setEnemies(d.enemies)
       }
     } catch (e) {
-      setPixellabSyncHint(e instanceof Error ? e.message : '同步失败')
+      setPixellabSyncHint(e instanceof Error ? e.message : 'Sync failed')
     }
     window.setTimeout(() => setPixellabSyncHint(null), 4200)
   }, [selectedMapId, setEnemies])
 
   return (
     <main className="relative w-screen h-screen overflow-hidden">
-      {/* 全屏地图：画布与角色同一视口、同一坐标系，避免「浮在地图外一层」 */}
+      {/* Full-screen map: canvas and character in same viewport, same coordinate system, avoid "floating outside map" */}
       <div
         ref={mapViewportRef}
         className="absolute inset-0 cursor-crosshair"
@@ -1971,7 +1971,7 @@ export default function GameMap({ game }: Props) {
       >
         <canvas ref={mapCanvasRef} className="absolute inset-0 z-0 block h-full w-full" />
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-          {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
+          {/* Enemy marker - SSR uses fixed position to avoid hydration mismatch */}
           {enemies.map(enemy => {
             if (showBattle && isPVPMode && (combatEnemyId === null || enemy.id !== combatEnemyId)) {
               return null
@@ -2009,7 +2009,7 @@ export default function GameMap({ game }: Props) {
                     </div>
                   </div>
                 )}
-                {/* 消息气泡 */}
+                {/* Message bubble */}
                 {message && (
                   <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
                     {message}
@@ -2058,7 +2058,7 @@ export default function GameMap({ game }: Props) {
                       />
                     )
                   }
-                  /* 非 PixelLab：统一用 battle-poc public/enemy 方向精灵（gif/png） */
+                  /* Non PixelLab: unified use of battle-poc public/enemy direction sprites (gif/png) */
                   const chase = mapBattleControllerRef.current?.session.chaseState
                   const isFleePending =
                     !!showBattle &&
@@ -2105,7 +2105,7 @@ export default function GameMap({ game }: Props) {
             )
           })}
 
-          {/* 玩家标记 - SSR 使用固定默认值避免 hydration 不匹配 */}
+          {/* Player marker - SSR uses fixed default value to avoid hydration mismatch */}
           <div
             className="absolute pointer-events-none z-30"
             style={{
@@ -2153,14 +2153,14 @@ export default function GameMap({ game }: Props) {
                       filter: activeFx?.anim === 'hit' ? 'brightness(1.28) saturate(1.2)' : undefined,
                     }}
                     role="img"
-                    aria-label="你"
+                    aria-label="You"
                   />
                 ) : (
                   <div
                     className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
                     style={mapCharacterIdleStyle(playerVisualId, actorPx)}
                     role="img"
-                    aria-label="你"
+                    aria-label="You"
                   />
                 )
               }
@@ -2173,7 +2173,7 @@ export default function GameMap({ game }: Props) {
                         ? toPlayerWalkFramePath(playerFacing, walkAnimTick)
                         : toPlayerIdlePngPath(playerFacing)
                   }
-                  alt="你"
+                  alt="You"
                   className="object-contain drop-shadow-[0_0_6px_rgba(59,130,246,0.45)]"
                   style={{
                     width: actorPx,
@@ -2192,11 +2192,11 @@ export default function GameMap({ game }: Props) {
               )
             })()}
             <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-sky-100 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap">
-              你
+              You
             </div>
           </div>
 
-          {/* 战斗飘字（伤害 / 治疗），与网格角色对齐 */}
+          {/* Battle float text (damage / heal), aligned with grid character */}
           {showBattle && combatEnemyId !== null && (
             <div className="pointer-events-none absolute inset-0 z-[26] overflow-hidden">
               {projectileFx.map((fx) => {
@@ -2310,13 +2310,13 @@ export default function GameMap({ game }: Props) {
               onClick={() => dismissFleeSuccessMessage()}
               className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-emerald-500"
             >
-              知道了
+              Got it
             </button>
           </div>
         </div>
       )}
 
-      {/* 左上角玩家信息 */}
+      {/* Top-left player info */}
       <div
         onClick={() => setShowCharacter(true)}
         className="absolute top-4 left-4 z-20 min-w-48 cursor-pointer rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-4 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)] transition-colors hover:brightness-105"
@@ -2357,15 +2357,15 @@ export default function GameMap({ game }: Props) {
               />
             </div>
           </div>
-          <div className="text-xs font-bold text-amber-700">💰 {playerGold} 金币</div>
+          <div className="text-xs font-bold text-amber-700">💰 {playerGold} Gold</div>
         </div>
       </div>
 
       <div className="absolute top-4 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
-        地图: {mapInfo.mapId} · {mapInfo.width}x{mapInfo.height}（网格）{tilesetReady ? ' · 精灵图' : ' · 回退渲染'}
+        Map: {mapInfo.mapId} · {mapInfo.width}x{mapInfo.height} (grid) {tilesetReady ? ' · Sprites' : ' · Fallback render'}
       </div>
       <div className="absolute top-16 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
-        <label className="mr-2">地图</label>
+        <label className="mr-2">Map</label>
         <select
           className="rounded bg-slate-900 px-2 py-1 text-xs text-slate-100"
           value={selectedMapId}
@@ -2384,21 +2384,21 @@ export default function GameMap({ game }: Props) {
           onClick={() => void handlePixellabSync()}
           className="rounded bg-amber-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-amber-600"
         >
-          同步 PixelLab 资源
+          Sync PixelLab Resource
         </button>
         <button
           type="button"
           onClick={() => setShowPixellabMapGen(true)}
           className="rounded bg-sky-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600"
         >
-          生成 PixelLab 地图
+          Generate PixelLab Map
         </button>
         <button
           type="button"
           onClick={() => setShowCollisionEditor(true)}
           className="rounded bg-emerald-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-600"
         >
-          编辑碰撞
+          Edit Collision
         </button>
         {pixellabSyncHint && <span className="text-[10px] leading-snug text-amber-200/90">{pixellabSyncHint}</span>}
 
@@ -2423,8 +2423,8 @@ export default function GameMap({ game }: Props) {
         onSaved={() => void reloadCurrentMap()}
       />
 
-      {/* 右下角 Dock：深色圆角方块，active 为橙色+绿色描边；悬停左侧气泡标签
-          z-index 高于 Chat 侧栏，保证在侧栏开启时仍可切换 */}
+      {/* Bottom-right Dock: dark rounded square, active is orange+green border; hover shows left bubble label
+          z-index higher than Chat sidebar, ensures can still switch when sidebar is open */}
       <div className="pointer-events-auto absolute bottom-6 right-4 z-[60] flex flex-col items-center gap-2">
         {dockItems.map(({ id, label, Icon }) => {
           const active = dockPanel === id
@@ -2452,15 +2452,15 @@ export default function GameMap({ game }: Props) {
         <DockFeatureModal game={game} />
       )}
 
-      {/* 大地图战斗：无跳转、无全屏遮罩；仅底部一条操作条 + 结算卡片（不铺幕布） */}
+      {/* Map battle: no navigation, no full-screen overlay; only one bottom action bar + settlement card (no curtain) */}
       {showBattle && (
         <>
           <div className="pointer-events-auto fixed bottom-4 left-4 z-30 flex h-[clamp(320px,58vh,560px)] w-[clamp(240px,28vw,380px)] flex-col rounded-xl border border-amber-500/60 bg-slate-900/95 px-2 py-2 shadow-xl">
             <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1 text-[11px] text-amber-100">
-              <span className="font-semibold">战斗中 · battle-core session</span>
+              <span className="font-semibold">In Battle · battle-core session</span>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 <span className="text-sky-300">MP {playerMP}/{playerMaxMp}</span>
-                <span className="text-slate-500">速度</span>
+                <span className="text-slate-500">Speed</span>
                 {([0.5, 1, 2] as const).map((sp) => (
                   <button
                     key={sp}
@@ -2499,7 +2499,7 @@ export default function GameMap({ game }: Props) {
                   }}
                   className="rounded-lg border border-gray-500 bg-gray-700 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-gray-600"
                 >
-                  逃跑
+                  Flee
                 </button>
               )}
               {getAvailableSkills().map((skill) => {
@@ -2539,16 +2539,16 @@ export default function GameMap({ game }: Props) {
                 <div className="text-lg">{hoveredSkill.icon}</div>
                 <div className="font-bold text-white">{hoveredSkill.name}</div>
                 <div className="text-slate-400">{hoveredSkill.desc}</div>
-                <div className="mt-1 text-slate-400">MP: {hoveredSkill.mpCost} · 冷却: {hoveredSkill.cooldownTicks}t</div>
-                {/* 射程保留：当前大地图战斗模式先不做前端射程判定，仍以 domain/engine 为准 */}
-                <div className="text-slate-500">射程: {hoveredSkill.range ?? '-'}（保留）</div>
+                <div className="mt-1 text-slate-400">MP: {hoveredSkill.mpCost} · CD: {hoveredSkill.cooldownTicks}t</div>
+                {/* Range preserved: current map battle mode doesn't do frontend range judgment yet, still based on domain/engine */}
+                <div className="text-slate-500">Range: {hoveredSkill.range ?? '-'} (preserved)</div>
               </div>
             )}
             <div className="mt-2 min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-black/45 px-2 py-1.5">
-              <div className="mb-1 border-b border-white/10 pb-1 text-[11px] font-semibold text-slate-200">战斗日志</div>
+              <div className="mb-1 border-b border-white/10 pb-1 text-[11px] font-semibold text-slate-200">Battle Log</div>
               <div className="h-[calc(100%-1.5rem)] overflow-y-auto pr-1 text-[11px] leading-snug text-slate-300">
                 {battleLog.length === 0 ? (
-                  <div className="text-slate-500">等待战斗事件...</div>
+                  <div className="text-slate-500">Waiting for battle events...</div>
                 ) : (
                   battleLog.map((log, idx) => <div key={idx}>{log}</div>)
                 )}
@@ -2570,7 +2570,7 @@ export default function GameMap({ game }: Props) {
         </>
       )}
 
-      {/* 交互按钮（战斗中隐藏，由底部技能栏操作） */}
+      {/* Interaction buttons (hidden during battle, operated by bottom skill bar) */}
       <InteractionButtons
         open={!!(showInteraction && nearbyEnemy && !showBattle)}
         onChallenge={() => {
@@ -2582,7 +2582,7 @@ export default function GameMap({ game }: Props) {
         onClose={() => setShowInteraction(false)}
       />
 
-      {/* 敌人信息弹窗 */}
+      {/* Enemy info popup */}
       <EnemyInfoModal
         open={!!(showEnemyInfo && nearbyEnemy)}
         enemyName={nearbyEnemy?.name ?? 'Enemy'}

@@ -1,4 +1,4 @@
-/** 与 `data/maps` 中 `demo-tileset`（dungeon-tileset.png）配套：仅草地与路径类瓦块可落脚 */
+/** Pairs with `demo-tileset` (dungeon-tileset.png) in `data/maps`: only grass and path tiles are walkable */
 export const DEMO_DUNGEON_TILESET_ID = 'demo-tileset'
 
 export function isDemoDungeonFootWalkable(tileId: number): boolean {
@@ -8,7 +8,7 @@ export function isDemoDungeonFootWalkable(tileId: number): boolean {
   return false
 }
 
-/** 碰撞层 +（仅 demo tileset 时）装饰性地砖阻挡，与大地图 / 战斗内走位一致 */
+/** Collision layer + (demo tileset only) decorative floor blocking, consistent with map / battle movement */
 export function isDemoDungeonCellWalkable(input: {
   x: number
   y: number
@@ -28,7 +28,7 @@ export function isDemoDungeonCellWalkable(input: {
   return true
 }
 
-/** 出生点落在障碍/装饰格上时，吸附到最近的可走格 */
+/** When spawn point falls on a blocked/decorative tile, snaps to the nearest walkable cell */
 export function snapGridSpawnToWalkable(
   x: number,
   y: number,

@@ -56,7 +56,7 @@ export function BattlePhaserCanvas({ stateRef, className }: Props) {
       className={className}
       tabIndex={0}
       role="application"
-      aria-label="战斗画面"
+      aria-label="Battle scene"
     />
   )
 }

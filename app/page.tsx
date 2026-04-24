@@ -11,7 +11,7 @@ export default function HomePage() {
 
   return (
     <>
-      {/* 地图始终渲染；角色/装备/技能面板叠加在其上方，保持地图作为背景可见 */}
+      {/* Map always rendered; character/equipment/skill panels overlay on top, keeping map visible as background */}
       <GameMap game={game} />
       {game.showCharacter && <CharacterPanel game={game} />}
       {game.showEquipment && <EquipmentPanel game={game} />}

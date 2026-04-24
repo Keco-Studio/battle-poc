@@ -12,8 +12,8 @@ export async function POST(req: Request) {
     }
     const mapId = typeof body.mapId === 'string' ? body.mapId.trim() : ''
     const collision = Array.isArray(body.collision) ? body.collision : null
-    if (!mapId) return NextResponse.json({ ok: false, error: 'mapId 不能为空' }, { status: 400 })
-    if (!collision) return NextResponse.json({ ok: false, error: 'collision 不能为空' }, { status: 400 })
+    if (!mapId) return NextResponse.json({ ok: false, error: 'mapId cannot be empty' }, { status: 400 })
+    if (!collision) return NextResponse.json({ ok: false, error: 'collision cannot be empty' }, { status: 400 })
 
     const mapFilePath = path.join(LOCAL_MAPS_DIR, `${path.basename(mapId)}.json`)
     const raw = await readFile(mapFilePath, 'utf8')
@@ -22,11 +22,11 @@ export async function POST(req: Request) {
     const startingMapId: string | undefined = project?.config?.startingMap
     const maps: Record<string, any> | undefined = project?.maps
     if (!maps || typeof maps !== 'object') {
-      return NextResponse.json({ ok: false, error: '地图 JSON 格式异常：缺少 maps' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'Map JSON format abnormal: missing maps' }, { status: 400 })
     }
     const mapKey = startingMapId && maps[startingMapId] ? startingMapId : Object.keys(maps)[0]
     if (!mapKey || !maps[mapKey]) {
-      return NextResponse.json({ ok: false, error: '地图 JSON 格式异常：找不到 map 节点' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'Map JSON format abnormal: cannot find map node' }, { status: 400 })
     }
     const mapNode = maps[mapKey]
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const expected = w > 0 && h > 0 ? w * h : null
     if (expected !== null && collision.length !== expected) {
       return NextResponse.json(
-        { ok: false, error: `collision 长度不匹配：期望 ${expected}，实际 ${collision.length}` },
+        { ok: false, error: `collision length mismatch: expected ${expected}, actual ${collision.length}` },
         { status: 400 },
       )
     }

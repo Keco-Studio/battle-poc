@@ -40,7 +40,7 @@ function makeEntity(input: {
 }
 
 describe('battle core orchestrator', () => {
-  it('能为双方持续入队命令并推进战斗事件', async () => {
+  it('can continuously enqueue commands for both sides and advance battle events', async () => {
     const left = makeEntity({ id: 'left-c', team: 'left', x: 3, y: 2, skills: ['arcane_bolt'] })
     const right = makeEntity({ id: 'right-c', team: 'right', x: 6.2, y: 2, skills: ['arcane_bolt'] })
     let session = createBattleSession({ left, right, preparationTicks: 0 })

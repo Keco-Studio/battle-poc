@@ -11,7 +11,7 @@ type Props = {
   className?: string
 }
 
-/** 大地图战斗层：客户端动态加载 Phaser，避免 SSR 访问 DOM */
+/** Map battle layer: client-side dynamic Phaser loading to avoid SSR DOM access */
 export function MapBattlePhaserCanvas({ stateRef, className }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<Phaser.Game | null>(null)
@@ -19,7 +19,7 @@ export function MapBattlePhaserCanvas({ stateRef, className }: Props) {
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return
 
-    // 必须与大地图 tile 画布叠层：禁用 GAME_CONFIG 的不透明底色，否则会整块盖住地图背景
+    // Must overlay with map tile canvas: disable GAME_CONFIG's opaque background, otherwise it would completely cover the map background
     const { backgroundColor: _bg, ...restGameConfig } = GAME_CONFIG
     const config: Phaser.Types.Core.GameConfig = {
       ...restGameConfig,
@@ -63,7 +63,7 @@ export function MapBattlePhaserCanvas({ stateRef, className }: Props) {
       className={className}
       tabIndex={0}
       role="application"
-      aria-label="地图战斗演出"
+      aria-label="Map battle presentation"
     />
   )
 }

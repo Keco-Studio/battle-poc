@@ -98,9 +98,9 @@ function buildEnemyEntity(input: {
 export type MapBattleStartConfig = {
   mapWidth: number
   mapHeight: number
-  /** battle tick 时长（毫秒），用于把「秒级攻速」换算成 tick 节拍 */
+  /** battle tick duration (ms), used to convert "per-second attack speed" into tick beats */
   battleTickMs?: number
-  /** 与大地图 collision 一致；传入则 MapBattleController 会裁剪 dash 目标，避免穿墙 */
+  /** Consistent with map collision; if passed, MapBattleController will trim dash targets to avoid wall clipping */
   isWalkable?: (gx: number, gy: number) => boolean
   playerName: string
   playerGrid: { x: number; y: number }

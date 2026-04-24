@@ -40,7 +40,7 @@ function createEntity(input: {
 }
 
 describe('decision guardrail', () => {
-  it('技能略超射程时应改写为 dash 逼近而非直接施法', () => {
+  it('when skill slightly exceeds range should rewrite to dash approach instead of direct casting', () => {
     const barrier = getBattleSkillDefinition('barrier')
     expect(barrier).toBeTruthy()
     if (!barrier) return
@@ -85,7 +85,7 @@ describe('decision guardrail', () => {
     expect(guarded.action.type).toBe('dash')
   })
 
-  it('dash 冷却中时应改写为可执行动作', () => {
+  it('when skill slightly exceeds range should rewrite to dash approach instead of direct casting', () => {
     const barrier = getBattleSkillDefinition('barrier')
     expect(barrier).toBeTruthy()
     if (!barrier) return
@@ -140,7 +140,7 @@ describe('decision guardrail', () => {
     expect(guarded.action.type).toBe('cast_skill')
   })
 
-  it('dash 不可用且仅有 buffer 内技能时不应改写为超距施法', () => {
+  it('when dash is on cooldown should rewrite to executable action', () => {
     const barrier = getBattleSkillDefinition('barrier')
     expect(barrier).toBeTruthy()
     if (!barrier) return

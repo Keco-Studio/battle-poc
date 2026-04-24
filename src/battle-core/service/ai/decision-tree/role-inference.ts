@@ -4,12 +4,12 @@ import { getBattleSkillRoleSignatures } from '../../../content/skills/basic-skil
 export type InferredRole = 'hero' | 'tank' | 'archer' | 'mage' | 'healer' | 'assassin'
 
 const ROLE_STRATEGY_HINTS: Record<InferredRole, string> = {
-  hero: '均衡型前排，兼顾伤害和控制，保持压迫节奏',
-  tank: '重甲前排，吸收伤害保护队友，用嘲讽和控制打断敌方节奏',
-  archer: '远程物理输出，保持安全距离持续施压，利用风筝和减速保持距离',
-  mage: '远程法术输出，利用控制技能开窗口打爆发，冰冻后追加碎冰伤害',
-  healer: '团队辅助，优先维持队友生存，用减益和净化干扰敌方',
-  assassin: '近战刺客，利用位移技能绕后切入，对低血目标打斩杀',
+  hero: 'Balanced frontline, balances damage and control, maintains pressure rhythm',
+  tank: 'Heavy armor frontline, absorbs damage to protect allies, uses taunt and control to disrupt enemy rhythm',
+  archer: 'Ranged physical DPS, maintains safe distance for sustained pressure, uses kiting and slows to keep distance',
+  mage: 'Ranged magic DPS, uses control skills to open combo windows for burst, follows up freeze with shatter damage',
+  healer: 'Team support, prioritizes keeping allies alive, uses debuffs and cleanse to disrupt enemies',
+  assassin: 'Melee assassin, uses displacement skills to flank and dive, executes low-HP targets',
 }
 
 const ROLE_PREFERRED_RANGE: Record<InferredRole, 'melee' | 'mid' | 'ranged'> = {
