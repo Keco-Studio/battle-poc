@@ -34,7 +34,7 @@ export default function SkillsPanel({ game }: Props) {
   return (
     <div className="oc-floating-panel oc-card" role="dialog" aria-modal="false">
       <div className="flex h-full min-h-0 flex-col">
-        {/* 头部 */}
+        {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
             <Sparkles size={18} strokeWidth={2.4} className="text-violet-500" />
@@ -42,7 +42,7 @@ export default function SkillsPanel({ game }: Props) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">Skills</div>
             <div className="truncate text-[11px] text-slate-500">
-              携带 {carriedSkills.length}/6 · 已解锁 {unlockedSkills.length}/{allSkills.length}
+              Carried {carriedSkills.length}/6 · Unlocked {unlockedSkills.length}/{allSkills.length}
             </div>
           </div>
           <button
@@ -51,16 +51,16 @@ export default function SkillsPanel({ game }: Props) {
               setShowSkills(false)
               setShowCharacter(true)
             }}
-            aria-label="返回角色"
+            aria-label="Back to character"
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            title="返回"
+            title="Back"
           >
             <ArrowLeft size={18} />
           </button>
           <button
             type="button"
             onClick={() => setShowSkills(false)}
-            aria-label="关闭"
+            aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           >
             <X size={18} />
@@ -98,7 +98,7 @@ export default function SkillsPanel({ game }: Props) {
                       </div>
                       {!unlocked && (
                         <div className="text-[10px] font-bold text-rose-500">
-                          需要 Lv.{skill.unlockLevel}
+                          Requires Lv.{skill.unlockLevel}
                         </div>
                       )}
                     </div>
@@ -117,7 +117,7 @@ export default function SkillsPanel({ game }: Props) {
                             : 'bg-slate-900 text-white hover:bg-slate-700'
                       }`}
                     >
-                      {checked ? '已携带' : disabledByLimit ? '携带已满 (6)' : '携带'}
+                      {checked ? 'Equipped' : disabledByLimit ? 'Slot full (6)' : 'Equip'}
                     </button>
                   )}
                 </div>

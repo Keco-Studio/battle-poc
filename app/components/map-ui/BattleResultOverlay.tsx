@@ -45,12 +45,12 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
-      {/* 结果颜色蒙版（胜利淡绿/失败红色 vignette） */}
+      {/* Result color overlay (victory light green / defeat red vignette) */}
       <div
         className={`absolute inset-0 ${battleResult === 'win' ? 'bg-emerald-900/40' : 'oc-defeat-vignette'}`}
       />
 
-      {/* 胜利彩带 */}
+      {/* Victory ribbons */}
       {battleResult === 'win' && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {Array.from({ length: 36 }).map((_, i) => (
@@ -79,10 +79,10 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
           {subtitle}
         </div>
 
-        {/* 奖励 / 惩罚信息（小卡片） */}
+        {/* Reward / penalty info (small card) */}
         <div className="flex w-full flex-col gap-1 rounded-xl bg-black/40 px-4 py-2 text-[11px] text-white backdrop-blur-sm">
           <div>
-            时长{' '}
+            Duration{' '}
             <span className="font-mono font-bold">
               {battleTimeSec >= 1 ? `${battleTimeSec}s` : '<1s'}
               {lastBattleTickCount > 0 ? ` · ${lastBattleTickCount} tick` : ''}
@@ -91,10 +91,10 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
           {battleResult === 'win' && (
             <div className="text-yellow-200">
               💰 +{gainedGold} · ⭐ +{gainedExp}
-              {battleLootDrop ? ` · 掉落 ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
+              {battleLootDrop ? ` · Dropped ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
             </div>
           )}
-          {battleResult === 'lose' && <div className="text-rose-200">已失去全部金币；装备与背包保留。</div>}
+          {battleResult === 'lose' && <div className="text-rose-200">Lost all gold; equipment and backpack retained.</div>}
         </div>
 
         <div className="flex w-full max-w-[320px] flex-col gap-3">

@@ -40,7 +40,7 @@ export default function CharacterPanel({ game }: Props) {
   return (
     <div className="oc-floating-panel oc-card" role="dialog" aria-modal="false">
       <div className="flex h-full min-h-0 flex-col">
-        {/* 头部 */}
+        {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
             <User size={18} strokeWidth={2.4} />
@@ -48,22 +48,22 @@ export default function CharacterPanel({ game }: Props) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">Profile</div>
             <div className="truncate text-[11px] text-slate-500">
-              Lv.{playerLevel} Warrior · 金币 {playerGold}
+              Lv.{playerLevel} Warrior · Gold {playerGold}
             </div>
           </div>
           <button
             type="button"
             onClick={() => setShowCharacter(false)}
-            aria-label="关闭"
+            aria-label="Close"
             className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* 600x380 横向布局：左列 头像+属性，右列 装备+操作 */}
+        {/* 600x380 horizontal layout: left column Avatar+Stats, right column Equipment+Actions */}
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-y-auto p-4">
-          {/* 左列 */}
+          {/* Left column */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
@@ -71,7 +71,7 @@ export default function CharacterPanel({ game }: Props) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 flex items-center justify-between text-[12px] font-bold text-slate-700">
-                  <span>Lv.{playerLevel} 战士</span>
+                  <span>Lv.{playerLevel} Warrior</span>
                   <span className="text-slate-400">{playerExp}/{nextLevelExp}</span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
@@ -115,11 +115,11 @@ export default function CharacterPanel({ game }: Props) {
                 : 'bg-emerald-500 text-white hover:bg-emerald-400'
               }`}
             >
-              {!canHeal ? '满血状态' : '回复满血（消耗金币）'}
+              {!canHeal ? 'Full HP' : 'Recover Full HP (Costs Gold)'}
             </button>
           </div>
 
-          {/* 右列 */}
+          {/* Right column */}
           <div className="flex flex-col gap-3">
             <div>
               <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">
@@ -139,8 +139,8 @@ export default function CharacterPanel({ game }: Props) {
                       }`}
                       title={
                         gear
-                          ? `${equipmentTypes[type].name}（点击卸下）`
-                          : `${equipmentTypes[type].name}：空`
+                          ? `${equipmentTypes[type].name} (Click to unequip)`
+                          : `${equipmentTypes[type].name}: Empty`
                       }
                     >
                       {gear ? gear.icon : equipmentTypes[type].icon}
@@ -159,7 +159,7 @@ export default function CharacterPanel({ game }: Props) {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50"
               >
-                <Swords size={14} className="text-rose-500" /> 装备
+                <Swords size={14} className="text-rose-500" /> Equipment
               </button>
               <button
                 type="button"
@@ -169,7 +169,7 @@ export default function CharacterPanel({ game }: Props) {
                 }}
                 className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50"
               >
-                <Sparkles size={14} className="text-violet-500" /> 技能
+                <Sparkles size={14} className="text-violet-500" /> Skills
               </button>
             </div>
           </div>

@@ -38,7 +38,7 @@ function makeEntity(input: {
 }
 
 describe('battle preparation phase', () => {
-  it('preparation阶段跳过攻击和位移命令', () => {
+  it('preparation phase skips attack and movement commands', () => {
     const left = makeEntity({ id: 'left-1', team: 'left', x: 3, y: 5 })
     const right = makeEntity({ id: 'right-1', team: 'right', x: 4.2, y: 5 })
     let session = createBattleSession({ left, right })
@@ -73,7 +73,7 @@ describe('battle preparation phase', () => {
     expect(out.right.position).toEqual({ x: 4.2, y: 5 })
   })
 
-  it('preparation阶段允许defend和dodge', () => {
+  it('preparation phase allows defend and dodge', () => {
     const left = makeEntity({ id: 'left-2', team: 'left', x: 2, y: 2 })
     const right = makeEntity({ id: 'right-2', team: 'right', x: 3, y: 2 })
     let session = createBattleSession({ left, right })
@@ -108,7 +108,7 @@ describe('battle preparation phase', () => {
     ).toBe(true)
   })
 
-  it('达到preparationEndTick后切换到battle阶段', () => {
+  it('transitions to battle phase after preparationEndTick', () => {
     const left = makeEntity({ id: 'left-3', team: 'left', x: 1, y: 1 })
     const right = makeEntity({ id: 'right-3', team: 'right', x: 2.4, y: 1 })
     let session = createBattleSession({ left, right })

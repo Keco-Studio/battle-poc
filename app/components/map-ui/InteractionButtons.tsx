@@ -20,7 +20,7 @@ export default function InteractionButtons(props: InteractionButtonsProps) {
           className="w-20 h-20 bg-blue-600/80 hover:bg-blue-500/80 backdrop-blur-sm rounded-xl border-2 border-blue-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
         >
           <span className="text-2xl">⚔️</span>
-          <span className="text-xs mt-1">挑战</span>
+          <span className="text-xs mt-1">Challenge</span>
         </button>
         <button
           type="button"
@@ -28,7 +28,7 @@ export default function InteractionButtons(props: InteractionButtonsProps) {
           className="w-20 h-20 bg-gray-600/80 hover:bg-gray-500/80 backdrop-blur-sm rounded-xl border-2 border-gray-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
         >
           <span className="text-2xl">🔍</span>
-          <span className="text-xs mt-1">查看</span>
+          <span className="text-xs mt-1">Inspect</span>
         </button>
         <button
           type="button"
@@ -36,7 +36,7 @@ export default function InteractionButtons(props: InteractionButtonsProps) {
           className="w-20 h-20 bg-gray-600/80 hover:bg-gray-500/80 backdrop-blur-sm rounded-xl border-2 border-gray-400 flex flex-col items-center justify-center text-white font-bold transition-all hover:scale-105"
         >
           <span className="text-2xl">←</span>
-          <span className="text-xs mt-1">返回</span>
+          <span className="text-xs mt-1">Back</span>
         </button>
       </div>
     </div>

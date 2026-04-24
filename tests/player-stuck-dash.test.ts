@@ -86,7 +86,7 @@ function runBattleAndCountPlayerActions(input: {
 }
 
 describe('player stuck dash regression', () => {
-  it('玩家紧贴墙壁时，若 kite 退路被阻，不应持续空转 dash 而不出技能', () => {
+  it('when player is against wall and kite retreat is blocked, should not continuously dash in place without casting skills', () => {
     // Map: a vertical wall on the player's back-left direction + top/bottom walls
     // so every "retreat" direction the kite template picks ends up blocked.
     // Player is an archer (focus_shot + volley), enemy a mage. kite_cycle template.

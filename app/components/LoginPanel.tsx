@@ -8,7 +8,7 @@ interface Props {
   game: GameState
 }
 
-/** 四个像素小机器人头像（装饰用）*/
+/** Four pixel robot avatars (decorative) */
 function PixelBot({ hue }: { hue: string }) {
   return (
     <div
@@ -44,19 +44,19 @@ export default function LoginPanel({ game }: Props) {
   const handleLogin = () => {
     setError('')
     if (!username.trim()) {
-      setError('请输入账号')
+      setError('Please enter account')
       return
     }
     if (!password.trim()) {
-      setError('请输入密码')
+      setError('Please enter password')
       return
     }
     if (username.trim().length < 2) {
-      setError('账号至少 2 个字符')
+      setError('Account must be at least 2 characters')
       return
     }
     if (password.trim().length < 4) {
-      setError('密码至少 4 个字符')
+      setError('Password must be at least 4 characters')
       return
     }
     login(username)
@@ -69,7 +69,7 @@ export default function LoginPanel({ game }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 px-4">
       <div className="oc-rainbow-border w-[360px] max-w-full p-7">
-        {/* 装饰像素机器人 */}
+        {/* Decorative pixel robots */}
         <div className="mb-3 flex items-center justify-center gap-2">
           <PixelBot hue="#34d399" />
           <PixelBot hue="#f59e0b" />
@@ -94,7 +94,7 @@ export default function LoginPanel({ game }: Props) {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入账号"
+            placeholder="Enter account"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
           />
         </label>
@@ -117,7 +117,7 @@ export default function LoginPanel({ game }: Props) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入密码"
+            placeholder="Enter password"
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
           />
         </label>
@@ -141,11 +141,11 @@ export default function LoginPanel({ game }: Props) {
         </div>
       </div>
 
-      {/* 右下角的关闭占位（小按钮，对齐图 7 的右下小方块） */}
+      {/* Bottom-right close button (small button, aligns with bottom-right square in design) */}
       <button
         type="button"
         onClick={() => setShowLogin(false)}
-        aria-label="跳过登录"
+        aria-label="Skip login"
         className="oc-dock-btn absolute bottom-6 right-6"
       >
         <LogIn size={18} />

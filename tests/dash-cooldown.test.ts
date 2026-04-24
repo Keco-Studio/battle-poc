@@ -38,7 +38,7 @@ function makeEntity(input: {
 }
 
 describe('dash cooldown', () => {
-  it('最多允许连续三回合 dash', () => {
+  it('max 3 consecutive dash rounds allowed', () => {
     const left = makeEntity({ id: 'left-dash-limit', team: 'left', x: 2, y: 5 })
     const right = makeEntity({ id: 'right-dash-limit', team: 'right', x: 16, y: 5 })
     let session = createBattleSession({ left, right, preparationTicks: 0 })
@@ -66,7 +66,7 @@ describe('dash cooldown', () => {
     expect(lastReject?.payload.reason).toBe('dash_streak_limit_reached')
   })
 
-  it('停止 dash 后进入与连续 dash 回合同步的冷却', () => {
+  it('max 3 consecutive dash rounds allowed', () => {
     const left = makeEntity({ id: 'left-dash-cd', team: 'left', x: 2, y: 5 })
     const right = makeEntity({ id: 'right-dash-cd', team: 'right', x: 16, y: 5 })
     let session = createBattleSession({ left, right, preparationTicks: 0 })

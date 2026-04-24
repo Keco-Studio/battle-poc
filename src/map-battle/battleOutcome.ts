@@ -1,6 +1,6 @@
 import type { BattleSession } from '@/src/battle-core/domain/entities/battle-session'
 
-/** 将 battle-core 的 result / battle_ended 归一为 POC UI 结局 */
+/** Normalizes battle-core result / battle_ended to POC UI outcome */
 export function getPocBattleUiOutcome(session: BattleSession): 'ongoing' | 'win' | 'lose' | 'fled' {
   if (session.result === 'ongoing') return 'ongoing'
   const ended = [...session.events].reverse().find((e) => e.type === 'battle_ended')

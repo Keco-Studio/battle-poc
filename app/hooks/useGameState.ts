@@ -41,7 +41,7 @@ export interface ChatMessage {
   timestamp: number
 }
 
-/** 供 AchievementPanel（遗留入口）使用的占位数据 */
+/** Placeholder data for AchievementPanel (legacy entry) */
 export interface AchievementItem {
   id: string
   name: string
@@ -51,27 +51,27 @@ export interface AchievementItem {
 }
 
 const DEFAULT_ACHIEVEMENTS: AchievementItem[] = [
-  { id: 'a1', name: '初出茅庐', desc: '完成第一场战斗', icon: '⚔️', unlocked: false },
-  { id: 'a2', name: '百战老兵', desc: '累计战斗 10 次', icon: '🛡️', unlocked: false },
+  { id: 'a1', name: 'First Battle', desc: 'Complete your first battle', icon: '⚔️', unlocked: false },
+  { id: 'a2', name: 'Battle Veteran', desc: 'Participate in 10 battles', icon: '🛡️', unlocked: false },
 ]
 
-/** PVP 对手数据 */
+/** PVP opponent data */
 export interface PVPUser {
   id: string
   name: string
   level: number
 }
 
-/** 模拟 PVP 用户列表 */
+/** Mock PVP user list */
 export const MOCK_PVP_USERS: PVPUser[] = [
-  { id: 'u1', name: '赤瞳', level: 3 },
-  { id: 'u2', name: '白木', level: 5 },
-  { id: 'u3', name: '黑羽', level: 7 },
-  { id: 'u4', name: '青叶', level: 2 },
-  { id: 'u5', name: '金井', level: 9 },
+  { id: 'u1', name: 'Red Eye', level: 3 },
+  { id: 'u2', name: 'White Wood', level: 5 },
+  { id: 'u3', name: 'Black Feather', level: 7 },
+  { id: 'u4', name: 'Blue Leaf', level: 2 },
+  { id: 'u5', name: 'Gold Well', level: 9 },
 ]
 
-/** BattleLogPanel（遗留入口）条目 */
+/** BattleLogPanel (legacy entry) item */
 export interface BattleHistoryLogItem {
   id: string
   result: 'win' | 'lose'
@@ -83,7 +83,7 @@ export interface BattleHistoryLogItem {
   opponentName?: string
 }
 
-/** 地图右下角功能入口对应的弹窗 */
+/** Popup for bottom-right map function entry */
 export const DOCK_PANEL_IDS = [
   'achievements',
   'log',
@@ -93,7 +93,7 @@ export const DOCK_PANEL_IDS = [
 ] as const
 export type DockPanelId = (typeof DOCK_PANEL_IDS)[number]
 
-/** 自动化任务类型 */
+/** Automation task types */
 export type AutomationMode =
   | { kind: 'repeat_battle'; remaining: number }
   | { kind: 'flee_if_low_hp'; threshold: number }
@@ -102,7 +102,7 @@ export type AutomationMode =
   | { kind: 'auto_mode' }
   | { kind: 'kill_count'; remaining: number; killed: number }
 
-/** 大地图开战时的双方网格锚点（对齐 battle-core 实体坐标） */
+/** Grid anchors for both sides when map battle starts (aligned with battle-core entity coordinates) */
 export type BattleGridAnchor = {
   player: { x: number; y: number }
   enemy: { x: number; y: number }
@@ -174,37 +174,37 @@ const DEFAULT_GEAR: Record<EquipmentType, EquippedItem | null> = {
 
 export function useGameState() {
   /**
-   * 首帧必须与 SSR 一致：禁止在 useState 里读 localStorage（服务端无 window，
-   * 客户端有存档会导致水合时 26/30 vs 30/30 之类不一致）。
-   * 存档在 useLayoutEffect 中合并进 state；storageHydrated 后再自动保存，避免用默认值覆盖存档。
+   * First frame must be consistent with SSR: do not read localStorage in useState (no window on server,
+   * having save on client causes inconsistencies like 26/30 vs 30/30 during hydration).
+   * Save is merged into state in useLayoutEffect; auto-save after storageHydrated to avoid overwriting save with default values.
    */
   const [storageHydrated, setStorageHydrated] = useState(false)
 
-  // 玩家状态（默认值 = 无存档新游戏，与服务器首渲一致）
+  // Player state (default = new game without save, consistent with server first render)
   const [playerLevel, setPlayerLevel] = useState(1)
   const [playerExp, setPlayerExp] = useState(0)
   const [playerGold, setPlayerGold] = useState(0)
 
-  // 装备状态
+  // Equipment state
   const [equippedGear, setEquippedGear] = useState<Record<EquipmentType, EquippedItem | null>>(() => ({
     ...DEFAULT_GEAR,
   }))
   const [inventory, setInventory] = useState<InventoryItem[]>([])
 
-  /** 返回地图后短暂显示（如逃跑成功），不写入存档 */
+  /** Brief display after returning to map (e.g. flee success), not saved to storage */
   const [fleeSuccessMessage, setFleeSuccessMessage] = useState<string | null>(null)
 
-  /** 每次 startBattle 自增，供大地图战斗重建 MapBattleController */
+  /** Increments each startBattle, for map battle MapBattleController reconstruction */
   const [battleSessionNonce, setBattleSessionNonce] = useState(0)
 
-  /** 大地图战斗：双方格子位置；由 startBattle 传入 */
+  /** Map battle: grid positions of both sides; passed by startBattle */
   const [battleGridAnchor, setBattleGridAnchor] = useState<BattleGridAnchor | null>(null)
-  /** 地图战斗胜利结算时的装备掉落展示 */
+  /** Equipment drop display during map battle victory settlement */
   const [battleLootDrop, setBattleLootDrop] = useState<{ name: string; icon: string } | null>(null)
-  /** 当前交战的地图敌人 id（仅该单位暂停随机游荡） */
+  /** Currently engaged map enemy id (only that unit pauses random wandering) */
   const [combatEnemyId, setCombatEnemyId] = useState<number | null>(null)
 
-  // 战斗状态
+  // Battle state
   const [playerHP, setPlayerHP] = useState(() => calcPlayerStats(1).maxHp)
   const [playerMP, setPlayerMP] = useState(() => Math.floor(calcPlayerStats(1).maxHp / 2))
   const [playerMaxMp, setPlayerMaxMp] = useState(() => Math.floor(calcPlayerStats(1).maxHp / 2))
@@ -217,11 +217,11 @@ export function useGameState() {
     stats: calcEnemyStats(1),
   }))
 
-  // 位置状态
+  // Position state
   const [playerPos, setPlayerPos] = useState(() => ({ ...PLAYER_START }))
   const [enemies, setEnemies] = useState(() => [...initialEnemies])
 
-  // UI状态
+  // UI state
   const [showInteraction, setShowInteraction] = useState(false)
   const [nearbyEnemy, setNearbyEnemy] = useState<typeof enemies[0] | null>(null)
   const [showBattle, setShowBattle] = useState(false)
@@ -230,18 +230,18 @@ export function useGameState() {
   const [showEquipment, setShowEquipment] = useState(false)
   const [showSkills, setShowSkills] = useState(false)
 
-  /** 地图右下角：成就 / 日志 / 聊天 / 战斗系统 / 角色登录 */
+  /** Bottom-right of map: achievements / log / chat / battle system / character login */
   const [dockPanel, setDockPanel] = useState<DockPanelId | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [battleCount, setBattleCount] = useState(0)
   const [achievements] = useState<AchievementItem[]>(() => [...DEFAULT_ACHIEVEMENTS])
   const [battleLogs, setBattleLogs] = useState<BattleHistoryLogItem[]>([])
-  /** 当前 PVP 对手名称（结算写入 battleLogs 时使用） */
+  /** Current PVP opponent name (used when writing to battleLogs) */
   const [pvpOpponentName, setPvpOpponentName] = useState<string | undefined>()
-  /** 当前是否为 PVP 战斗模式（禁用碰撞检测） */
+  /** Whether currently in PVP battle mode (disables collision detection) */
   const [isPVPMode, setIsPVPMode] = useState(false)
 
-  // 战斗相关
+  // Battle related
   const [battleLog, setBattleLog] = useState<string[]>([])
   const [currentTurn, setCurrentTurn] = useState<'player' | 'enemy'>('player')
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null)
@@ -249,21 +249,21 @@ export function useGameState() {
   const [battleResult, setBattleResult] = useState<'win' | 'lose' | null>(null)
   const [isDefending, setIsDefending] = useState(false)
   const [battleRound, setBattleRound] = useState(1)
-  /** 实时战斗：下一发自动攻击使用的技能 id，null 表示普通攻击 */
+  /** Real-time battle: skill id for next auto-attack, null means basic attack */
   const [nextAttackSkillId, setNextAttackSkillId] = useState<string | null>(null)
-  /** 技能 id -> 冷却结束时间戳 (ms) */
+  /** Skill id -> cooldown end timestamp (ms) */
   const [skillCooldownEndAt, setSkillCooldownEndAt] = useState<Record<string, number>>({})
   const [gainedExp, setGainedExp] = useState(0)
   const [gainedGold, setGainedGold] = useState(0)
   const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('archer', 6))
 
-  /** 自动化任务状态 */
+  /** Automation task state */
   const [automationTask, setAutomationTask] = useState<AutomationMode | null>(null)
 
-  // 基础属性
+  // Base stats
   const playerStats = calcPlayerStats(playerLevel)
 
-  // 装备加成后的属性
+  // Stats after equipment bonus
   const getTotalStats = useCallback((): TotalStats => {
     const base = calcPlayerStats(playerLevel)
     let atkBonus = 0, defBonus = 0, spdBonus = 0, maxHpBonus = 0
@@ -323,7 +323,7 @@ export function useGameState() {
     setChatMessages(loadChatMessages())
   }, [])
 
-  // 自动保存（避免首帧用默认值覆盖 localStorage）
+  // Auto save (avoid first frame using default values to overwrite localStorage)
   useEffect(() => {
     if (!storageHydrated) return
     saveState({
@@ -357,7 +357,7 @@ export function useGameState() {
     }
   }, [chatMessages])
 
-  // 获取已解锁技能
+  // Get unlocked skills
   const getAvailableSkills = useCallback(() => {
     const unlocked = allSkills.filter(s => s.unlockLevel <= playerLevel)
     const carried = carriedSkillIds
@@ -371,7 +371,7 @@ export function useGameState() {
     setCarriedSkillIds(dedup.slice(0, 6))
   }, [])
 
-  // 升级处理
+  // Level up handling
   const tryLevelUp = useCallback((exp: number) => {
     let newExp = exp
     let newLevel = playerLevel
@@ -392,19 +392,19 @@ export function useGameState() {
     return { exp: newExp, level: newLevel }
   }, [playerLevel])
 
-  // 装备穿戴
+  // Equip item
   const equipItem = useCallback((item: InventoryItem, itemIndex: number) => {
-    // 如果已装备同类，替换（旧装备放回背包）
+    // If same type already equipped, replace (old equipment goes back to backpack)
     if (equippedGear[item.type]) {
       const oldItem = equippedGear[item.type]!
       setInventory(prev => [...prev, { type: item.type, name: oldItem.name, icon: oldItem.icon }])
     }
-    // 从背包移除并装备
+    // Remove from backpack and equip
     setInventory(prev => prev.filter((_, idx) => idx !== itemIndex))
     setEquippedGear(prev => ({ ...prev, [item.type]: { name: item.name, icon: item.icon } }))
   }, [equippedGear])
 
-  // 装备卸下
+  // Unequip item
   const unequipItem = useCallback((type: EquipmentType) => {
     if (equippedGear[type]) {
       setInventory(prev => [...prev, { type, name: equipmentTypes[type].name, icon: equipmentTypes[type].icon }])
@@ -412,20 +412,20 @@ export function useGameState() {
     }
   }, [equippedGear])
 
-  // 售卖装备
+  // Sell equipment
   const sellItem = useCallback((itemIndex: number) => {
     setInventory(prev => prev.filter((_, idx) => idx !== itemIndex))
     setPlayerGold(prev => prev + 1)
   }, [])
 
-  // 开始战斗（可选 anchor：大地图战斗传入双方格子坐标）
+  // Start battle (optional anchor: map battle passes grid coordinates of both sides)
   const startBattle = useCallback(
     (anchor?: BattleGridAnchor) => {
       const encounter = nearbyEnemy ? enemyPreview : createEnemyEncounter(playerLevel)
 
       setShowBattle(true)
       setBattleRound(1)
-      setBattleLog(['战斗开始！（battle-core tick）'])
+      setBattleLog(['Battle started! (battle-core tick)'])
       setEnemyHP(encounter.stats.maxHp)
       setEnemyMaxHp(encounter.stats.maxHp)
       setEnemyLevel(encounter.level)
@@ -449,7 +449,7 @@ export function useGameState() {
     [enemyPreview, nearbyEnemy, playerLevel],
   )
 
-  // 开始 PVP 战斗
+  // Start PVP battle
   const startPVPBattle = useCallback(
     (userId: string) => {
       const user = MOCK_PVP_USERS.find((u) => u.id === userId)
@@ -467,7 +467,7 @@ export function useGameState() {
       setPvpOpponentName(user.name)
       setShowBattle(true)
       setBattleRound(1)
-      setBattleLog([`PVP 对决：vs ${user.name}！`])
+      setBattleLog([`PVP battle: vs ${user.name}!`])
       setEnemyHP(stats.maxHp)
       setEnemyMaxHp(stats.maxHp)
       setEnemyLevel(user.level)
@@ -492,7 +492,7 @@ export function useGameState() {
     [enemies, playerPos.x, playerPos.y],
   )
 
-  // 关闭战斗
+  // Close battle
   const closeBattle = useCallback(() => {
     setShowBattle(false)
     setBattleLog([])
@@ -511,8 +511,8 @@ export function useGameState() {
   }, [])
 
   /**
-   * 仅在 battle-core 已以 `battle_ended.reason === 'flee_success'` 结束本场后调用：
-   * 关闭战斗 UI、重置大地图敌人显示血量（供下次遭遇），不替代引擎内的 `flee` 命令。
+   * Only called after battle-core has ended this battle with `battle_ended.reason === 'flee_success'`:
+   * Closes battle UI, resets map enemy display HP (for next encounter), does not replace the engine's `flee` command.
    */
   const finalizeMapBattleFleeSuccess = useCallback((opts?: { successMessage?: string; clearBattleLog?: boolean }) => {
     if (opts?.successMessage) setFleeSuccessMessage(opts.successMessage)
@@ -534,14 +534,14 @@ export function useGameState() {
     setIsPVPMode(false)
   }, [enemyPreview.stats.maxHp, setEnemyHP, setEnemyMaxHp])
 
-  /** @deprecated 与 finalizeMapBattleFleeSuccess 相同；保留旧名称供遗留组件引用 */
+  /** @deprecated Same as finalizeMapBattleFleeSuccess; kept for legacy component references */
   const handleFlee = finalizeMapBattleFleeSuccess
 
   const dismissFleeSuccessMessage = useCallback(() => {
     setFleeSuccessMessage(null)
   }, [])
 
-  /** 地图战斗：胜利结算（经验金币与可选掉落） */
+  /** Map battle: victory settlement (exp, gold, and optional drop) */
   const completeMapBattleVictory = useCallback(
     (closingLog: string) => {
       setIsGameOver(true)
@@ -556,11 +556,11 @@ export function useGameState() {
         const eq = equipmentTypes[randomType]
         setInventory((prev) => [...prev, { type: randomType, name: eq.name, icon: eq.icon }])
         setBattleLootDrop({ name: eq.name, icon: eq.icon })
-        setBattleLog((prev) => [...prev, `运气不错！获得了${eq.icon}${eq.name}！`])
+        setBattleLog((prev) => [...prev, `Lucky! Got ${eq.icon}${eq.name}!`])
       }
       const afterLevelUp = tryLevelUp(playerExp + expGain)
       setPlayerExp(afterLevelUp.exp)
-      setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验和 ${goldGain} 金币！`])
+      setBattleLog((prev) => [...prev, closingLog, `Gained ${expGain} EXP and ${goldGain} Gold!`])
       setBattleLogs((prev) => [
         ...prev,
         {
@@ -575,13 +575,13 @@ export function useGameState() {
         },
       ])
       if (afterLevelUp.level > playerLevel) {
-        setBattleLog((prev) => [...prev, `升级了！现在是 Lv.${afterLevelUp.level}`])
+        setBattleLog((prev) => [...prev, `Level up! Now Lv.${afterLevelUp.level}`])
       }
     },
     [battleRound, enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
   )
 
-  /** 地图战斗：失败 */
+  /** Map battle: defeat */
   const completeMapBattleDefeat = useCallback(() => {
     setIsGameOver(true)
     setBattleResult('lose')
@@ -605,17 +605,17 @@ export function useGameState() {
     setDockPanel(null)
   }, [])
 
-  /** AchievementPanel 遗留 API：关闭时收起 dock */
+  /** AchievementPanel legacy API: close dock when closing */
   const setShowAchievement = useCallback((open: boolean) => {
     if (!open) setDockPanel(null)
   }, [])
 
-  /** BattleLogPanel 遗留 API */
+  /** BattleLogPanel legacy API */
   const setShowBattleLog = useCallback((open: boolean) => {
     if (!open) setDockPanel(null)
   }, [])
 
-  /** LoginPanel 遗留 API */
+  /** LoginPanel legacy API */
   const setShowLogin = useCallback((open: boolean) => {
     if (!open) setDockPanel(null)
   }, [])
@@ -645,51 +645,51 @@ export function useGameState() {
     pushChatMessage(text, false)
   }, [pushChatMessage])
 
-  /** 解析自动化指令，返回任务或null */
+  /** Parse automation command, return task or null */
   const parseAutomationCommand = useCallback((text: string): AutomationMode | null => {
     const t = text.trim()
-    // 停止/取消
+    // Stop/cancel
     if (/^(停止|取消|end|stop|cancel)$/i.test(t)) {
       return null
     }
-    // 自动模式
+    // Auto mode
     if (/自动模式|auto/i.test(t)) {
       return { kind: 'auto_mode' }
     }
-    // 刷钱刷经验（死则重试，不逃）
-    if (/刷钱刷经验/.test(t)) {
+    // Farm gold and exp (retry on death, don't flee)
+    if (/刷钱刷经验|farm/i.test(t)) {
       return { kind: 'farm_til_death' }
     }
-    // 满血了再打
-    if (/满血了再打/.test(t)) {
+    // Fight when full HP
+    if (/满血了再打|full hp/i.test(t)) {
       return { kind: 'wait_full_hp' }
     }
-    // 打不过就跑
-    if (/打不过就/.test(t)) {
-      // 提取自定义阈值
+    // Flee if can't win
+    if (/打不过就|flee if losing/i.test(t)) {
+      // Extract custom threshold
       const customThreshold = t.match(/(\d+)%/)
       const threshold = customThreshold ? Number(customThreshold[1]) / 100 : 0.2
       return { kind: 'flee_if_low_hp', threshold }
     }
-    // 设置逃跑线50%
-    const fleeThresholdMatch = t.match(/逃跑线(\d+)%/)
+    // Set flee threshold 50%
+    const fleeThresholdMatch = t.match(/逃跑线(\d+)%|flee threshold (\d+)%/i)
     if (fleeThresholdMatch) {
       return { kind: 'flee_if_low_hp', threshold: Number(fleeThresholdMatch[1]) / 100 }
     }
-    // 连续战斗5次 / 打5场 / 战斗5次
-    const repeatMatch = t.match(/(?:连续)?战斗(\d+)(?:次)?/)
+    // Battle 5 times / fight 5 rounds / battle 5 times
+    const repeatMatch = t.match(/(?:连续)?战斗(\d+)(?:次)?|repeat battle (\d+)/i)
     if (repeatMatch) {
       return { kind: 'repeat_battle', remaining: Number(repeatMatch[1]) }
     }
-    // 刷5个怪
-    const killMatch = t.match(/刷(\d+)个?怪/)
+    // Kill 5 monsters
+    const killMatch = t.match(/刷(\d+)个?怪|kill (\d+) monsters?/i)
     if (killMatch) {
       return { kind: 'kill_count', remaining: Number(killMatch[1]), killed: 0 }
     }
     return null
   }, [])
 
-  /** 根据自动化任务判断是否应该逃跑 */
+  /** Determine if should flee based on automation task */
   const shouldAutoFleeForAutomation = useCallback((currentHp: number, maxHp: number): boolean => {
     if (!automationTask) return false
     if (automationTask.kind === 'flee_if_low_hp') {
@@ -698,12 +698,12 @@ export function useGameState() {
     return false
   }, [automationTask])
 
-  /** 根据自动化任务判断是否等待满血 */
+  /** Determine if should wait for full HP based on automation task */
   const shouldWaitFullHpForAutomation = useCallback((): boolean => {
     return automationTask?.kind === 'wait_full_hp' && playerHP < totalStats.maxHp
   }, [automationTask, playerHP, totalStats.maxHp])
 
-  /** 处理自动化任务步进，战斗结束后调用，返回是否应继续下一场 */
+  /** Process automation task step, called after battle ends, returns whether to continue to next battle */
   const processAutomationAfterBattle = useCallback((battleResult: 'win' | 'lose' | null): { continue: boolean; message?: string } => {
     if (!automationTask) return { continue: false }
 
@@ -714,7 +714,7 @@ export function useGameState() {
       case 'repeat_battle': {
         const next = automationTask.remaining - 1
         if (next <= 0) {
-          return { continue: false, message: `已完成 ${automationTask.remaining} 场战斗` }
+          return { continue: false, message: `Completed ${automationTask.remaining} battles` }
         }
         setAutomationTask({ kind: 'repeat_battle', remaining: next })
         return { continue: true }
@@ -724,7 +724,7 @@ export function useGameState() {
         if (battleResult === 'win') {
           const nextKilled = automationTask.killed + 1
           if (nextKilled >= automationTask.remaining) {
-            return { continue: false, message: `已击杀 ${nextKilled} 个敌人` }
+            return { continue: false, message: `Killed ${nextKilled} enemies` }
           }
           setAutomationTask({ kind: 'kill_count', remaining: automationTask.remaining, killed: nextKilled })
         }
@@ -732,31 +732,31 @@ export function useGameState() {
       }
 
       case 'farm_til_death':
-        // 死了就重试，赢了继续
+        // Retry if dead, continue if win
         return { continue: true }
 
       case 'flee_if_low_hp':
-        // 只在战斗前检查，战斗结束后不处理，继续下一场
+        // Only check before battle, don't handle after battle ends, continue to next battle
         return { continue: true }
 
       case 'wait_full_hp':
-        // 每场结束后检查血量
+        // Check HP after each battle
         if (playerHP >= totalStats.maxHp) {
           return { continue: true }
         }
-        return { continue: false, message: '血量未满，等待回复' }
+        return { continue: false, message: 'HP not full, waiting to recover' }
 
       default:
         return { continue: false }
     }
   }, [automationTask, playerHP, totalStats.maxHp])
 
-  /** 取消自动化任务 */
+  /** Cancel automation task */
   const cancelAutomation = useCallback(() => {
     setAutomationTask(null)
   }, [])
 
-  // 免费回复满血
+  // Free heal to full HP
   const healWithGold = useCallback(() => {
     if (playerHP < totalStats.maxHp) {
       setPlayerHP(totalStats.maxHp)
@@ -764,7 +764,7 @@ export function useGameState() {
   }, [playerHP, totalStats.maxHp])
 
   return {
-    // 玩家状态
+    // Player state
     playerLevel,
     setPlayerLevel,
     playerExp,
@@ -786,7 +786,7 @@ export function useGameState() {
     setBattleSessionNonce,
     battleLootDrop,
     combatEnemyId,
-    // 装备
+    // Equipment
     equippedGear,
     setEquippedGear,
     inventory,
@@ -794,7 +794,7 @@ export function useGameState() {
     equipItem,
     unequipItem,
     sellItem,
-    // 敌人
+    // Enemy
     enemyHP,
     setEnemyHP,
     enemyMaxHp,
@@ -804,12 +804,12 @@ export function useGameState() {
     enemyCombatStats,
     setEnemyCombatStats,
     enemyPreview,
-    // 位置
+    // Position
     playerPos,
     setPlayerPos,
     enemies,
     setEnemies,
-    // UI状态
+    // UI state
     showInteraction,
     setShowInteraction,
     nearbyEnemy,
@@ -839,7 +839,7 @@ export function useGameState() {
     setChatMessages,
     sendChatMessage,
     sendBotChatMessage,
-    // 战斗
+    // Battle
     battleLog,
     setBattleLog,
     currentTurn,
@@ -866,7 +866,7 @@ export function useGameState() {
     setGainedGold,
     carriedSkillIds,
     setCarriedSkillIds: updateCarriedSkillIds,
-    // 方法
+    // Methods
     getAvailableSkills,
     tryLevelUp,
     startBattle,
@@ -877,7 +877,7 @@ export function useGameState() {
     healWithGold,
     completeMapBattleVictory,
     completeMapBattleDefeat,
-    // 自动化
+    // Automation
     automationTask,
     setAutomationTask,
     parseAutomationCommand,

@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser'
 import type { BattleFxKind, MapBattleSceneInitData, MapBattleVisualState } from './battleVisualTypes'
 
-/** 大地图战斗：精灵跟随 mapLayout，保留飘字与轻量受击反馈（不做半场巡逻位移） */
+/** Map battle: sprites follow mapLayout, preserving floating text and light hit feedback (no half-field patrol movement) */
 export class MapBattleScene extends Phaser.Scene {
   private getState!: () => MapBattleVisualState
 
@@ -34,7 +34,7 @@ export class MapBattleScene extends Phaser.Scene {
 
     const s = this.getState()
     const L = s.mapLayout
-    // 不再铺不透明/高 alpha 全屏矩形，否则会挡住下层大地图 canvas；如需轻微战斗感可单独加极低 alpha 遮罩
+    // No longer laying opaque/high alpha full-screen rectangle, otherwise it would block the underlying map canvas; if slight battle feel is needed, add a very low alpha mask separately
     this.add
       .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.12)
       .setDepth(-1)
@@ -141,8 +141,8 @@ export class MapBattleScene extends Phaser.Scene {
     const L = state.mapLayout
     this.player.setPosition(L.playerX, L.playerY)
     this.enemy.setPosition(L.enemyX, L.enemyY)
-    this.playerNameLabel.setText(state.playerName || '玩家')
-    this.enemyNameLabel.setText(state.enemyName || '敌人')
+    this.playerNameLabel.setText(state.playerName || 'Player')
+    this.enemyNameLabel.setText(state.enemyName || 'Enemy')
     this.playerNameLabel.setPosition(L.playerX, L.playerY - 72)
     this.enemyNameLabel.setPosition(L.enemyX, L.enemyY - 72)
   }

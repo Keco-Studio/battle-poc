@@ -17,14 +17,14 @@ function decodeBase64Png(data: string): Buffer {
   if (m?.[1]) return Buffer.from(m[1], 'base64')
   const raw = data.trim()
   if (raw.length > 32 && !/\s/.test(raw)) return Buffer.from(raw, 'base64')
-  throw new Error('PixelLab 返回的图片不是可解析的 base64 PNG（data URL 或 raw base64）')
+  throw new Error('PixelLab returned image is not a parseable base64 PNG (data URL or raw base64)')
 }
 
 export async function POST(req: Request) {
   try {
     const token = process.env.PIXELLAB_API_TOKEN ?? ''
     if (!token) {
-      return NextResponse.json({ ok: false, error: '未设置 PIXELLAB_API_TOKEN' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'PIXELLAB_API_TOKEN not set' }, { status: 400 })
     }
 
     const body = (await req.json()) as {
@@ -43,10 +43,10 @@ export async function POST(req: Request) {
     const noBackground = body.noBackground !== false
 
     if (!description) {
-      return NextResponse.json({ ok: false, error: 'description 不能为空' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'description cannot be empty' }, { status: 400 })
     }
     if (!Number.isFinite(width) || !Number.isFinite(height) || width < 32 || height < 32 || width > 400 || height > 400) {
-      return NextResponse.json({ ok: false, error: 'imageSize 需在 32~400 之间（面积受套餐限制）' }, { status: 400 })
+      return NextResponse.json({ ok: false, error: 'imageSize must be between 32~400 (area limited by package)' }, { status: 400 })
     }
 
     const apiResp = await fetch('https://api.pixellab.ai/v1/generate-image-pixflux', {
@@ -68,12 +68,12 @@ export async function POST(req: Request) {
     const apiJson = (await apiResp.json().catch(() => null)) as any
     if (!apiResp.ok) {
       const detail = apiJson?.error || apiJson?.detail || `${apiResp.status} ${apiResp.statusText}`
-      return NextResponse.json({ ok: false, error: `PixelLab 请求失败：${detail}` }, { status: apiResp.status })
+      return NextResponse.json({ ok: false, error: `PixelLab request failed: ${detail}` }, { status: apiResp.status })
     }
 
     const b64: string | undefined = apiJson?.image?.base64
     if (!b64) {
-      return NextResponse.json({ ok: false, error: 'PixelLab 返回格式异常：缺少 image.base64' }, { status: 500 })
+      return NextResponse.json({ ok: false, error: 'PixelLab returned abnormal format: missing image.base64' }, { status: 500 })
     }
 
     const buf = decodeBase64Png(b64)

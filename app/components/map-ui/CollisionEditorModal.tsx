@@ -60,7 +60,7 @@ export default function CollisionEditorModal(props: Props) {
       })
       const data = (await resp.json().catch(() => null)) as { ok?: boolean; error?: string } | null
       if (!resp.ok || !data?.ok) {
-        throw new Error(data?.error || `保存失败（HTTP ${resp.status}）`)
+        throw new Error(data?.error || `Save failed (HTTP ${resp.status})`)
       }
       onSaved()
       onClose()
@@ -76,9 +76,9 @@ export default function CollisionEditorModal(props: Props) {
       <div className="w-[min(980px,calc(100vw-1rem))] rounded-2xl border border-slate-700 bg-slate-950/95 p-4 shadow-2xl backdrop-blur">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold text-slate-100">编辑碰撞（可走/不可走）</div>
+            <div className="truncate text-sm font-bold text-slate-100">Edit Collision (Walkable/Blocked)</div>
             <div className="truncate text-[11px] text-slate-400">
-              地图 <span className="font-mono text-slate-200">{mapId}</span> · {width}×{height}
+              Map <span className="font-mono text-slate-200">{mapId}</span> · {width}×{height}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -87,21 +87,21 @@ export default function CollisionEditorModal(props: Props) {
               onClick={() => fillAll(0)}
               className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-700"
             >
-              全部可走
+              All Walkable
             </button>
             <button
               type="button"
               onClick={() => fillAll(1)}
               className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-700"
             >
-              全部阻挡
+              All Blocked
             </button>
             <button
               type="button"
               onClick={onClose}
               className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-700"
             >
-              关闭
+              Close
             </button>
           </div>
         </div>
@@ -135,13 +135,13 @@ export default function CollisionEditorModal(props: Props) {
           </div>
 
           <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-black/35 p-3 text-[11px] text-slate-200">
-            <div className="font-semibold text-slate-100">说明</div>
+            <div className="font-semibold text-slate-100">Legend</div>
             <div>
-              - 绿色：可走（0）
-              <br />- 红色：阻挡（1）
+              - Green: Walkable (0)
+              <br />- Red: Blocked (1)
             </div>
             <div className="text-slate-400">
-              保存后会写入 <span className="font-mono">data/maps/{mapId}.json</span> 的 collisionLayer，角色移动/敌人巡逻都会按此阻挡。
+              After saving, will write to collisionLayer of <span className="font-mono">data/maps/{mapId}.json</span>, character movement and enemy patrol will be blocked accordingly.
             </div>
             <button
               type="button"
@@ -149,7 +149,7 @@ export default function CollisionEditorModal(props: Props) {
               onClick={() => void save()}
               className="mt-1 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? '保存中…' : '保存碰撞'}
+              {busy ? 'Saving...' : 'Save Collision'}
             </button>
           </div>
         </div>

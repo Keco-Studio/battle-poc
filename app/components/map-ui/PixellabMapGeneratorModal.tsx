@@ -29,7 +29,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
 
   const sizeHint = useMemo(() => {
     const area = width * height
-    return `当前 ${width}×${height}（面积 ${area}）`
+    return `Current ${width}×${height} (area ${area})`
   }, [width, height])
 
   if (!open) return null
@@ -54,7 +54,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
       })
       const data = (await resp.json()) as CreateMapResp
       if (!data.ok) {
-        setError(data.error || '生成失败')
+        setError(data.error || 'Generation failed')
         return
       }
       setResultUrl(data.publicUrl)
@@ -74,9 +74,9 @@ export default function PixellabMapGeneratorModal(props: Props) {
       <div className="w-[min(820px,calc(100vw-1rem))] rounded-2xl border border-slate-700 bg-slate-950/95 p-4 shadow-2xl backdrop-blur">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold text-slate-100">PixelLab 生成地图（pixflux）</div>
+            <div className="truncate text-sm font-bold text-slate-100">PixelLab Generate Map (pixflux)</div>
             <div className="truncate text-[11px] text-slate-400">
-              生成结果会保存到 <span className="font-mono text-slate-300">public/assets/maps/</span>
+              Generated result will be saved to <span className="font-mono text-slate-300">public/assets/maps/</span>
             </div>
           </div>
           <button
@@ -84,13 +84,13 @@ export default function PixellabMapGeneratorModal(props: Props) {
             onClick={onClose}
             className="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-700"
           >
-            关闭
+            Close
           </button>
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-slate-300">描述</span>
+<label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-slate-300">Description</span>
             <textarea
               className="min-h-24 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-amber-500"
               value={description}
@@ -100,8 +100,8 @@ export default function PixellabMapGeneratorModal(props: Props) {
 
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-slate-300">宽</span>
+<label className="flex flex-col gap-1">
+                <span className="text-[11px] font-semibold text-slate-300">Width</span>
                 <input
                   type="number"
                   min={32}
@@ -112,7 +112,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-slate-300">高</span>
+                <span className="text-[11px] font-semibold text-slate-300">Height</span>
                 <input
                   type="number"
                   min={32}
@@ -126,7 +126,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
 
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-slate-300">Seed（可选）</span>
+                <span className="text-[11px] font-semibold text-slate-300">Seed (optional)</span>
                 <input
                   type="number"
                   value={seed}
@@ -136,13 +136,13 @@ export default function PixellabMapGeneratorModal(props: Props) {
               </label>
               <label className="flex items-center gap-2 pt-6 text-xs text-slate-200">
                 <input type="checkbox" checked={noBackground} onChange={(e) => setNoBackground(e.target.checked)} />
-                透明背景（no_background）
+                Transparent background (no_background)
               </label>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-slate-300">Outline（可选）</span>
+                <span className="text-[11px] font-semibold text-slate-300">Outline (optional)</span>
                 <input
                   value={outline}
                   onChange={(e) => setOutline(e.target.value)}
@@ -151,7 +151,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold text-slate-300">Detail（可选）</span>
+                <span className="text-[11px] font-semibold text-slate-300">Detail (optional)</span>
                 <input
                   value={detail}
                   onChange={(e) => setDetail(e.target.value)}
@@ -161,7 +161,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
               </label>
             </div>
 
-            <div className="text-[11px] text-slate-400">{sizeHint}（套餐限制：最大面积随 tier 变化）</div>
+            <div className="text-[11px] text-slate-400">{sizeHint} (Package limit: max area varies by tier)</div>
 
             <button
               type="button"
@@ -169,7 +169,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
               onClick={() => void generate()}
               className="mt-1 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {busy ? '生成中…' : '生成地图'}
+              {busy ? 'Generating...' : 'Generate Map'}
             </button>
 
             {error && <div className="rounded-lg border border-rose-700/60 bg-rose-950/40 px-3 py-2 text-[11px] text-rose-200">{error}</div>}
@@ -179,17 +179,17 @@ export default function PixellabMapGeneratorModal(props: Props) {
         {resultUrl && (
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="rounded-xl border border-slate-800 bg-black/35 p-3">
-              <div className="mb-2 text-[11px] font-semibold text-slate-300">预览</div>
+              <div className="mb-2 text-[11px] font-semibold text-slate-300">Preview</div>
               <img src={resultUrl} alt="generated map" className="w-full rounded-lg border border-slate-800" />
             </div>
             <div className="rounded-xl border border-slate-800 bg-black/35 p-3">
-              <div className="mb-2 text-[11px] font-semibold text-slate-300">生成结果</div>
+              <div className="mb-2 text-[11px] font-semibold text-slate-300">Generation Result</div>
               <div className="text-[11px] text-slate-200">
                 publicUrl: <span className="font-mono text-amber-200">{resultUrl}</span>
               </div>
               {resultMapJsonId && (
                 <div className="mt-1 text-[11px] text-slate-200">
-                  mapId: <span className="font-mono text-sky-200">{resultMapJsonId}</span>（已写入 data/maps，可在右上角地图下拉选择）
+                  mapId: <span className="font-mono text-sky-200">{resultMapJsonId}</span> (Written to data/maps, can be selected in map dropdown at top-right)
                 </div>
               )}
               <div className="mt-2 flex gap-2">
@@ -199,18 +199,18 @@ export default function PixellabMapGeneratorModal(props: Props) {
                   rel="noreferrer"
                   className="rounded bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-700"
                 >
-                  新标签页打开
+                  Open in new tab
                 </a>
                 <button
                   type="button"
                   onClick={() => void navigator.clipboard.writeText(resultUrl)}
                   className="rounded bg-slate-800 px-2.5 py-1.5 text-[11px] font-semibold text-slate-100 hover:bg-slate-700"
                 >
-                  复制链接
+                  Copy Link
                 </button>
               </div>
               <div className="mt-3 text-[10px] text-slate-400">
-                说明：这是一张 PNG（可做背景预览）。若要变成可走网格/碰撞数据，需要额外的 tileset/grid 管线。
+                Note: This is a PNG (can be used as background preview). To make it walkable grid/collision data, additional tileset/grid pipeline is needed.
               </div>
             </div>
           </div>

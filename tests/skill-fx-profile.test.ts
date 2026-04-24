@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { resolveSkillFxProfile } from '../app/components/map-ui/skillFxProfile'
 
 describe('resolveSkillFxProfile', () => {
-  it('映射火焰与奥术技能到对应弹道', () => {
+  it('maps fire and arcane skills to corresponding projectiles', () => {
     expect(resolveSkillFxProfile({ action: 'cast_skill', skillId: 'fireball', actorRole: 'player' }).projectileKind).toBe(
       'fireball'
     )
@@ -11,7 +11,7 @@ describe('resolveSkillFxProfile', () => {
     ).toBe('arcane_bolt')
   })
 
-  it('映射冰系、支援与近战技能到通用分组', () => {
+  it('maps ice, support and melee skills to generic groups', () => {
     expect(
       resolveSkillFxProfile({ action: 'cast_skill', skillId: 'frost_lock', actorRole: 'player' }).projectileKind
     ).toBe('frost')
@@ -23,7 +23,7 @@ describe('resolveSkillFxProfile', () => {
     )
   })
 
-  it('普通攻击保持现有箭矢逻辑，未知技能回退generic', () => {
+  it('basic attacks keep existing arrow logic, unknown skills fallback to generic', () => {
     expect(resolveSkillFxProfile({ action: 'basic_attack', actorRole: 'player' }).projectileKind).toBe('arrow')
     expect(resolveSkillFxProfile({ action: 'basic_attack', actorRole: 'enemy' }).projectileKind).toBeNull()
     expect(resolveSkillFxProfile({ action: 'cast_skill', skillId: 'unknown_skill', actorRole: 'player' }).projectileKind).toBe(

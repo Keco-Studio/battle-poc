@@ -1,5 +1,5 @@
 /**
- * 将 battle-core 连续坐标映射到网格索引（与 GameMap 的 isWalkable 一致）
+ * Maps battle-core continuous coordinates to grid index (consistent with GameMap's isWalkable)
  */
 export function floatToCell(
   x: number,
@@ -13,7 +13,7 @@ export function floatToCell(
 }
 
 /**
- * 从 from 沿直线走向 to，在碰到不可行走格之前尽可能远；用于 dash 的 moveTarget 裁剪。
+ * From from moving linearly toward to, stopping before the first non-walkable cell; used for dash moveTarget clipping.
  */
 export function clampDashDestination(input: {
   from: { x: number; y: number }
@@ -21,7 +21,7 @@ export function clampDashDestination(input: {
   mapW: number
   mapH: number
   isWalkable: (ix: number, iy: number) => boolean
-  /** 射线采样步长（格单位） */
+  /** Ray sampling step (in cells) */
   step?: number
 }): { x: number; y: number } {
   const step = input.step ?? 0.35
@@ -54,7 +54,7 @@ export function clampDashDestination(input: {
 }
 
 /**
- * 若当前浮点位置落在阻挡格上，吸附到最近可走格中心（四邻域 BFS）。
+ * If the current floating-point position falls on a blocked cell, snaps to the nearest walkable cell center (4-neighbor BFS).
  */
 export function snapPositionToWalkable(input: {
   pos: { x: number; y: number }

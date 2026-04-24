@@ -29,12 +29,12 @@ const PANEL_META: Record<
 > = {
   achievements: {
     title: 'Battle history',
-    subtitle: (g) => `Lv.${g.playerLevel} Warrior · 战绩回顾`,
+    subtitle: (g) => `Lv.${g.playerLevel} Warrior · Battle History`,
     Icon: Trophy,
   },
   log: {
     title: 'Battle log',
-    subtitle: (g) => `Lv.${g.playerLevel} Warrior · 本次战斗明细`,
+    subtitle: (g) => `Lv.${g.playerLevel} Warrior · Battle Details`,
     Icon: ScrollText,
   },
   chat: {
@@ -49,7 +49,7 @@ const PANEL_META: Record<
   },
   character_login: {
     title: 'Profile',
-    subtitle: (g) => `Lv.${g.playerLevel} · 金币 ${g.playerGold}`,
+    subtitle: (g) => `Lv.${g.playerLevel} · Gold ${g.playerGold}`,
     Icon: User,
   },
 }
@@ -58,7 +58,7 @@ interface Props {
   game: GameState
 }
 
-/** 模拟 Battle history 条目：与图 1 一致的多彩图标 + 状态 pill */
+/** Mock Battle history entry: colorful icon + status pill matching the design */
 type HistoryItem = {
   id: string
   who: string
@@ -112,7 +112,7 @@ export default function DockFeatureModal({ game }: Props) {
       aria-labelledby="dock-modal-title"
     >
       <div className="flex h-full min-h-0 flex-col">
-        {/* 头部：图标 + 标题 + 小副标题 + X 关闭 */}
+        {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
             <Icon size={18} strokeWidth={2.4} />
@@ -132,14 +132,14 @@ export default function DockFeatureModal({ game }: Props) {
           <button
             type="button"
             onClick={closeDockPanel}
-            aria-label="关闭"
+            aria-label="Close"
             className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* 内容区 */}
+        {/* Content area */}
         {isChat ? (
           <div className="min-h-0 flex-1">
             <ChatPanel
@@ -154,15 +154,15 @@ export default function DockFeatureModal({ game }: Props) {
                 {game.battleLogs.length === 0 ? (
                   <li className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-6 text-center text-slate-400">
                     <Swords size={28} className="opacity-40" />
-                    <span className="text-[13px]">暂无战斗记录</span>
-                    <span className="text-[11px]">开始战斗后会显示在这里</span>
+                    <span className="text-[13px]">No battle records</span>
+                    <span className="text-[11px]">Battle history will appear here</span>
                   </li>
                 ) : (
                   game.battleLogs.slice().reverse().map((item) => {
                     const date = new Date(item.timestamp)
                     const timeStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
-                    const opponentLabel = item.opponentName ? `vs ${item.opponentName}` : item.battleType === 'pvp' ? 'vs 未知对手' : 'vs 野怪'
-                    const summary = item.expGained != null ? `${item.rounds}回合 · 经验+${item.expGained}` : `${item.rounds}回合`
+                    const opponentLabel = item.opponentName ? `vs ${item.opponentName}` : item.battleType === 'pvp' ? 'vs Unknown' : 'vs Wild Monster'
+                    const summary = item.expGained != null ? `${item.rounds} rounds · EXP+${item.expGained}` : `${item.rounds} rounds`
                     return (
                       <li
                         key={item.id}
@@ -188,10 +188,10 @@ export default function DockFeatureModal({ game }: Props) {
 
             {dockPanel === 'log' && (
               <div className="space-y-2">
-                <p className="text-[12px] text-slate-500">本次战斗事件流（最多保留 20 条）</p>
+                <p className="text-[12px] text-slate-500">Battle event stream (last 20 entries)</p>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-[12px] leading-relaxed text-slate-700">
                   {battleLog.length === 0 ? (
-                    <span className="text-slate-400">暂无战斗记录</span>
+                    <span className="text-slate-400">No battle records</span>
                   ) : (
                     battleLog.slice(-20).map((line, i) => (
                       <div key={i} className="border-b border-slate-200/70 py-1 last:border-b-0">
@@ -207,7 +207,7 @@ export default function DockFeatureModal({ game }: Props) {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
                   <Sparkles size={14} className="text-orange-500 shrink-0" />
-                  <span className="text-[13px] font-bold text-slate-900">搜索 PVP 对手</span>
+                  <span className="text-[13px] font-bold text-slate-900">Search PVP Opponent</span>
                 </div>
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -215,7 +215,7 @@ export default function DockFeatureModal({ game }: Props) {
                     type="text"
                     value={pvpSearchQuery}
                     onChange={(e) => setPvpSearchQuery(e.target.value)}
-                    placeholder="输入用户名搜索…"
+                    placeholder="Search username..."
                     className="w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
                   />
                 </div>
@@ -225,7 +225,7 @@ export default function DockFeatureModal({ game }: Props) {
                   ).length === 0 ? (
                     <div className="flex flex-col items-center gap-1 py-4 text-slate-400">
                       <User size={24} className="opacity-40" />
-                      <span className="text-[12px]">未找到用户</span>
+                      <span className="text-[12px]">User not found</span>
                     </div>
                   ) : (
                     MOCK_PVP_USERS.filter((u) =>
@@ -253,9 +253,9 @@ export default function DockFeatureModal({ game }: Props) {
                               </span>
                             </div>
                             <div className="flex gap-3 text-[11px] text-slate-500 mt-0.5">
-                              <span className="text-rose-500">攻 {stats.atk}</span>
-                              <span className="text-sky-500">防 {stats.def}</span>
-                              <span className="text-amber-500">速 {stats.spd}</span>
+                              <span className="text-rose-500">ATK {stats.atk}</span>
+                              <span className="text-sky-500">DEF {stats.def}</span>
+                              <span className="text-amber-500">SPD {stats.spd}</span>
                             </div>
                           </div>
                           <Swords size={14} className="text-slate-300 shrink-0" />
@@ -265,7 +265,7 @@ export default function DockFeatureModal({ game }: Props) {
                   )}
                 </div>
                 <p className="text-[10px] text-slate-400 text-center">
-                  共 {MOCK_PVP_USERS.length} 位在线玩家 · 点击即开始战斗
+                  {MOCK_PVP_USERS.length} players online · Click to start battle
                 </p>
               </div>
             )}
@@ -279,26 +279,26 @@ export default function DockFeatureModal({ game }: Props) {
                       Battle Arena
                       <Sparkles size={14} className="text-orange-500" />
                     </div>
-                    <div className="text-[11px] text-slate-500">实时自动战斗 · Demo 登录</div>
+                    <div className="text-[11px] text-slate-500">Real-time Auto Battle · Demo Login</div>
                   </div>
 
                   <label className="mb-3 block">
                     <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-                      <User size={12} /> 账号
+                      <User size={12} /> Account
                     </span>
                     <input
                       type="text"
                       value={loginAccount}
                       onChange={(e) => setLoginAccount(e.target.value)}
-                      placeholder="输入账号"
+                      placeholder="Enter account"
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
                     />
                   </label>
                   <label className="mb-4 block">
                     <span className="mb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-700">
-                      <span>密码</span>
+                      <span>Password</span>
                       <button type="button" className="text-slate-400 hover:text-slate-600">
-                        显示
+                        Show
                       </button>
                     </span>
                     <input
@@ -315,11 +315,11 @@ export default function DockFeatureModal({ game }: Props) {
                   </button>
                   <div className="mt-3 text-center">
                     <button type="button" className="text-[12px] font-bold text-slate-500 hover:text-slate-700">
-                      以访客身份继续
+                      Continue as Guest
                     </button>
                   </div>
                   <div className="mt-4 border-t border-dashed border-slate-200 pt-3 text-center text-[11px] text-slate-500">
-                    本地角色 Lv.{playerLevel} · 金币 {playerGold}
+                    Local Character Lv.{playerLevel} · Gold {playerGold}
                   </div>
                 </div>
               </div>

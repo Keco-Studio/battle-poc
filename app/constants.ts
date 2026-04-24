@@ -4,18 +4,18 @@ import {
 } from '../src/battle-core/content/skills/basic-skill-catalog'
 import type { BattleSkillDefinition } from '../src/battle-core/domain/types/skill-types'
 
-// 装备类型
+// Equipment types
 export type EquipmentType = 'weapon' | 'ring' | 'armor' | 'shoes'
 
-// 技能类型
+// Skill types
 export type SkillType = 'damage' | 'heal' | 'defense' | 'counter' | 'control' | 'utility' | 'mobility' | 'sustain'
 
-// 技能数据
+// Skill data
 export interface Skill {
   id: string
-  /** 前端技能槽对应的 domain 动作 */
+  /** Domain action corresponding to frontend skill slot */
   action: 'cast_skill' | 'defend'
-  /** action=cast_skill 时映射到 battle-core skill id */
+  /** Maps to battle-core skill id when action=cast_skill */
   coreSkillId?: string
   name: string
   icon: string
@@ -25,24 +25,24 @@ export interface Skill {
   hits?: number
   desc: string
   mpCost: number
-  /** 射程信息先保留，战斗模式切换后再启用判定 */
+  /** Range info kept for now, enable judgment after battle mode switch */
   range?: number
-  /** battle-core 冷却 tick（特殊动作可由前端定义） */
+  /** battle-core cooldown ticks (special actions can be defined by frontend) */
   cooldownTicks: number
-  /** 使用后的冷却时间（毫秒），普通攻击可省略 */
+  /** Cooldown time after use (ms), can be omitted for basic attack */
   cooldownMs?: number
 }
 
-/** 自动战斗默认招式，不出现在技能栏 */
+/** Default auto-battle move, does not appear in skill bar */
 export const BASIC_ATTACK: Skill = {
   id: 'basic_attack',
   action: 'cast_skill',
-  name: '普通攻击',
+  name: 'Basic Attack',
   icon: '👊',
   unlockLevel: 1,
   type: 'damage',
   multiplier: 1.0,
-  desc: '造成 ATK×1.0 伤害',
+  desc: 'Deals ATK×1.0 damage',
   mpCost: 0,
   cooldownTicks: 0,
 }
@@ -94,7 +94,7 @@ function buildSkillFromDefinition(def: BattleSkillDefinition): Skill {
     unlockLevel: 1,
     type: categoryToType(def),
     multiplier: def.ratio,
-    desc: `${def.description ?? 'domain 技能'}（MP ${def.mpCost} / 射程 ${def.range} / 冷却 ${def.cooldownTicks}t）`,
+    desc: `${def.description ?? 'domain skill'}（MP ${def.mpCost} / Range ${def.range} / CD ${def.cooldownTicks}t）`,
     mpCost: def.mpCost,
     range: def.range,
     cooldownTicks: def.cooldownTicks,
@@ -102,7 +102,7 @@ function buildSkillFromDefinition(def: BattleSkillDefinition): Skill {
   }
 }
 
-// 装备数据
+// Equipment data
 export interface EquipmentInfo {
   name: string
   icon: string
@@ -110,10 +110,10 @@ export interface EquipmentInfo {
   bonus: number
 }
 
-/** 与 ai-rpg-poc `EntityDef.visualId` 对齐：地图上用独立角色图渲染 */
+/** Aligned with ai-rpg-poc `EntityDef.visualId`: renders with independent character sprite on map */
 export type MapCharacterVisualId = 'warriorBlue' | 'archerGreen' | `pixellab:${string}`
 
-// 敌人数据
+// Enemy data
 export interface Enemy {
   id: number
   name: string
@@ -121,9 +121,9 @@ export interface Enemy {
   y: number
   level: number
   profile?: EnemyStatProfile
-  /** 有值时用 Warrior / Archer 精灵图；`null` 表示强制只用瓦块图 */
+  /** When set, uses Warrior/Archer sprite; `null` means force tile sprite only */
   visualId?: MapCharacterVisualId | null
-  /** 无有效 `visualId` 时：地图 tileset 的 1-based 瓦块索引（与地块 layer 约定一致） */
+  /** When no valid `visualId`: 1-based tile index from map tileset (consistent with tile layer convention) */
   mapSpriteTileIndex?: number
 }
 
@@ -134,32 +134,32 @@ export interface EnemyStatProfile {
   spd?: number | null
 }
 
-// 默认敌人数据（网格坐标）
+// Default enemy data (grid coordinates)
 export const initialEnemies: Enemy[] = [
-  { id: 1, name: '恶魔守卫', x: 5, y: 5, level: 3, visualId: 'warriorBlue' },
-  { id: 2, name: '暗影刺客', x: 10, y: 6, level: 5, visualId: 'warriorBlue' },
+  { id: 1, name: 'Demon Guard', x: 5, y: 5, level: 3, visualId: 'warriorBlue' },
+  { id: 2, name: 'Shadow Assassin', x: 10, y: 6, level: 5, visualId: 'warriorBlue' },
 ]
 
-// 玩家初始位置（网格坐标）
+// Player starting position (grid coordinates)
 export const PLAYER_START = { x: 8, y: 8 }
 
-// 交互范围（格）
+// Interaction range (tiles)
 export const INTERACTION_RANGE = 2.5
 
-// 碰撞检测分辨率
+// Collision detection resolution
 export const COLLISION_SCALE = 2
 
-// 技能数据
+// Skill data
 export const allSkills: Skill[] = [
   {
     id: 'defend',
     action: 'defend',
-    name: '防御',
+    name: 'Defend',
     icon: '🛡️',
     unlockLevel: 1,
     type: 'defense',
     multiplier: 0,
-    desc: '进入防御姿态并获得护盾（domain 动作）',
+    desc: 'Enter defense stance and gain shield (domain action)',
     mpCost: 0,
     cooldownTicks: DEFEND_COOLDOWN_TICKS,
     cooldownMs: cooldownMsFromTicks(DEFEND_COOLDOWN_TICKS),
@@ -180,20 +180,20 @@ export function getDefaultCarriedSkillIds(role: string = 'hero', maxCount = 6): 
   return dedup.slice(0, Math.max(1, maxCount))
 }
 
-// 装备数据
+// Equipment data
 export const equipmentTypes: Record<EquipmentType, EquipmentInfo> = {
-  weapon: { name: '武器', icon: '⚔️', stat: 'atk', bonus: 1 },
-  ring: { name: '戒指', icon: '💍', stat: 'maxHp', bonus: 10 },
-  armor: { name: '护甲', icon: '🛡️', stat: 'def', bonus: 1 },
-  shoes: { name: '鞋子', icon: '👟', stat: 'spd', bonus: 1 },
+  weapon: { name: 'Weapon', icon: '⚔️', stat: 'atk', bonus: 1 },
+  ring: { name: 'Ring', icon: '💍', stat: 'maxHp', bonus: 10 },
+  armor: { name: 'Armor', icon: '🛡️', stat: 'def', bonus: 1 },
+  shoes: { name: 'Shoes', icon: '👟', stat: 'spd', bonus: 1 },
 }
 
-// 玩家等级/属性计算
+// Player level/stat calculation
 export const BASE_STATS = { hp: 100, atk: 5, def: 3, spd: 3 }
 export const LEVEL_UP = { hp: 30, atk: 5, def: 3, spd: 3 }
 export const HP_MULTIPLIER = 5
 
-// 敌人等级/属性计算
+// Enemy level/stat calculation
 export const ENEMY_BASE_STATS = { hp: 120, atk: 6, def: 3, spd: 3 }
 export const ENEMY_LEVEL_UP = { hp: 36, atk: 6, def: 3, spd: 3 }
 
@@ -216,7 +216,7 @@ export interface EnemyCombatStats {
   spd: number
 }
 
-/** 按等级取敌人四维：使用独立基础值与成长值 */
+/** Get enemy four stats by level: uses independent base values and growth values */
 export function calcEnemyStats(level: number): EnemyCombatStats {
   return {
     maxHp: (ENEMY_BASE_STATS.hp + (level - 1) * ENEMY_LEVEL_UP.hp) * HP_MULTIPLIER,
@@ -226,7 +226,7 @@ export function calcEnemyStats(level: number): EnemyCombatStats {
   }
 }
 
-/** 开战时敌人等级：比玩家低 1～2 级（不低于 1） */
+/** Enemy level when battle starts: 1-2 levels lower than player (not lower than 1) */
 export function rollEnemyBattleLevel(playerLevel: number, rng: () => number = Math.random): number {
   const lower = 1 + Math.floor(rng() * 2)
   return Math.max(1, playerLevel - lower)
@@ -237,7 +237,7 @@ export function mergeEnemyStats(
   profile?: EnemyStatProfile,
 ): EnemyCombatStats {
   const profileHp = profile?.maxHp
-  /** 地图 JSON 常带演示用低 maxHp；与按等级算的 base 取较大值，避免高等级玩家两刀秒怪 */
+  /** Map JSON often has low demo maxHp; take the larger value with level-calculated base to avoid high-level players one-shotting enemies */
   const maxHp =
     profileHp == null
       ? Math.max(1, Math.round(baseStats.maxHp))
@@ -262,14 +262,14 @@ export function createEnemyEncounter(
   }
 }
 
-/** 与玩家普攻相同的攻速公式（毫秒，不含随机抖动） */
+/** Same attack speed formula as player basic attack (ms, without random jitter) */
 export function attackIntervalMsFromSpd(spd: number): number {
   return Math.max(380, Math.min(2200, 1150 - spd * 28))
 }
 
 /**
- * 战斗用「平滑」物理承伤：有效伤害 = raw × K / (K + 护甲)，避免攻击−防御的硬断层。
- * 护甲越高递减收益越明显，最低 1 点伤害（可配合防御姿态等再乘系数）。
+ * Battle "smooth" physical damage calculation: effective damage = raw × K / (K + armor), avoiding hard breakpoints from attack-defense.
+ * Higher armor = more diminishing returns, minimum 1 damage (can be multiplied again with defensive stance etc).
  */
 export const BATTLE_ARMOR_K = 50
 
@@ -293,16 +293,16 @@ export function getBattleRewards(enemyLevel: number): { exp: number; gold: numbe
   }
 }
 
-/** 击败后同 id 重生野怪时的随机显示名（保持 id 稳定，仅换皮与属性） */
+/** Random display names for wild monster respawn with same id (keeps id stable, only changes skin and stats) */
 export const RESPAWN_ENEMY_NAMES = [
-  '游荡魔',
-  '裂隙兽',
-  '枯骨兵',
-  '暗影蝠',
-  '腐化守卫',
-  '石像怪',
-  '雾隐怪',
-  '锈甲傀儡',
+  'Wandering Demon',
+  'Rift Beast',
+  'Dried Bone Soldier',
+  'Shadow Bat',
+  'Corrupted Guard',
+  'Stone Golem',
+  'Fog Hidden Monster',
+  'Rusted Armor Puppet',
 ]
 
 export function randomRespawnEnemyName(): string {

@@ -38,7 +38,7 @@ function makeEntity(input: {
 }
 
 describe('dynamic strategy validator', () => {
-  it('非法 action 会降级到 fallback 命令', () => {
+it('illegal action falls back to fallback command', () => {
     const left = makeEntity({ id: 'left-a', team: 'left', x: 3, y: 2 })
     const right = makeEntity({ id: 'right-a', team: 'right', x: 6, y: 2 })
     const session = createBattleSession({ left, right, preparationTicks: 0 })
@@ -54,7 +54,7 @@ describe('dynamic strategy validator', () => {
     expect(out.command).toBeUndefined()
   })
 
-  it('合法技能决策会转为 cast_skill 命令', () => {
+  it('valid skill decision converts to cast_skill command', () => {
     const left = makeEntity({ id: 'left-b', team: 'left', x: 3, y: 2, skills: ['arcane_bolt'] })
     const right = makeEntity({ id: 'right-b', team: 'right', x: 6, y: 2 })
     const session = createBattleSession({ left, right, preparationTicks: 0 })

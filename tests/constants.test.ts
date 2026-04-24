@@ -48,7 +48,7 @@ describe('calcPlayerStats', () => {
 })
 
 describe('calcEnemyStats', () => {
-  it('level 1: 使用敌人独立基础值', () => {
+  it('level 1: uses enemy independent base values', () => {
     const e = calcEnemyStats(1)
     expect(e.maxHp).toBe(600)
     expect(e.atk).toBe(6)
@@ -56,7 +56,7 @@ describe('calcEnemyStats', () => {
     expect(e.spd).toBe(3)
   })
 
-  it('level 5: 使用敌人独立成长值', () => {
+  it('level 5: uses enemy independent growth values', () => {
     const e = calcEnemyStats(5)
     expect(e.maxHp).toBe(1320)
     expect(e.atk).toBe(30)
@@ -66,7 +66,7 @@ describe('calcEnemyStats', () => {
 })
 
 describe('attackIntervalMsFromSpd', () => {
-  it('与玩家攻速公式一致：spd 越高间隔越短', () => {
+  it('matches player attack speed formula: higher spd means shorter interval', () => {
     const slow = attackIntervalMsFromSpd(3)
     const fast = attackIntervalMsFromSpd(30)
     expect(fast).toBeLessThan(slow)
@@ -76,7 +76,7 @@ describe('attackIntervalMsFromSpd', () => {
 })
 
 describe('rollEnemyBattleLevel', () => {
-  it('比玩家低 1～2 级且不低于 1', () => {
+  it('1-2 levels lower than player but not lower than 1', () => {
     for (let p = 1; p <= 15; p++) {
       for (let i = 0; i < 40; i++) {
         const e = rollEnemyBattleLevel(p)
@@ -90,7 +90,7 @@ describe('rollEnemyBattleLevel', () => {
 })
 
 describe('createEnemyEncounter', () => {
-  it('同一次遭遇会产出统一的等级与属性，并应用 profile 覆盖', () => {
+  it('same encounter produces consistent level and stats, with profile override', () => {
     const encounter = createEnemyEncounter(5, { maxHp: 999, def: 20 }, () => 0)
     expect(encounter.level).toBe(4)
     expect(encounter.stats).toEqual({
@@ -101,7 +101,7 @@ describe('createEnemyEncounter', () => {
     })
   })
 
-  it('profile.maxHp 低于按等级血量时不会把怪压成演示血皮', () => {
+  it('same encounter produces consistent level and stats, with profile override', () => {
     const encounter = createEnemyEncounter(13, { maxHp: 72, atk: 8, def: 3, spd: 3 }, () => 0)
     const base = calcEnemyStats(encounter.level)
     expect(encounter.stats.maxHp).toBeGreaterThanOrEqual(base.maxHp)
@@ -109,22 +109,22 @@ describe('createEnemyEncounter', () => {
   })
 })
 
-describe('mitigatedPhysicalDamage（平滑承伤）', () => {
+describe('mitigatedPhysicalDamage (smooth damage intake)', () => {
   const k = BATTLE_ARMOR_K
 
-  it('无护甲时接近全额 raw', () => {
+  it('no armor means close to full raw damage', () => {
     expect(mitigatedPhysicalDamage(25, 0, k)).toBe(25)
   })
 
-  it('护甲 = K 时约为一半', () => {
+  it('armor = K is roughly half', () => {
     expect(mitigatedPhysicalDamage(100, k, k)).toBe(50)
   })
 
-  it('高护甲仍至少 1 点', () => {
+  it('high armor still minimum 1 damage', () => {
     expect(mitigatedPhysicalDamage(5, 500, k)).toBe(1)
   })
 
-  it('raw<=0 时保底 1', () => {
+  it('raw<=0 still minimum 1 damage', () => {
     expect(mitigatedPhysicalDamage(0, 0, k)).toBe(1)
   })
 })
@@ -148,7 +148,7 @@ describe('expForLevel', () => {
 })
 
 describe('getBattleRewards', () => {
-  it('经验按敌人等级发放，金币保持双倍等级', () => {
+it('exp based on enemy
     expect(getBattleRewards(1)).toEqual({ exp: 1, gold: 2 })
     expect(getBattleRewards(3)).toEqual({ exp: 3, gold: 6 })
     expect(getBattleRewards(5)).toEqual({ exp: 5, gold: 10 })

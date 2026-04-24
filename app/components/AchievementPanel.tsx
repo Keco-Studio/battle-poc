@@ -17,9 +17,9 @@ export default function AchievementPanel({ game }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative w-[800px] h-[600px] bg-gradient-to-b from-blue-800 to-purple-900 border-4 border-yellow-400 flex flex-col overflow-hidden">
-        {/* 标题栏 */}
+        {/* Title bar */}
         <div className="bg-gradient-to-b from-yellow-400 to-yellow-500 h-10 flex items-center justify-center shrink-0 relative">
-          <span className="text-orange-900 font-bold text-sm">成 就</span>
+          <span className="text-orange-900 font-bold text-sm">ACHIEVEMENTS</span>
           <button
             onClick={() => setShowAchievement(false)}
             className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-red-500 hover:bg-red-400 border-2 border-red-300 flex items-center justify-center"
@@ -28,19 +28,19 @@ export default function AchievementPanel({ game }: Props) {
           </button>
         </div>
 
-        {/* 进度提示 */}
+        {/* Progress hint */}
         <div className="bg-gray-900/50 px-4 py-2 text-center">
-          <span className="text-gray-300 text-xs">战斗次数：</span>
+          <span className="text-gray-300 text-xs">Battle count:</span>
           <span className="text-yellow-400 font-bold ml-1">{battleCount}</span>
           <span className="text-gray-400 text-xs">/ 10</span>
         </div>
 
-        {/* 成就列表 */}
+        {/* Achievement list */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* 已获得 */}
+          {/* Unlocked */}
           {unlockedAchievements.length > 0 && (
             <div>
-              <div className="text-green-400 text-xs font-bold mb-2">已获得</div>
+              <div className="text-green-400 text-xs font-bold mb-2">Unlocked</div>
               <div className="space-y-2">
                 {unlockedAchievements.map(ach => (
                   <div
@@ -58,10 +58,10 @@ export default function AchievementPanel({ game }: Props) {
             </div>
           )}
 
-          {/* 未获得 */}
+          {/* Locked */}
           {lockedAchievements.length > 0 && (
             <div>
-              <div className="text-gray-500 text-xs font-bold mb-2">未获得</div>
+              <div className="text-gray-500 text-xs font-bold mb-2">Locked</div>
               <div className="space-y-2">
                 {lockedAchievements.map(ach => (
                   <div

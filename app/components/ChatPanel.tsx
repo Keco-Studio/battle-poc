@@ -7,7 +7,7 @@ import type { ChatTargetOption } from './DockFeatureModal'
 
 interface Props {
   game: GameState
-  /** 在 DockFeatureModal 内嵌使用时隐藏自带头部（头部由容器提供） */
+  /** Hide default header when embedded inside DockFeatureModal (header provided by container) */
   embedded?: boolean
   chatTargets?: ChatTargetOption[]
   activeChatTargetId?: string
@@ -16,32 +16,32 @@ interface Props {
 
 const BOT_MESSAGES = [
   'Oh! Hello there. Give me a sec — just recalibrating my Tool Claw. Done. What\'s up?',
-  '加油！冒险者！',
-  '继续前进吧！',
-  '前方还有更多挑战！',
-  '你做得很好！',
-  '小心敌人！',
-  '战斗是成长的最好方式！',
-  '勇往直前！',
-  '相信自己！',
+  'Go! Adventurer!',
+  'Keep going!',
+  'More challenges ahead!',
+  'You\'re doing great!',
+  'Watch out for enemies!',
+  'Battle is the best way to grow!',
+  'Press forward!',
+  'Believe in yourself!',
 ]
 
 const QUICK_PROMPTS = ['What are you building?', 'Tell me your skills', 'How do you use your claw?']
 
 const AUTO_COMMANDS = [
-  { label: '连续战斗5次', cmd: '连续战斗5次' },
-  { label: '连续战斗10次', cmd: '连续战斗10次' },
-  { label: '打不过就跑', cmd: '打不过就跑' },
-  { label: '刷钱刷经验', cmd: '刷钱刷经验' },
-  { label: '自动模式', cmd: '自动模式' },
-  { label: '停止', cmd: '停止' },
+  { label: 'Battle 5 times', cmd: 'battle 5 times' },
+  { label: 'Battle 10 times', cmd: 'battle 10 times' },
+  { label: 'Flee if losing', cmd: 'flee if losing' },
+  { label: 'Farm gold & exp', cmd: 'farm gold and exp' },
+  { label: 'Auto mode', cmd: 'auto mode' },
+  { label: 'Stop', cmd: 'stop' },
 ]
 
 const SYSTEM_CHAT_THREADS_STORAGE_KEY = 'battle-system-chat-threads-v1'
 const ENEMY_CHAT_THREADS_STORAGE_KEY = 'battle-enemy-chat-threads-v1'
 const EMPTY_MESSAGES: ChatMessage[] = []
 
-/** 绿色像素机器人头像占位（Engineer Bolt）*/
+/** Green pixel robot avatar placeholder (Engineer Bolt) */
 function BotAvatar({ size = 28 }: { size?: number }) {
   return (
     <div
@@ -193,14 +193,14 @@ export default function ChatPanel({
     const text = input.trim()
     appendThreadMessage(activeTargetId, activeTargetKind, text, true)
     if (canUseAutomation) {
-      // 仅系统聊天支持自动化指令；敌人聊天只做纯对话
+      // Only system chat supports automation commands; enemy chat is pure dialogue
       const task = parseAutomationCommand(text)
-      if (task === null && (text === '停止' || text === '取消')) {
+      if (task === null && (text === '停止' || text === '取消' || text === 'stop' || text === 'cancel')) {
         cancelAutomation()
-        appendThreadMessage(activeTargetId, activeTargetKind, '已取消自动化任务', false)
+        appendThreadMessage(activeTargetId, activeTargetKind, 'Automation task cancelled', false)
       } else if (task !== null) {
         setAutomationTask(task)
-        appendThreadMessage(activeTargetId, activeTargetKind, `自动化任务已设置: ${task.kind}`, false)
+        appendThreadMessage(activeTargetId, activeTargetKind, `Automation task set: ${task.kind}`, false)
       }
     }
     setInput('')
@@ -266,7 +266,7 @@ export default function ChatPanel({
         </div>
 
         {activeMessages.length === 0 && (
-          <div className="mt-10 text-center text-sm text-slate-400">暂无消息，开始聊天吧！</div>
+          <div className="mt-10 text-center text-sm text-slate-400">No messages yet, start chatting!</div>
         )}
         {activeMessages.map((msg) =>
           msg.isSelf ? (
@@ -302,19 +302,19 @@ export default function ChatPanel({
       <div className="border-t border-slate-100 bg-white px-3 py-2">
         {canUseAutomation && automationTask && (
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700">
-            <span className="font-bold">自动化:</span>
+            <span className="font-bold">Automation:</span>
             <span>{automationTask.kind}</span>
-            {automationTask.kind === 'repeat_battle' && <span>剩余 {automationTask.remaining} 场</span>}
-            {automationTask.kind === 'kill_count' && <span>击杀 {automationTask.killed}/{automationTask.remaining}</span>}
+            {automationTask.kind === 'repeat_battle' && <span>{automationTask.remaining} remaining</span>}
+            {automationTask.kind === 'kill_count' && <span>Killed {automationTask.killed}/{automationTask.remaining}</span>}
             <button
               type="button"
               onClick={() => {
                 cancelAutomation()
-                appendThreadMessage(activeTargetId, activeTargetKind, '已取消自动化任务', false)
+                appendThreadMessage(activeTargetId, activeTargetKind, 'Automation task cancelled', false)
               }}
               className="ml-auto rounded border border-emerald-300 bg-white px-2 py-0.5 text-[11px] hover:bg-emerald-100"
             >
-              取消
+              Cancel
             </button>
           </div>
         )}
@@ -327,12 +327,12 @@ export default function ChatPanel({
                 onClick={() => {
                   appendThreadMessage(activeTargetId, activeTargetKind, item.cmd, true)
                   const task = parseAutomationCommand(item.cmd)
-                  if (task === null && (item.cmd === '停止' || item.cmd === '取消')) {
+                  if (task === null && (item.cmd === '停止' || item.cmd === '取消' || item.cmd === 'stop' || item.cmd === 'cancel')) {
                     cancelAutomation()
-                    appendThreadMessage(activeTargetId, activeTargetKind, '已取消自动化任务', false)
+                    appendThreadMessage(activeTargetId, activeTargetKind, 'Automation task cancelled', false)
                   } else if (task !== null) {
                     setAutomationTask(task)
-                    appendThreadMessage(activeTargetId, activeTargetKind, `自动化任务已设置: ${task.kind}`, false)
+                    appendThreadMessage(activeTargetId, activeTargetKind, `Automation task set: ${task.kind}`, false)
                   }
                 }}
                 className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700 hover:bg-orange-100"
@@ -349,20 +349,20 @@ export default function ChatPanel({
             onClick={handleClear}
             className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-bold text-slate-500 hover:bg-slate-50"
           >
-            清空
+            Clear
           </button>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={canUseAutomation ? 'Message Engineer Bolt...' : '和敌人聊天...'}
+            placeholder={canUseAutomation ? 'Message Engineer Bolt...' : 'Chat with enemy...'}
             className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-orange-300 focus:bg-white focus:outline-none"
           />
           <button
             type="button"
             onClick={handleSend}
-            aria-label="发送"
+            aria-label="Send"
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white hover:bg-orange-400"
           >
             <Send size={15} />
