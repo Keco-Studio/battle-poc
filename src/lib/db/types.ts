@@ -151,6 +151,11 @@ export interface EnemyTemplateRow {
   updated_at: string
 }
 
+export interface MapEnemyOverrides {
+  visualId?: string
+  battleProfile?: EnemyStatProfile
+}
+
 export interface MapEnemyRow {
   id: string
   map_id: string
@@ -158,6 +163,8 @@ export interface MapEnemyRow {
   template_id: string | null
   spawn_x: number
   spawn_y: number
+  /** Per-instance overrides for visualId or battleProfile stats */
+  overrides: MapEnemyOverrides | null
   created_at: string
 }
 
