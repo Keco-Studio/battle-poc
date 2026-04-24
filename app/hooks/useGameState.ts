@@ -230,7 +230,10 @@ export function useGameState() {
   const [showEquipment, setShowEquipment] = useState(false)
   const [showSkills, setShowSkills] = useState(false)
 
-  /** Bottom-right of map: achievements / log / chat / battle system / character login */
+  /** Display label after Supabase sign-in (usually email); null for guests. */
+  const [accountLabel, setAccountLabel] = useState<string | null>(null)
+
+  /** Map dock: achievements / log / chat / battle info / profile & auth */
   const [dockPanel, setDockPanel] = useState<DockPanelId | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [battleCount, setBattleCount] = useState(0)
@@ -619,8 +622,14 @@ export function useGameState() {
   const setShowLogin = useCallback((open: boolean) => {
     if (!open) setDockPanel(null)
   }, [])
-  const login = useCallback((_username: string) => {
+  const login = useCallback((label: string) => {
+    const t = label.trim()
+    setAccountLabel(t.length > 0 ? t : null)
     setDockPanel(null)
+  }, [])
+
+  const logoutAccount = useCallback(() => {
+    setAccountLabel(null)
   }, [])
 
   const pushChatMessage = useCallback((text: string, isSelf: boolean) => {
@@ -824,6 +833,8 @@ export function useGameState() {
     setShowEquipment,
     showSkills,
     setShowSkills,
+    accountLabel,
+    logoutAccount,
     dockPanel,
     setDockPanel,
     closeDockPanel,

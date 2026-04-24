@@ -218,6 +218,7 @@ function breakLoop(
   }
 
   const approach = computeFallbackApproach(ctx)
+  // `current` is narrowed to `'defend'` above, so no need to compare with `'dash'`.
   if (approach) {
     return {
       action: { type: 'dash', target: approach, path: currentAction.path + '>break_loop:dash' },
