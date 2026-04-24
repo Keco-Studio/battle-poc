@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Send } from 'lucide-react'
-import { GameState } from '../hooks/useGameState'
+import type { ChatMessage, GameState } from '../hooks/useGameState'
+import type { ChatTargetOption } from './DockFeatureModal'
 
 interface Props {
   game: GameState
   /** 在 DockFeatureModal 内嵌使用时隐藏自带头部（头部由容器提供） */
   embedded?: boolean
+  chatTargets?: ChatTargetOption[]
+  activeChatTargetId?: string
+  onSelectChatTarget?: (targetId: string) => void
 }
 
 const BOT_MESSAGES = [
@@ -32,6 +36,10 @@ const AUTO_COMMANDS = [
   { label: '自动模式', cmd: '自动模式' },
   { label: '停止', cmd: '停止' },
 ]
+
+const SYSTEM_CHAT_THREADS_STORAGE_KEY = 'battle-system-chat-threads-v1'
+const ENEMY_CHAT_THREADS_STORAGE_KEY = 'battle-enemy-chat-threads-v1'
+const EMPTY_MESSAGES: ChatMessage[] = []
 
 /** 绿色像素机器人头像占位（Engineer Bolt）*/
 function BotAvatar({ size = 28 }: { size?: number }) {
@@ -70,11 +78,85 @@ function BotAvatar({ size = 28 }: { size?: number }) {
   )
 }
 
-export default function ChatPanel({ game, embedded = false }: Props) {
-  const { chatMessages, sendChatMessage, sendBotChatMessage, setChatMessages, parseAutomationCommand, automationTask, setAutomationTask, cancelAutomation } = game
+export default function ChatPanel({
+  game,
+  embedded = false,
+  chatTargets,
+  activeChatTargetId,
+  onSelectChatTarget,
+}: Props) {
+  const { parseAutomationCommand, automationTask, setAutomationTask, cancelAutomation } = game
   const [input, setInput] = useState('')
   const [lastBotIndex, setLastBotIndex] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [systemChatThreads, setSystemChatThreads] = useState<Record<string, ChatMessage[]>>({})
+  const [enemyChatThreads, setEnemyChatThreads] = useState<Record<string, ChatMessage[]>>({})
+  const [chatStorageHydrated, setChatStorageHydrated] = useState(false)
+
+  const targets = chatTargets && chatTargets.length > 0 ? chatTargets : [{ id: 'system-engineer', label: 'Engineer Bolt', kind: 'system', disabled: false }]
+  const activeTargetId =
+    activeChatTargetId && targets.some((target) => target.id === activeChatTargetId) ? activeChatTargetId : targets[0].id
+  const activeTarget = targets.find((target) => target.id === activeTargetId) ?? targets[0]
+  const activeTargetKind = activeTarget?.kind === 'enemy' ? 'enemy' : 'system'
+  const canUseAutomation = activeTargetKind === 'system'
+  const activeMessages = (activeTargetKind === 'enemy' ? enemyChatThreads : systemChatThreads)[activeTargetId] ?? EMPTY_MESSAGES
+
+  const appendThreadMessage = (targetId: string, targetKind: 'system' | 'enemy', text: string, isSelf: boolean) => {
+    const normalized = text.trim()
+    if (!normalized) return
+    const updateThreads = (prev: Record<string, ChatMessage[]>) => ({
+      ...prev,
+      [targetId]: [
+        ...(prev[targetId] ?? []),
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          text: normalized,
+          isSelf,
+          timestamp: Date.now(),
+        },
+      ],
+    })
+    if (targetKind === 'enemy') {
+      setEnemyChatThreads(updateThreads)
+      return
+    }
+    setSystemChatThreads(updateThreads)
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const savedSystem = localStorage.getItem(SYSTEM_CHAT_THREADS_STORAGE_KEY)
+      if (savedSystem) {
+        const parsedSystem = JSON.parse(savedSystem) as Record<string, ChatMessage[]>
+        if (parsedSystem && typeof parsedSystem === 'object') {
+          setSystemChatThreads(parsedSystem)
+        }
+      }
+      const savedEnemy = localStorage.getItem(ENEMY_CHAT_THREADS_STORAGE_KEY)
+      if (savedEnemy) {
+        const parsedEnemy = JSON.parse(savedEnemy) as Record<string, ChatMessage[]>
+        if (parsedEnemy && typeof parsedEnemy === 'object') {
+          setEnemyChatThreads(parsedEnemy)
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load chat threads:', e)
+    } finally {
+      setChatStorageHydrated(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!chatStorageHydrated) return
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.setItem(SYSTEM_CHAT_THREADS_STORAGE_KEY, JSON.stringify(systemChatThreads))
+      localStorage.setItem(ENEMY_CHAT_THREADS_STORAGE_KEY, JSON.stringify(enemyChatThreads))
+    } catch (e) {
+      console.warn('Failed to save chat threads:', e)
+    }
+  }, [chatStorageHydrated, enemyChatThreads, systemChatThreads])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -82,42 +164,44 @@ export default function ChatPanel({ game, embedded = false }: Props) {
 
   useEffect(() => {
     scrollToBottom()
-  }, [chatMessages])
+  }, [activeMessages])
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const lastSelf = chatMessages.filter((m) => m.isSelf).pop()
+      const lastSelf = activeMessages.filter((m) => m.isSelf).pop()
       if (!lastSelf) return
 
       const timeSinceLastSelf = Date.now() - lastSelf.timestamp
       if (timeSinceLastSelf < 2000) return
 
-      const lastBot = chatMessages.filter((m) => !m.isSelf).pop()
+      const lastBot = activeMessages.filter((m) => !m.isSelf).pop()
       if (lastBot && lastBot.timestamp >= lastSelf.timestamp) return
 
       const filteredIndices = BOT_MESSAGES.map((_, i) => i).filter((i) => i !== lastBotIndex)
       const randomIndex = filteredIndices[Math.floor(Math.random() * filteredIndices.length)]
 
       const botMessage = BOT_MESSAGES[randomIndex]
-      sendBotChatMessage(botMessage)
+      appendThreadMessage(activeTargetId, activeTargetKind, botMessage, false)
       setLastBotIndex(randomIndex)
     }, 3000)
 
     return () => clearInterval(interval)
-  }, [chatMessages, lastBotIndex, sendBotChatMessage])
+  }, [activeMessages, activeTargetId, activeTargetKind, lastBotIndex])
 
   const handleSend = () => {
     if (!input.trim()) return
     const text = input.trim()
-    sendChatMessage(text)
-    // 尝试解析自动化指令
-    const task = parseAutomationCommand(text)
-    if (task === null && (text === '停止' || text === '取消')) {
-      cancelAutomation()
-      sendBotChatMessage('已取消自动化任务')
-    } else if (task !== null) {
-      setAutomationTask(task)
-      sendBotChatMessage(`自动化任务已设置: ${task.kind}`)
+    appendThreadMessage(activeTargetId, activeTargetKind, text, true)
+    if (canUseAutomation) {
+      // 仅系统聊天支持自动化指令；敌人聊天只做纯对话
+      const task = parseAutomationCommand(text)
+      if (task === null && (text === '停止' || text === '取消')) {
+        cancelAutomation()
+        appendThreadMessage(activeTargetId, activeTargetKind, '已取消自动化任务', false)
+      } else if (task !== null) {
+        setAutomationTask(task)
+        appendThreadMessage(activeTargetId, activeTargetKind, `自动化任务已设置: ${task.kind}`, false)
+      }
     }
     setInput('')
   }
@@ -127,7 +211,11 @@ export default function ChatPanel({ game, embedded = false }: Props) {
   }
 
   const handleClear = () => {
-    setChatMessages([])
+    if (activeTargetKind === 'enemy') {
+      setEnemyChatThreads((prev) => ({ ...prev, [activeTargetId]: [] }))
+      return
+    }
+    setSystemChatThreads((prev) => ({ ...prev, [activeTargetId]: [] }))
   }
 
   return (
@@ -149,10 +237,38 @@ export default function ChatPanel({ game, embedded = false }: Props) {
       )}
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-white p-3">
-        {chatMessages.length === 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {targets.map((target) => {
+            const isActive = target.id === activeTargetId
+            const isDisabled = Boolean(target.disabled)
+            return (
+              <button
+                key={target.id}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => {
+                  if (isDisabled) return
+                  onSelectChatTarget?.(target.id)
+                  setInput('')
+                }}
+                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${
+                  isDisabled
+                    ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                    : isActive
+                      ? 'border-orange-300 bg-orange-100 text-orange-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {target.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {activeMessages.length === 0 && (
           <div className="mt-10 text-center text-sm text-slate-400">暂无消息，开始聊天吧！</div>
         )}
-        {chatMessages.map((msg) =>
+        {activeMessages.map((msg) =>
           msg.isSelf ? (
             <div key={msg.id} className="flex justify-end">
               <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-slate-100 px-3 py-2 text-[13px] text-slate-800">
@@ -184,7 +300,7 @@ export default function ChatPanel({ game, embedded = false }: Props) {
       </div>
 
       <div className="border-t border-slate-100 bg-white px-3 py-2">
-        {automationTask && (
+        {canUseAutomation && automationTask && (
           <div className="mb-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700">
             <span className="font-bold">自动化:</span>
             <span>{automationTask.kind}</span>
@@ -192,35 +308,40 @@ export default function ChatPanel({ game, embedded = false }: Props) {
             {automationTask.kind === 'kill_count' && <span>击杀 {automationTask.killed}/{automationTask.remaining}</span>}
             <button
               type="button"
-              onClick={() => { cancelAutomation(); sendBotChatMessage('已取消自动化任务') }}
+              onClick={() => {
+                cancelAutomation()
+                appendThreadMessage(activeTargetId, activeTargetKind, '已取消自动化任务', false)
+              }}
               className="ml-auto rounded border border-emerald-300 bg-white px-2 py-0.5 text-[11px] hover:bg-emerald-100"
             >
               取消
             </button>
           </div>
         )}
-        <div className="mb-2 flex flex-wrap gap-2">
-          {AUTO_COMMANDS.map((item) => (
-            <button
-              key={item.cmd}
-              type="button"
-              onClick={() => {
-                sendChatMessage(item.cmd)
-                const task = parseAutomationCommand(item.cmd)
-                if (task === null && (item.cmd === '停止' || item.cmd === '取消')) {
-                  cancelAutomation()
-                  sendBotChatMessage('已取消自动化任务')
-                } else if (task !== null) {
-                  setAutomationTask(task)
-                  sendBotChatMessage(`自动化任务已设置: ${task.kind}`)
-                }
-              }}
-              className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700 hover:bg-orange-100"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        {canUseAutomation && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {AUTO_COMMANDS.map((item) => (
+              <button
+                key={item.cmd}
+                type="button"
+                onClick={() => {
+                  appendThreadMessage(activeTargetId, activeTargetKind, item.cmd, true)
+                  const task = parseAutomationCommand(item.cmd)
+                  if (task === null && (item.cmd === '停止' || item.cmd === '取消')) {
+                    cancelAutomation()
+                    appendThreadMessage(activeTargetId, activeTargetKind, '已取消自动化任务', false)
+                  } else if (task !== null) {
+                    setAutomationTask(task)
+                    appendThreadMessage(activeTargetId, activeTargetKind, `自动化任务已设置: ${task.kind}`, false)
+                  }
+                }}
+                className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700 hover:bg-orange-100"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <button
@@ -235,7 +356,7 @@ export default function ChatPanel({ game, embedded = false }: Props) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Message Engineer Bolt..."
+            placeholder={canUseAutomation ? 'Message Engineer Bolt...' : '和敌人聊天...'}
             className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-orange-300 focus:bg-white focus:outline-none"
           />
           <button

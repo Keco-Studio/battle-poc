@@ -288,6 +288,7 @@ export default function GameMap({ game }: Props) {
     setShowEnemyInfo,
     startBattle,
     showBattle,
+    isPVPMode,
     playerLevel,
     playerHP,
     setPlayerHP,
@@ -405,6 +406,9 @@ export default function GameMap({ game }: Props) {
   const [pixellabSyncHint, setPixellabSyncHint] = useState<string | null>(null)
   const [showPixellabMapGen, setShowPixellabMapGen] = useState(false)
   const [showCollisionEditor, setShowCollisionEditor] = useState(false)
+  const [chatMode, setChatMode] = useState<{ kind: 'system' } | { kind: 'enemy'; enemyId: number; enemyName: string }>({
+    kind: 'system',
+  })
   const [mapBgUrl, setMapBgUrl] = useState<string | null>(null)
   const [mapBgImage, setMapBgImage] = useState<HTMLImageElement | null>(null)
   const prevEnemyGridRef = useRef<Record<number, { x: number; y: number }>>({})
@@ -435,6 +439,8 @@ export default function GameMap({ game }: Props) {
 
   const isWalkable = useCallback(
     (x: number, y: number, actorOpts?: ActorWalkOpts) => {
+      // PVP 模式下无碰撞检测，全地图可通行
+      if (isPVPMode) return true
       if (
         !isDemoDungeonCellWalkable({
           x,
@@ -470,6 +476,7 @@ export default function GameMap({ game }: Props) {
       playerPos.y,
       enemies,
       enemyPositions,
+      isPVPMode,
     ],
   )
 
@@ -920,6 +927,7 @@ export default function GameMap({ game }: Props) {
         const nextTargets = { ...enemyTargetsRef.current }
 
         enemies.forEach((enemy) => {
+          if (showBattle && isPVPMode) return
           if (showBattle && combatEnemyId !== null && enemy.id === combatEnemyId) return
 
           const from = next[enemy.id] ?? { x: enemy.x, y: enemy.y }
@@ -970,7 +978,7 @@ export default function GameMap({ game }: Props) {
     }, tickMs)
 
     return () => window.clearInterval(moveInterval)
-  }, [combatEnemyId, enemies, isWalkable, showBattle])
+  }, [combatEnemyId, enemies, isPVPMode, isWalkable, showBattle])
 
   // 敌人随机消息
   useEffect(() => {
@@ -1137,6 +1145,8 @@ export default function GameMap({ game }: Props) {
 
     /** 交战双方走位仍由 battle-core 处理；此处仅把「未参战」的野怪格当成地形外的阻挡，避免穿怪 */
     const isWalkableForBattle = (gx: number, gy: number) => {
+      // PVP 对战演示：不做障碍检测，允许在地图中央直接对战。
+      if (isPVPMode) return true
       if (
         !isDemoDungeonCellWalkable({
           x: gx,
@@ -1163,13 +1173,22 @@ export default function GameMap({ game }: Props) {
     const llmProvider: 'deepseek' | 'zhipu' | 'custom' =
       process.env.NEXT_PUBLIC_BATTLE_LLM_PROVIDER === 'zhipu' ? 'zhipu' : 'deepseek'
     const aiProxyUrl = process.env.NEXT_PUBLIC_BATTLE_AI_SERVER_URL || 'http://localhost:8787'
+    const centerGrid = {
+      x: Math.max(1, Math.min(mapInfo.width - 2, Math.floor(mapInfo.width / 2))),
+      y: Math.max(1, Math.min(mapInfo.height - 2, Math.floor(mapInfo.height / 2))),
+    }
+    const pvpPlayerGrid = { x: Math.max(0, centerGrid.x - 1), y: centerGrid.y }
+    const pvpEnemyGrid = { x: Math.min(mapInfo.width - 1, centerGrid.x + 1), y: centerGrid.y }
+    const initialPlayerGrid = isPVPMode ? pvpPlayerGrid : { ...battleGridAnchor.player }
+    const initialEnemyGrid = isPVPMode ? pvpEnemyGrid : { ...battleGridAnchor.enemy }
+
     const cfg = {
       mapWidth: mapInfo.width,
       mapHeight: mapInfo.height,
       battleTickMs: BASE_BATTLE_TICK_MS,
       isWalkable: isWalkableForBattle,
       playerName: `战士 Lv.${playerLevel}`,
-      playerGrid: { ...battleGridAnchor.player },
+      playerGrid: initialPlayerGrid,
       playerStats: totalStats,
       playerHp: playerHP,
       playerMp: playerMP,
@@ -1177,7 +1196,7 @@ export default function GameMap({ game }: Props) {
       playerSkillIds: getAvailableSkills().filter((s) => s.action === 'cast_skill' && !!s.coreSkillId).map((s) => s.coreSkillId!),
       enemyName: battleEnemy.name,
       enemyId: `enemy-${battleEnemy.id}`,
-      enemyGrid: { ...battleGridAnchor.enemy },
+      enemyGrid: initialEnemyGrid,
       enemyStats: enemyCombatStats,
       battleDecisionMode,
       llmConfig:
@@ -1193,6 +1212,10 @@ export default function GameMap({ game }: Props) {
     }
     const ctrl = new MapBattleController(cfg)
     mapBattleControllerRef.current = ctrl
+    if (isPVPMode) {
+      setPlayerPos({ ...initialPlayerGrid })
+      setEnemyPositions((prev) => ({ ...prev, [battleEnemy.id]: { ...initialEnemyGrid } }))
+    }
     setBattlePlayerMaxHp(ctrl.session.left.resources.maxHp)
     setBattleTimeSec(0)
     setLastBattleTickCount(0)
@@ -1755,6 +1778,7 @@ export default function GameMap({ game }: Props) {
     mounted,
     battleGridAnchor,
     combatEnemyId,
+    isPVPMode,
     mapInfo.width,
     mapInfo.height,
     mapInfo.collision,
@@ -1909,6 +1933,8 @@ export default function GameMap({ game }: Props) {
   const enemyLevelRangeMax = Math.max(1, playerLevel - 1)
   const playerHpMaxForUi = showBattle ? Math.max(1, battlePlayerMaxHp) : Math.max(1, totalStats.maxHp)
   const playerHpRatioForUi = Math.max(0, Math.min(100, (playerHP / playerHpMaxForUi) * 100))
+  const enemyHpMaxForUi = Math.max(1, enemyMaxHp)
+  const enemyHpRatioForUi = Math.max(0, Math.min(100, (enemyHP / enemyHpMaxForUi) * 100))
 
   const handlePixellabSync = useCallback(async () => {
     setPixellabSyncHint('同步中…')
@@ -1947,6 +1973,9 @@ export default function GameMap({ game }: Props) {
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
           {/* 敌人标记 - SSR 时使用固定位置避免 hydration 不匹配 */}
           {enemies.map(enemy => {
+            if (showBattle && isPVPMode && (combatEnemyId === null || enemy.id !== combatEnemyId)) {
+              return null
+            }
             const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
             const message = mounted ? enemyMessages[enemy.id] : undefined
             const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
@@ -1969,6 +1998,17 @@ export default function GameMap({ game }: Props) {
                   ...enemyTransitionStyle,
                 }}
               >
+                {inBattle && (
+                  <div className="absolute -top-10 left-1/2 w-14 -translate-x-1/2">
+                    <div className="mb-0.5 text-center font-arcade text-[8px] text-red-200">HP</div>
+                    <div className="h-2 overflow-hidden rounded-sm border border-red-900 bg-[#2b0a0a]/90 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]">
+                      <div
+                        className="h-full bg-gradient-to-r from-red-500 via-rose-500 to-red-400"
+                        style={{ width: `${enemyHpRatioForUi}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 {/* 消息气泡 */}
                 {message && (
                   <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
@@ -2078,6 +2118,17 @@ export default function GameMap({ game }: Props) {
               willChange: 'left, top',
             }}
           >
+            {showBattle && (
+              <div className="absolute -top-10 left-1/2 w-14 -translate-x-1/2">
+                <div className="mb-0.5 text-center font-arcade text-[8px] text-emerald-200">HP</div>
+                <div className="h-2 overflow-hidden rounded-sm border border-emerald-900 bg-[#072318]/90 shadow-[0_0_0_1px_rgba(0,0,0,0.5)]">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 via-lime-400 to-emerald-400"
+                    style={{ width: `${playerHpRatioForUi}%` }}
+                  />
+                </div>
+              </div>
+            )}
             {(() => {
               const nowMs = Date.now()
               const activeFx = nowMs < playerCombatFx.untilMs ? playerCombatFx : null
@@ -2268,41 +2319,45 @@ export default function GameMap({ game }: Props) {
       {/* 左上角玩家信息 */}
       <div
         onClick={() => setShowCharacter(true)}
-        className="absolute top-4 left-4 z-20 bg-gray-900/80 backdrop-blur-md rounded-xl p-4 border border-blue-500/30 min-w-48 cursor-pointer hover:bg-gray-900/90 transition-colors"
+        className="absolute top-4 left-4 z-20 min-w-48 cursor-pointer rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-4 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)] transition-colors hover:brightness-105"
       >
-        <div className="flex items-center gap-3 mb-3">
-          <img src="/player/idle/south.png" alt="Player" className="w-12 h-12 object-contain rounded-lg bg-gray-800" />
+        <div className="mb-3 flex items-center gap-3">
+          <img
+            src="/player/idle/south.png"
+            alt="Player"
+            className="h-12 w-12 rounded-lg border border-cyan-300 bg-gradient-to-b from-cyan-50 to-indigo-100 object-contain pixelated"
+          />
           <div>
-            <div className="text-white font-bold">战士</div>
-            <div className="text-yellow-400 text-sm">Lv.{playerLevel}</div>
+            <div className="font-arcade text-[11px] text-slate-700">WARRIOR</div>
+            <div className="text-sm font-bold text-fuchsia-600">Lv.{playerLevel}</div>
           </div>
         </div>
         <div className="space-y-2">
           <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>HP</span>
+            <div className="mb-1 flex justify-between text-xs font-bold text-emerald-700">
+              <span className="font-arcade text-[10px]">HP</span>
               <span>{playerHP}/{playerHpMaxForUi}</span>
             </div>
-            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-2 overflow-hidden rounded-full border border-emerald-300 bg-emerald-100">
               <div
-                className="h-full bg-green-500 transition-all duration-300"
+                className="h-full bg-gradient-to-r from-emerald-400 to-lime-400 transition-all duration-300"
                 style={{ width: `${playerHpRatioForUi}%` }}
               />
             </div>
           </div>
           <div>
-            <div className="flex justify-between text-xs text-gray-400 mb-1">
-              <span>MP</span>
+            <div className="mb-1 flex justify-between text-xs font-bold text-sky-700">
+              <span className="font-arcade text-[10px]">MP</span>
               <span>{playerMP}/{playerMaxMp}</span>
             </div>
-            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div className="h-2 overflow-hidden rounded-full border border-sky-300 bg-sky-100">
               <div
-                className="h-full bg-sky-500 transition-all duration-300"
+                className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all duration-300"
                 style={{ width: `${(playerMP / Math.max(1, playerMaxMp)) * 100}%` }}
               />
             </div>
           </div>
-          <div className="text-yellow-300 text-xs">💰 {playerGold} 金币</div>
+          <div className="text-xs font-bold text-amber-700">💰 {playerGold} 金币</div>
         </div>
       </div>
 
@@ -2379,7 +2434,10 @@ export default function GameMap({ game }: Props) {
                 type="button"
                 aria-label={label}
                 aria-pressed={active}
-                onClick={() => setDockPanel(active ? null : id)}
+                onClick={() => {
+                  if (id === 'chat' && !active) setChatMode({ kind: 'system' })
+                  setDockPanel(active ? null : id)
+                }}
                 className={`oc-dock-btn ${active ? 'oc-dock-btn-active' : ''}`}
               >
                 <Icon size={18} strokeWidth={2.2} />
@@ -2390,7 +2448,9 @@ export default function GameMap({ game }: Props) {
         })}
       </div>
 
-      {dockPanel && <DockFeatureModal game={game} />}
+      {dockPanel && (
+        <DockFeatureModal game={game} />
+      )}
 
       {/* 大地图战斗：无跳转、无全屏遮罩；仅底部一条操作条 + 结算卡片（不铺幕布） */}
       {showBattle && (
@@ -2527,6 +2587,19 @@ export default function GameMap({ game }: Props) {
         open={!!(showEnemyInfo && nearbyEnemy)}
         enemyName={nearbyEnemy?.name ?? 'Enemy'}
         enemyPreview={enemyPreview}
+        onBattle={() => {
+          if (!nearbyEnemy) return
+          const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
+          startBattle({ player: { ...playerPos }, enemy: { ...ep } })
+          setShowEnemyInfo(false)
+        }}
+        onChat={() => {
+          if (nearbyEnemy) {
+            setChatMode({ kind: 'enemy', enemyId: nearbyEnemy.id, enemyName: nearbyEnemy.name })
+          }
+          setDockPanel('chat')
+          setShowEnemyInfo(false)
+        }}
         onClose={() => setShowEnemyInfo(false)}
       />
     </main>
