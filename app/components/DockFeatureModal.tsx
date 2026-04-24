@@ -10,6 +10,7 @@ import {
   User,
   Sparkles,
   LogOut,
+  Search,
 } from 'lucide-react'
 import type { DockPanelId, GameState } from '../hooks/useGameState'
 import { MOCK_PVP_USERS } from '../hooks/useGameState'
