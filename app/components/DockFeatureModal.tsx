@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   X,
   Trophy,
@@ -10,9 +10,11 @@ import {
   User,
   ArrowUp,
   Sparkles,
+  LogOut,
 } from 'lucide-react'
 import type { DockPanelId, GameState } from '../hooks/useGameState'
 import ChatPanel from './ChatPanel'
+import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
 
 const PANEL_META: Record<
   DockPanelId,
@@ -40,7 +42,10 @@ const PANEL_META: Record<
   },
   character_login: {
     title: 'Profile',
-    subtitle: (g) => `Lv.${g.playerLevel} · 金币 ${g.playerGold}`,
+    subtitle: (g) =>
+      g.accountLabel
+        ? `已登录 · ${g.accountLabel}`
+        : `Lv.${g.playerLevel} · 金币 ${g.playerGold} · 访客或未登录`,
     Icon: User,
   },
 }
@@ -49,7 +54,7 @@ interface Props {
   game: GameState
 }
 
-/** 模拟 Battle history 条目：与图 1 一致的多彩图标 + 状态 pill */
+/** Demo battle history rows: colored icons + outcome pill (layout reference). */
 type HistoryItem = {
   id: string
   who: string
@@ -98,9 +103,40 @@ function HistoryIcon({ variant }: { variant: HistoryItem['variant'] }) {
 }
 
 export default function DockFeatureModal({ game }: Props) {
-  const { dockPanel, closeDockPanel, playerLevel, playerGold, battleLog } = game
+  const { dockPanel, closeDockPanel, playerLevel, playerGold, battleLog, login, logoutAccount } = game
+  const supabase = useSupabaseOptional()
   const [loginAccount, setLoginAccount] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+
+  const refreshSession = useCallback(async () => {
+    if (!supabase) {
+      setSessionEmail(null)
+      return
+    }
+    const { data } = await supabase.auth.getSession()
+    const email = data.session?.user?.email ?? null
+    setSessionEmail(email)
+  }, [supabase])
+
+  useEffect(() => {
+    if (dockPanel !== 'character_login') return
+    void refreshSession()
+  }, [dockPanel, refreshSession])
+
+  useEffect(() => {
+    if (!supabase || dockPanel !== 'character_login') return
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionEmail(session?.user?.email ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [supabase, dockPanel])
 
   useEffect(() => {
     if (!dockPanel) return
@@ -125,7 +161,7 @@ export default function DockFeatureModal({ game }: Props) {
       aria-labelledby="dock-modal-title"
     >
       <div className="flex h-full min-h-0 flex-col">
-        {/* 头部：图标 + 标题 + 小副标题 + X 关闭 */}
+        {/* Header: icon, title, subtitle, close */}
         <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-900 shadow-sm ring-1 ring-slate-200">
             <Icon size={18} strokeWidth={2.4} />
@@ -152,7 +188,7 @@ export default function DockFeatureModal({ game }: Props) {
           </button>
         </div>
 
-        {/* 内容区 */}
+        {/* Body */}
         {isChat ? (
           <div className="min-h-0 flex-1">
             <ChatPanel game={game} embedded />
@@ -225,45 +261,191 @@ export default function DockFeatureModal({ game }: Props) {
                       Battle Arena
                       <Sparkles size={14} className="text-orange-500" />
                     </div>
-                    <div className="text-[11px] text-slate-500">实时自动战斗 · Demo 登录</div>
+                    <div className="text-[11px] text-slate-500">
+                      {isBattleSupabaseConfigured()
+                        ? 'Supabase 账号 · 与 keco-studio 相同方式配置环境变量'
+                        : '未配置 Supabase：仅本地访客；请在 .env 中设置 NEXT_PUBLIC_SUPABASE_URL / ANON_KEY'}
+                    </div>
                   </div>
 
-                  <label className="mb-3 block">
-                    <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-                      <User size={12} /> 账号
-                    </span>
-                    <input
-                      type="text"
-                      value={loginAccount}
-                      onChange={(e) => setLoginAccount(e.target.value)}
-                      placeholder="输入账号"
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                    />
-                  </label>
-                  <label className="mb-4 block">
-                    <span className="mb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-700">
-                      <span>密码</span>
-                      <button type="button" className="text-slate-400 hover:text-slate-600">
-                        显示
+                  {!isBattleSupabaseConfigured() || !supabase ? (
+                    <>
+                      <p className="mb-4 text-center text-[12px] leading-relaxed text-slate-600">
+                        配置好 Supabase 后即可邮箱注册/登录；存档仍优先在浏览器本地。
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => closeDockPanel()}
+                        className="oc-arcade-btn oc-arcade-btn-cta w-full"
+                      >
+                        以访客身份继续
                       </button>
-                    </span>
-                    <input
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="**********"
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                    />
-                  </label>
+                    </>
+                  ) : sessionEmail ? (
+                    <div className="space-y-3 text-center text-[13px] text-slate-700">
+                      <p>
+                        当前会话：<span className="font-semibold text-slate-900">{sessionEmail}</span>
+                      </p>
+                      <button
+                        type="button"
+                        disabled={authLoading}
+                        onClick={async () => {
+                          setAuthError(null)
+                          setAuthLoading(true)
+                          try {
+                            await supabase.auth.signOut()
+                            logoutAccount()
+                            setSessionEmail(null)
+                          } catch (e) {
+                            setAuthError(e instanceof Error ? e.message : '登出失败')
+                          } finally {
+                            setAuthLoading(false)
+                          }
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <LogOut size={14} />
+                        退出登录
+                      </button>
+                      {authError && <p className="text-[12px] text-rose-600">{authError}</p>}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-3 flex justify-center gap-2 text-[11px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode('signin')
+                            setAuthError(null)
+                          }}
+                          className={
+                            authMode === 'signin'
+                              ? 'text-orange-600 underline underline-offset-2'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }
+                        >
+                          登录
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode('signup')
+                            setAuthError(null)
+                          }}
+                          className={
+                            authMode === 'signup'
+                              ? 'text-orange-600 underline underline-offset-2'
+                              : 'text-slate-400 hover:text-slate-600'
+                          }
+                        >
+                          注册
+                        </button>
+                      </div>
 
-                  <button type="button" className="oc-arcade-btn oc-arcade-btn-cta">
-                    ENTER ARENA
-                  </button>
-                  <div className="mt-3 text-center">
-                    <button type="button" className="text-[12px] font-bold text-slate-500 hover:text-slate-700">
-                      以访客身份继续
-                    </button>
-                  </div>
+                      <label className="mb-3 block">
+                        <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
+                          <User size={12} /> 邮箱
+                        </span>
+                        <input
+                          type="email"
+                          autoComplete="email"
+                          value={loginAccount}
+                          onChange={(e) => setLoginAccount(e.target.value)}
+                          placeholder="you@example.com"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+                        />
+                      </label>
+                      <label className="mb-4 block">
+                        <span className="mb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-700">
+                          <span>密码</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((v) => !v)}
+                            className="font-normal text-slate-400 hover:text-slate-600"
+                          >
+                            {showPassword ? '隐藏' : '显示'}
+                          </button>
+                        </span>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="**********"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+                        />
+                      </label>
+
+                      {authError && (
+                        <p className="mb-3 rounded-lg bg-rose-50 px-2 py-1.5 text-center text-[12px] text-rose-700">
+                          {authError}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={authLoading}
+                        onClick={async () => {
+                          setAuthError(null)
+                          const email = loginAccount.trim()
+                          const password = loginPassword
+                          if (!email) {
+                            setAuthError('请输入邮箱')
+                            return
+                          }
+                          if (password.length < 6) {
+                            setAuthError('密码至少 6 位（Supabase 默认策略）')
+                            return
+                          }
+                          setAuthLoading(true)
+                          try {
+                            if (authMode === 'signup') {
+                              const { error } = await supabase.auth.signUp({ email, password })
+                              if (error) {
+                                setAuthError(error.message)
+                                return
+                              }
+                              const { data } = await supabase.auth.getSession()
+                              if (data.session?.user?.email) {
+                                login(data.session.user.email)
+                                setSessionEmail(data.session.user.email)
+                              } else {
+                                setAuthError('注册成功。若项目开启邮箱确认，请查收邮件后再登录。')
+                              }
+                            } else {
+                              const { error } = await supabase.auth.signInWithPassword({ email, password })
+                              if (error) {
+                                setAuthError(error.message)
+                                return
+                              }
+                              const { data } = await supabase.auth.getSession()
+                              const em = data.session?.user?.email
+                              if (em) {
+                                login(em)
+                                setSessionEmail(em)
+                              }
+                            }
+                          } finally {
+                            setAuthLoading(false)
+                          }
+                        }}
+                        className="oc-arcade-btn oc-arcade-btn-cta w-full disabled:opacity-60"
+                      >
+                        {authLoading ? '请稍候…' : authMode === 'signup' ? '注册并进入' : 'ENTER ARENA'}
+                      </button>
+                      <div className="mt-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => closeDockPanel()}
+                          className="text-[12px] font-bold text-slate-500 hover:text-slate-700"
+                        >
+                          以访客身份继续
+                        </button>
+                      </div>
+                    </>
+                  )}
+
                   <div className="mt-4 border-t border-dashed border-slate-200 pt-3 text-center text-[11px] text-slate-500">
                     本地角色 Lv.{playerLevel} · 金币 {playerGold}
                   </div>
