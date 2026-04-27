@@ -567,3 +567,9 @@ body {
 .oc-impact-dodge-enemy {
   box-shadow: 0 0 12px rgba(244, 114, 182, 0.45);
 }
+
+/* Hide browser-native password reveal buttons to avoid duplicate eye icons */
+.auth-password-input::-ms-reveal,
+.auth-password-input::-ms-clear {
+  display: none;
+}

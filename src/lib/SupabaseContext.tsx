@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { createHybridStorageAdapter } from './hybridStorageAdapter'
+import { createContext, useContext, type ReactNode } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from './supabase/client'
 
 function readSupabaseEnv(): { url: string; anonKey: string } | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -19,17 +19,7 @@ export function isBattleSupabaseConfigured(): boolean {
 const SupabaseContext = createContext<SupabaseClient | null>(null)
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
-  const client = useMemo(() => {
-    const env = readSupabaseEnv()
-    if (!env) return null
-    return createClient(env.url, env.anonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        storage: createHybridStorageAdapter(),
-      },
-    })
-  }, [])
+  const client = supabase
 
   return <SupabaseContext.Provider value={client}>{children}</SupabaseContext.Provider>
 }

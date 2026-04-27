@@ -148,7 +148,7 @@ describe('expForLevel', () => {
 })
 
 describe('getBattleRewards', () => {
-it('exp based on enemy
+  it('exp based on enemy level', () => {
     expect(getBattleRewards(1)).toEqual({ exp: 1, gold: 2 })
     expect(getBattleRewards(3)).toEqual({ exp: 3, gold: 6 })
     expect(getBattleRewards(5)).toEqual({ exp: 5, gold: 10 })

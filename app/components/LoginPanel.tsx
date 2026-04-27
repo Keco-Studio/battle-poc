@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { User, Lock, LogIn, Sparkles } from 'lucide-react'
+import { User, Lock, LogIn, Sparkles, Eye, EyeOff } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 
@@ -124,26 +124,27 @@ export default function LoginPanel({ game }: Props) {
         </label>
 
         <label className="mb-2 block">
-          <span className="mb-1 flex items-center justify-between text-[11px] font-bold text-slate-700">
-            <span className="flex items-center gap-1">
-              <Lock size={12} /> Password
-            </span>
+          <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
+            <Lock size={12} /> Password
+          </span>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter password"
+              className="auth-password-input w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+            />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="font-bold text-slate-400 hover:text-slate-600"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute inset-y-0 right-2 my-auto flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             >
-              {showPassword ? 'Hide' : 'Show'}
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
-          </span>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter password"
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-          />
+          </div>
         </label>
 
         {error && (

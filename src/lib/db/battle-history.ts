@@ -1,10 +1,11 @@
-import { supabase } from '../supabase/client'
+import { requireSupabaseClient } from '../supabase/client'
 import type { BattleHistoryInsert, BattleHistoryRow } from './types'
 
 /**
  * Fetch the most recent N battle records for the current user.
  */
 export async function fetchBattleHistory(limit = 50): Promise<BattleHistoryRow[]> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('battle_history')
     .select('*')
@@ -19,6 +20,7 @@ export async function fetchBattleHistory(limit = 50): Promise<BattleHistoryRow[]
  * Append a single completed battle record.
  */
 export async function recordBattle(entry: Omit<BattleHistoryInsert, 'user_id'>): Promise<void> {
+  const supabase = requireSupabaseClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
