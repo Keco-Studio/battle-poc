@@ -253,6 +253,45 @@ type MapImpactFx = {
   y: number
 }
 
+const DEEPCLAW_ENEMY_ID = 9001
+
+function ensureDeepClawAgentEnemy(
+  enemies: Enemy[],
+  mapInfo: {
+    width: number
+    height: number
+    collision: number[]
+    ground: number[]
+    tilesetId: string | null
+  },
+): Enemy[] {
+  if (enemies.some((e) => e.enemyType === 'agent' || e.agentId === 'deepclaw' || e.id === DEEPCLAW_ENEMY_ID)) {
+    return enemies
+  }
+  const spawn = snapGridSpawnToWalkable(
+    Math.max(1, mapInfo.width - 3),
+    2,
+    mapInfo.width,
+    mapInfo.height,
+    mapInfo.collision,
+    mapInfo.ground,
+    mapInfo.tilesetId,
+  )
+  return [
+    ...enemies,
+    {
+      id: DEEPCLAW_ENEMY_ID,
+      name: 'DeepClaw Agent',
+      x: spawn.x,
+      y: spawn.y,
+      level: 8,
+      enemyType: 'agent',
+      agentId: 'deepclaw',
+      visualId: 'archerGreen',
+    },
+  ]
+}
+
 type CombatAnim = 'idle' | 'attack' | 'cast' | 'hit'
 
 type CombatFxState = {
@@ -666,6 +705,8 @@ export default function GameMap({ game }: Props) {
             y: number
             level: number
             profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
+            enemyType?: 'wild' | 'agent'
+            agentId?: string
             visualId?: MapCharacterVisualId | null
             mapSpriteTileIndex?: number
           }>
@@ -694,7 +735,15 @@ export default function GameMap({ game }: Props) {
         )
         setPlayerPos(spawn)
         if (data.enemies.length > 0) {
-          setEnemies(data.enemies)
+          setEnemies(
+            ensureDeepClawAgentEnemy(data.enemies, {
+              width: data.width,
+              height: data.height,
+              collision: data.collision,
+              ground: data.ground,
+              tilesetId: data.tileset?.id ?? null,
+            }),
+          )
         }
       } catch (error) {
         console.warn('load airpg map failed:', error)
@@ -1776,8 +1825,8 @@ export default function GameMap({ game }: Props) {
       return Math.sqrt(dx * dx + dy * dy) < INTERACTION_RANGE
     })
     setNearbyEnemy(found || null)
-    // Do not auto-open interaction when approaching monsters; only auto-close after leaving range.
-    setShowInteraction((prev) => (found ? prev : false))
+    // Auto-open challenge buttons when entering interaction range; close when leaving.
+    setShowInteraction(Boolean(found))
   }, [playerPos, enemies, enemyPositions, setNearbyEnemy, setShowInteraction, playerLevel, showBattle])
 
   /** Automation: auto-start battle when nearby enemy detected */
@@ -1831,7 +1880,9 @@ export default function GameMap({ game }: Props) {
               def: enc.stats.def,
               spd: enc.stats.spd,
             },
-            visualId: e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
+            enemyType: e.enemyType,
+            agentId: e.agentId,
+            visualId: e.enemyType === 'agent' ? e.visualId : e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
             mapSpriteTileIndex: e.mapSpriteTileIndex,
           }
           return nextEnemy
@@ -1929,17 +1980,32 @@ export default function GameMap({ game }: Props) {
       const mapRes = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
       if (mapRes.ok) {
         const d = (await mapRes.json()) as {
+          width?: number
+          height?: number
+          collision?: number[]
+          ground?: number[]
+          tileset?: { id?: string | null } | null
           enemies: typeof enemies
           playerVisualId?: MapCharacterVisualId
         }
         if (d.playerVisualId) setPlayerVisualId(d.playerVisualId)
-        if (d.enemies?.length) setEnemies(d.enemies)
+        if (d.enemies?.length) {
+          setEnemies(
+            ensureDeepClawAgentEnemy(d.enemies, {
+              width: d.width ?? mapInfo.width,
+              height: d.height ?? mapInfo.height,
+              collision: d.collision ?? mapInfo.collision,
+              ground: d.ground ?? mapInfo.ground,
+              tilesetId: d.tileset?.id ?? mapInfo.tileset?.id ?? null,
+            }),
+          )
+        }
       }
     } catch (e) {
       setPixellabSyncHint(e instanceof Error ? e.message : 'Sync failed')
     }
     window.setTimeout(() => setPixellabSyncHint(null), 4200)
-  }, [selectedMapId, setEnemies])
+  }, [mapInfo.collision, mapInfo.ground, mapInfo.height, mapInfo.tileset?.id, mapInfo.width, selectedMapId, setEnemies])
 
   return (
     <main className="relative w-screen h-screen overflow-hidden">

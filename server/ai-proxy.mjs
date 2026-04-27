@@ -15,6 +15,18 @@ const DEEPSEEK_BASE_URL = String(process.env.DEEPSEEK_BASE_URL || 'https://api.d
 const SYSTEM_PROMPT =
   'You are a battle commander. Output strict JSON only: {"action":"...","targetId":"...","skillId":"...","metadata":{}}.';
 
+const CHAT_SYSTEM_BOLT = `You are Engineer Bolt, a friendly Lv.14 engineer robot in a fantasy battle-arena world. You have a "Tool Claw" for gear tweaks and battle tips. Keep replies concise (1–4 short sentences) unless the user asks for detail. You can give encouragement and practical combat hints. Stay in character; no JSON; plain chat only.`;
+
+const CHAT_SYSTEM_ENEMY = `You are a monster or rival the player is chatting with on the field. Reply in short, in-character lines (1–3 sentences). You may be sassy or menacing. Plain text only, no JSON.`;
+const CHAT_SYSTEM_DEEPCLAW = `You are DeepClaw Agent, the signature AI creature of battle-poc powered by DeepSeek. Stay in character as a roaming elite monster and tactical operator.
+
+Behavior:
+- Keep replies concise and practical (1–4 short sentences).
+- You can chat, give battle strategy, and accept action requests.
+- If user asks for automation/task style commands (battle repeats, flee policy, farm), acknowledge clearly in natural language.
+- Tone: confident, slightly playful, competent.
+- Plain text only, no JSON, no markdown tables.`;
+
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -44,14 +56,25 @@ function normalizeUrlPath(url = '/') {
   return idx >= 0 ? url.slice(0, idx) : url;
 }
 
-async function requestDeepSeek(input) {
+function assertApiKey() {
   if (!DEEPSEEK_API_KEY) {
     throw new Error('missing_deepseek_api_key: please set DEEPSEEK_API_KEY in server/.env');
   }
-  const endpoint = DEEPSEEK_BASE_URL.endsWith('/v1')
+}
+
+function deepseekEndpoint() {
+  return DEEPSEEK_BASE_URL.endsWith('/v1')
     ? `${DEEPSEEK_BASE_URL}/chat/completions`
     : `${DEEPSEEK_BASE_URL}/v1/chat/completions`;
-  const timeoutMs = Math.max(800, Math.min(20000, Number(input.timeoutMs || 8000)));
+}
+
+/**
+ * @param {{ model?: string, temperature?: number, timeoutMs?: number, messages: Array<{ role: string, content: string }> }} input
+ */
+async function postDeepSeekChatCompletions(input) {
+  assertApiKey();
+  const endpoint = deepseekEndpoint();
+  const timeoutMs = Math.max(800, Math.min(30000, Number(input.timeoutMs ?? 15000)));
   const maxAttempts = 2;
   let lastError = null;
 
@@ -67,11 +90,8 @@ async function requestDeepSeek(input) {
         },
         body: JSON.stringify({
           model: input.model || DEEPSEEK_MODEL,
-          temperature: 0.2,
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: String(input.prompt || '') }
-          ]
+          temperature: Number.isFinite(input.temperature) ? input.temperature : 0.7,
+          messages: input.messages
         }),
         signal: controller.signal
       });
@@ -80,12 +100,11 @@ async function requestDeepSeek(input) {
         throw new Error(`deepseek_http_${resp.status}:${text.slice(0, 160)}`);
       }
       const payload = JSON.parse(text);
-      const content = String(payload?.choices?.[0]?.message?.content || '');
-      const decision = parseJsonObject(content);
-      if (!decision) {
-        throw new Error('deepseek_parse_error');
+      const content = String(payload?.choices?.[0]?.message?.content || '').trim();
+      if (!content) {
+        throw new Error('deepseek_empty_content');
       }
-      return decision;
+      return content;
     } catch (error) {
       lastError = error;
       if (attempt < maxAttempts) {
@@ -96,6 +115,23 @@ async function requestDeepSeek(input) {
     }
   }
   throw lastError || new Error('deepseek_request_failed');
+}
+
+async function requestDeepSeek(input) {
+  const content = await postDeepSeekChatCompletions({
+    model: input.model,
+    temperature: 0.2,
+    timeoutMs: Math.max(800, Math.min(20000, Number(input.timeoutMs || 8000))),
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: String(input.prompt || '') }
+    ]
+  });
+  const decision = parseJsonObject(content);
+  if (!decision) {
+    throw new Error('deepseek_parse_error');
+  }
+  return decision;
 }
 
 function parseJsonObject(text) {
@@ -117,6 +153,23 @@ function parseJsonObject(text) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * @param {unknown} raw
+ * @returns {Array<{ role: 'user' | 'assistant', content: string }>}
+ */
+function sanitizeChatMessages(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const m of raw.slice(-24)) {
+    if (!m || typeof m !== 'object') continue;
+    const role = m.role === 'assistant' ? 'assistant' : m.role === 'user' ? 'user' : null;
+    const content = String('content' in m ? m.content : '').trim().slice(0, 8000);
+    if (!role || !content) continue;
+    out.push({ role, content });
+  }
+  return out;
 }
 
 const server = createServer(async (req, res) => {
@@ -152,6 +205,38 @@ const server = createServer(async (req, res) => {
       sendJson(res, 502, {
         error: message
       });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && path === '/api/ai/chat') {
+    try {
+      const body = await readBody(req);
+      const target = body?.target === 'enemy' ? 'enemy' : 'system';
+      const agentId = String(body?.agentId || '').trim().toLowerCase();
+      const system =
+        target === 'enemy'
+          ? agentId === 'deepclaw'
+            ? CHAT_SYSTEM_DEEPCLAW
+            : CHAT_SYSTEM_ENEMY
+          : CHAT_SYSTEM_BOLT;
+      const history = sanitizeChatMessages(body?.messages);
+      if (history.length === 0) {
+        sendJson(res, 400, { error: 'messages_required' });
+        return;
+      }
+      const text = await postDeepSeekChatCompletions({
+        temperature: 0.75,
+        timeoutMs: 20000,
+        messages: [{ role: 'system', content: system }, ...history]
+      });
+      sendJson(res, 200, { reply: text });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? `${error.message}${error.cause ? ` | cause: ${String(error.cause)}` : ''}`
+          : String(error);
+      sendJson(res, 502, { error: message });
     }
     return;
   }
