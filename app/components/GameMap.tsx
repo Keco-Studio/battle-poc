@@ -20,7 +20,7 @@ import BattleResultOverlay from './map-ui/BattleResultOverlay'
 import InteractionButtons from './map-ui/InteractionButtons'
 import EnemyInfoModal from './map-ui/EnemyInfoModal'
 import { resolveSkillFxProfile, type ProjectileKind } from './map-ui/skillFxProfile'
-import { ENEMY_MESSAGES, actionLabel, reasonLabel, rejectReasonLabel, strategyLabel } from './map-ui/battleText'
+import { actionLabel, reasonLabel, rejectReasonLabel, strategyLabel } from './map-ui/battleText'
 import PixellabMapGeneratorModal from './map-ui/PixellabMapGeneratorModal'
 import CollisionEditorModal from './map-ui/CollisionEditorModal'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
@@ -421,8 +421,6 @@ export default function GameMap({ game }: Props) {
 
   // Enemy independent position state (for random movement)
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
-  // Enemy message bubble
-  const [enemyMessages, setEnemyMessages] = useState<Record<number, string>>({})
   const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
   const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
   const lastKeyboardMoveAtRef = useRef(0)
@@ -979,26 +977,6 @@ export default function GameMap({ game }: Props) {
 
     return () => window.clearInterval(moveInterval)
   }, [combatEnemyId, enemies, isPVPMode, isWalkable, showBattle])
-
-  // Enemy random messages
-  useEffect(() => {
-    const msgInterval = setInterval(() => {
-      const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)]
-      if (randomEnemy) {
-        const randomMsg = ENEMY_MESSAGES[Math.floor(Math.random() * ENEMY_MESSAGES.length)]
-        setEnemyMessages(prev => ({ ...prev, [randomEnemy.id]: randomMsg }))
-        // Clear message after 3 seconds
-        setTimeout(() => {
-          setEnemyMessages(prev => {
-            const next = { ...prev }
-            delete next[randomEnemy.id]
-            return next
-          })
-        }, 3000)
-      }
-    }, 5000)
-    return () => clearInterval(msgInterval)
-  }, [enemies])
 
   // Player keyboard movement enhancement: supports WASD + arrow keys for movement, and keeps facing direction updated based on movement
   useEffect(() => {
@@ -1798,7 +1776,8 @@ export default function GameMap({ game }: Props) {
       return Math.sqrt(dx * dx + dy * dy) < INTERACTION_RANGE
     })
     setNearbyEnemy(found || null)
-    setShowInteraction(!!found)
+    // Do not auto-open interaction when approaching monsters; only auto-close after leaving range.
+    setShowInteraction((prev) => (found ? prev : false))
   }, [playerPos, enemies, enemyPositions, setNearbyEnemy, setShowInteraction, playerLevel, showBattle])
 
   /** Automation: auto-start battle when nearby enemy detected */
@@ -1978,7 +1957,6 @@ export default function GameMap({ game }: Props) {
               return null
             }
             const pos = mounted ? (enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }) : { x: enemy.x, y: enemy.y }
-            const message = mounted ? enemyMessages[enemy.id] : undefined
             const inBattle = showBattle && combatEnemyId !== null && enemy.id === combatEnemyId
             const enemyTransitionStyle = inBattle
               ? {
@@ -2008,13 +1986,6 @@ export default function GameMap({ game }: Props) {
                         style={{ width: `${enemyHpRatioForUi}%` }}
                       />
                     </div>
-                  </div>
-                )}
-                {/* Message bubble */}
-                {message && (
-                  <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-yellow-100 border-2 border-orange-500 rounded-lg px-3 py-1 text-xs text-gray-800 whitespace-nowrap animate-bounce shadow-lg z-50">
-                    {message}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-orange-500" />
                   </div>
                 )}
                 {(() => {

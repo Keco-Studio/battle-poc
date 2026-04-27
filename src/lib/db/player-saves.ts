@@ -1,19 +1,27 @@
-import { supabase } from '../supabase/client'
+import { requireSupabaseClient } from '../supabase/client'
 import type { PlayerSaveRow, PlayerSaveUpdate } from './types'
+import { pushDataFlowTrace } from '../debug/data-flow-trace'
 
 /**
  * Load the current user's save. Returns null if not found.
  */
 export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
+  const supabase = requireSupabaseClient()
+  pushDataFlowTrace('loadPlayerSave', 'start')
   const { data, error } = await supabase
     .from('player_saves')
     .select('*')
     .single()
 
   if (error) {
-    if (error.code === 'PGRST116') return null // no rows
+    if (error.code === 'PGRST116') {
+      pushDataFlowTrace('loadPlayerSave', 'success', 'No save row yet')
+      return null // no rows
+    }
+    pushDataFlowTrace('loadPlayerSave', 'error', error.message)
     throw error
   }
+  pushDataFlowTrace('loadPlayerSave', 'success')
   return data
 }
 
@@ -22,17 +30,26 @@ export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
  * Upserts on (user_id) — creates the row if it doesn't exist yet.
  */
 export async function savePlayerSave(update: PlayerSaveUpdate): Promise<void> {
+  const supabase = requireSupabaseClient()
+  pushDataFlowTrace('savePlayerSave', 'start')
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) throw new Error('Not authenticated')
+  if (!user) {
+    pushDataFlowTrace('savePlayerSave', 'error', 'Not authenticated')
+    throw new Error('Not authenticated')
+  }
 
   const { error } = await supabase
     .from('player_saves')
     .upsert({ user_id: user.id, ...update }, { onConflict: 'user_id' })
 
-  if (error) throw error
+  if (error) {
+    pushDataFlowTrace('savePlayerSave', 'error', error.message)
+    throw error
+  }
+  pushDataFlowTrace('savePlayerSave', 'success')
 }
 
 /**

@@ -10,13 +10,16 @@ import {
   User,
   Sparkles,
   LogOut,
-  Search
+  Search,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
-import type { DockPanelId, GameState } from '../hooks/useGameState'
-import { MOCK_PVP_USERS } from '../hooks/useGameState'
+import type { DockPanelId, GameState, PVPUser } from '../hooks/useGameState'
 import { calcPlayerStats } from '../constants'
 import ChatPanel from './ChatPanel'
 import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
+import { savePlayerSave } from '@/src/lib/db/player-saves'
+import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
 
 export type ChatTargetOption = {
   id: string
@@ -89,12 +92,19 @@ export default function DockFeatureModal({ game }: Props) {
   const { dockPanel, closeDockPanel, playerLevel, playerGold, battleLog, login, logoutAccount } = game
   const supabase = useSupabaseOptional()
   const [loginAccount, setLoginAccount] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  const [dataFlowTrace, setDataFlowTrace] = useState<DataFlowTraceItem[]>([])
+  const [pvpUsers, setPvpUsers] = useState<PVPUser[]>([])
+  const [pvpLoading, setPvpLoading] = useState(false)
+  const [pvpError, setPvpError] = useState<string | null>(null)
 
   const refreshSession = useCallback(async () => {
     if (!supabase) {
@@ -130,12 +140,86 @@ export default function DockFeatureModal({ game }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [dockPanel, closeDockPanel])
 
+  useEffect(() => {
+    if (dockPanel !== 'character_login') return
+    const refresh = () => setDataFlowTrace(getDataFlowTrace())
+    refresh()
+    window.addEventListener(DATA_FLOW_TRACE_EVENT, refresh as EventListener)
+    return () => window.removeEventListener(DATA_FLOW_TRACE_EVENT, refresh as EventListener)
+  }, [dockPanel])
+
+  useEffect(() => {
+    if (dockPanel !== 'battle_system') return
+    if (!supabase) {
+      setPvpUsers([])
+      setPvpError('Supabase is not configured')
+      return
+    }
+
+    let cancelled = false
+
+    const loadPvpUsers = async () => {
+      setPvpLoading(true)
+      setPvpError(null)
+      pushDataFlowTrace('loadPvpUsers', 'start')
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        let query = supabase
+          .from('player_saves')
+          .select('user_id, character_name, level')
+          .order('level', { ascending: false })
+          .limit(100)
+
+        if (user?.id) {
+          query = query.neq('user_id', user.id)
+        }
+
+        const { data, error } = await query
+        if (error) throw error
+
+        const rows = Array.isArray(data) ? data : []
+        const mapped: PVPUser[] = rows.map((row) => ({
+          id: String(row.user_id),
+          name: String(row.character_name || 'Adventurer'),
+          level: Math.max(1, Number(row.level ?? 1)),
+        }))
+        if (!cancelled) {
+          setPvpUsers(mapped)
+          pushDataFlowTrace('loadPvpUsers', 'success', `Loaded ${mapped.length} players`)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setPvpUsers([])
+          const message = e instanceof Error ? e.message : 'Failed to load PVP players'
+          setPvpError(message)
+          pushDataFlowTrace('loadPvpUsers', 'error', message)
+        }
+      } finally {
+        if (!cancelled) {
+          setPvpLoading(false)
+        }
+      }
+    }
+
+    void loadPvpUsers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [dockPanel, supabase])
+
   const meta = useMemo(() => (dockPanel ? PANEL_META[dockPanel] : null), [dockPanel])
   const [pvpSearchQuery, setPvpSearchQuery] = useState('')
 
   if (!dockPanel || !meta) return null
   const { title, subtitle, Icon } = meta
   const isChat = dockPanel === 'chat'
+  const filteredPvpUsers = pvpUsers.filter((u) =>
+    u.name.toLowerCase().includes(pvpSearchQuery.toLowerCase()),
+  )
 
   return (
     <div
@@ -253,24 +337,24 @@ export default function DockFeatureModal({ game }: Props) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  {MOCK_PVP_USERS.filter((u) =>
-                    u.name.toLowerCase().includes(pvpSearchQuery.toLowerCase()),
-                  ).length === 0 ? (
+                  {pvpLoading ? (
+                    <div className="flex flex-col items-center gap-1 py-4 text-slate-400">
+                      <span className="text-[12px]">Loading players...</span>
+                    </div>
+                  ) : filteredPvpUsers.length === 0 ? (
                     <div className="flex flex-col items-center gap-1 py-4 text-slate-400">
                       <User size={24} className="opacity-40" />
-                      <span className="text-[12px]">User not found</span>
+                      <span className="text-[12px]">{pvpError ? 'Unable to load players' : 'User not found'}</span>
                     </div>
                   ) : (
-                    MOCK_PVP_USERS.filter((u) =>
-                      u.name.toLowerCase().includes(pvpSearchQuery.toLowerCase()),
-                    ).map((user) => {
+                    filteredPvpUsers.map((user) => {
                       const stats = calcPlayerStats(user.level)
                       return (
                         <button
                           key={user.id}
                           type="button"
                           onClick={() => {
-                            game.startPVPBattle(user.id)
+                            game.startPVPBattle(user)
                             closeDockPanel()
                           }}
                           className="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left hover:border-orange-300 hover:bg-orange-50 transition-colors"
@@ -297,8 +381,13 @@ export default function DockFeatureModal({ game }: Props) {
                     })
                   )}
                 </div>
+                {pvpError && (
+                  <p className="text-[10px] text-rose-500 text-center break-words">
+                    {pvpError}
+                  </p>
+                )}
                 <p className="text-[10px] text-slate-400 text-center">
-                  {MOCK_PVP_USERS.length} players online · Click to start battle
+                  {pvpUsers.length} players online · Click to start battle
                 </p>
               </div>
             )}
@@ -314,28 +403,28 @@ export default function DockFeatureModal({ game }: Props) {
                     </div>
                     <div className="text-[11px] text-slate-500">
                       {isBattleSupabaseConfigured()
-                        ? 'Supabase 账号 · 与 keco-studio 相同方式配置环境变量'
-                        : '未配置 Supabase：仅本地访客；请在 .env 中设置 NEXT_PUBLIC_SUPABASE_URL / ANON_KEY'}
+                        ? 'Supabase account · configure env vars the same way as keco-studio'
+                        : 'Supabase is not configured: local guest mode only. Set NEXT_PUBLIC_SUPABASE_URL / ANON_KEY in .env'}
                     </div>
                   </div>
 
                   {!isBattleSupabaseConfigured() || !supabase ? (
                     <>
                       <p className="mb-4 text-center text-[12px] leading-relaxed text-slate-600">
-                        配置好 Supabase 后即可邮箱注册/登录；存档仍优先在浏览器本地。
+                        Configure Supabase to enable email sign-up/login; saves still prioritize browser local storage.
                       </p>
                       <button
                         type="button"
                         onClick={() => closeDockPanel()}
                         className="oc-arcade-btn oc-arcade-btn-cta w-full"
                       >
-                        以访客身份继续
+                        Continue as Guest
                       </button>
                     </>
                   ) : sessionEmail ? (
                     <div className="space-y-3 text-center text-[13px] text-slate-700">
                       <p>
-                        当前会话：<span className="font-semibold text-slate-900">{sessionEmail}</span>
+                        Current session: <span className="font-semibold text-slate-900">{sessionEmail}</span>
                       </p>
                       <button
                         type="button"
@@ -344,11 +433,14 @@ export default function DockFeatureModal({ game }: Props) {
                           setAuthError(null)
                           setAuthLoading(true)
                           try {
+                            pushDataFlowTrace('auth.signOut', 'start')
                             await supabase.auth.signOut()
                             logoutAccount()
                             setSessionEmail(null)
+                            pushDataFlowTrace('auth.signOut', 'success')
                           } catch (e) {
-                            setAuthError(e instanceof Error ? e.message : '登出失败')
+                            pushDataFlowTrace('auth.signOut', 'error', e instanceof Error ? e.message : 'Sign out failed')
+                            setAuthError(e instanceof Error ? e.message : 'Sign out failed')
                           } finally {
                             setAuthLoading(false)
                           }
@@ -356,7 +448,7 @@ export default function DockFeatureModal({ game }: Props) {
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                       >
                         <LogOut size={14} />
-                        退出登录
+                        Sign out
                       </button>
                       {authError && <p className="text-[12px] text-rose-600">{authError}</p>}
                     </div>
@@ -368,6 +460,8 @@ export default function DockFeatureModal({ game }: Props) {
                           onClick={() => {
                             setAuthMode('signin')
                             setAuthError(null)
+                            setConfirmPassword('')
+                            setShowConfirmPassword(false)
                           }}
                           className={
                             authMode === 'signin'
@@ -375,7 +469,7 @@ export default function DockFeatureModal({ game }: Props) {
                               : 'text-slate-400 hover:text-slate-600'
                           }
                         >
-                          登录
+                          Sign in
                         </button>
                         <span className="text-slate-300">|</span>
                         <button
@@ -390,13 +484,13 @@ export default function DockFeatureModal({ game }: Props) {
                               : 'text-slate-400 hover:text-slate-600'
                           }
                         >
-                          注册
+                          Sign up
                         </button>
                       </div>
 
                       <label className="mb-3 block">
                         <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-                          <User size={12} /> 邮箱
+                          <User size={12} /> Email
                         </span>
                         <input
                           type="email"
@@ -407,26 +501,69 @@ export default function DockFeatureModal({ game }: Props) {
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
                         />
                       </label>
+                      {authMode === 'signup' && (
+                        <label className="mb-3 block">
+                          <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
+                            <User size={12} /> Display name
+                          </span>
+                          <input
+                            type="text"
+                            autoComplete="nickname"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder="Adventurer"
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+                          />
+                        </label>
+                      )}
                       <label className="mb-4 block">
                         <span className="mb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-700">
-                          <span>密码</span>
+                          <span>Password</span>
+                        </span>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="**********"
+                            className="auth-password-input w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+                          />
                           <button
                             type="button"
                             onClick={() => setShowPassword((v) => !v)}
-                            className="font-normal text-slate-400 hover:text-slate-600"
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            className="absolute inset-y-0 right-2 my-auto flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                           >
-                            {showPassword ? '隐藏' : '显示'}
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                           </button>
-                        </span>
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="**********"
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                        />
+                        </div>
                       </label>
+                      {authMode === 'signup' && (
+                        <label className="mb-4 block">
+                          <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
+                            Confirm password
+                          </span>
+                          <div className="relative">
+                            <input
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              placeholder="**********"
+                              className="auth-password-input w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-[13px] text-slate-800 outline-none focus:border-orange-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword((v) => !v)}
+                              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                              className="absolute inset-y-0 right-2 my-auto flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                            >
+                              {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </label>
+                      )}
 
                       {authError && (
                         <p className="mb-3 rounded-lg bg-rose-50 px-2 py-1.5 text-center text-[12px] text-rose-700">
@@ -442,34 +579,67 @@ export default function DockFeatureModal({ game }: Props) {
                           const email = loginAccount.trim()
                           const password = loginPassword
                           if (!email) {
-                            setAuthError('请输入邮箱')
+                            setAuthError('Please enter email')
+                            return
+                          }
+                          const trimmedDisplayName = displayName.trim()
+                          if (authMode === 'signup' && !trimmedDisplayName) {
+                            setAuthError('Please choose a display name')
                             return
                           }
                           if (password.length < 6) {
-                            setAuthError('密码至少 6 位（Supabase 默认策略）')
+                            setAuthError('Password must be at least 6 characters (Supabase default policy)')
+                            return
+                          }
+                          if (authMode === 'signup' && password !== confirmPassword) {
+                            setAuthError('Passwords do not match')
                             return
                           }
                           setAuthLoading(true)
                           try {
                             if (authMode === 'signup') {
-                              const { error } = await supabase.auth.signUp({ email, password })
-                              if (error) {
-                                setAuthError(error.message)
+                              pushDataFlowTrace('auth.signUp', 'start')
+                              const { error: signUpError } = await supabase.auth.signUp({ email, password })
+                              if (signUpError) {
+                                pushDataFlowTrace('auth.signUp', 'error', signUpError.message)
+                                setAuthError(signUpError.message)
                                 return
                               }
+                              pushDataFlowTrace('auth.signUp', 'success')
+
                               const { data } = await supabase.auth.getSession()
                               if (data.session?.user?.email) {
                                 login(data.session.user.email)
                                 setSessionEmail(data.session.user.email)
+                                await savePlayerSave({ character_name: trimmedDisplayName })
                               } else {
-                                setAuthError('注册成功。若项目开启邮箱确认，请查收邮件后再登录。')
+                                // For projects with email-confirm disabled, sign-up may still return no active session.
+                                // Retry password sign-in so users can enter the game immediately.
+                                pushDataFlowTrace('auth.signInWithPassword', 'start', 'Retry after sign-up')
+                                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+                                if (signInError) {
+                                  pushDataFlowTrace('auth.signInWithPassword', 'error', signInError.message)
+                                  setAuthError('Sign-up succeeded. Please sign in with the same email and password.')
+                                  return
+                                }
+                                pushDataFlowTrace('auth.signInWithPassword', 'success')
+                                const { data: signedInData } = await supabase.auth.getSession()
+                                const signedInEmail = signedInData.session?.user?.email
+                                if (signedInEmail) {
+                                  login(signedInEmail)
+                                  setSessionEmail(signedInEmail)
+                                  await savePlayerSave({ character_name: trimmedDisplayName })
+                                }
                               }
                             } else {
+                              pushDataFlowTrace('auth.signInWithPassword', 'start')
                               const { error } = await supabase.auth.signInWithPassword({ email, password })
                               if (error) {
+                                pushDataFlowTrace('auth.signInWithPassword', 'error', error.message)
                                 setAuthError(error.message)
                                 return
                               }
+                              pushDataFlowTrace('auth.signInWithPassword', 'success')
                               const { data } = await supabase.auth.getSession()
                               const em = data.session?.user?.email
                               if (em) {
@@ -483,7 +653,7 @@ export default function DockFeatureModal({ game }: Props) {
                         }}
                         className="oc-arcade-btn oc-arcade-btn-cta w-full disabled:opacity-60"
                       >
-                        {authLoading ? '请稍候…' : authMode === 'signup' ? '注册并进入' : 'ENTER ARENA'}
+                        {authLoading ? 'Please wait…' : authMode === 'signup' ? 'Sign up and enter' : 'ENTER ARENA'}
                       </button>
                       <div className="mt-3 text-center">
                         <button
@@ -491,22 +661,28 @@ export default function DockFeatureModal({ game }: Props) {
                           onClick={() => closeDockPanel()}
                           className="text-[12px] font-bold text-slate-500 hover:text-slate-700"
                         >
-                          以访客身份继续
+                          Continue as Guest
                         </button>
                       </div>
                     </>
                   )}
-
-                  <button type="button" className="oc-arcade-btn oc-arcade-btn-cta">
-                    ENTER ARENA
-                  </button>
-                  <div className="mt-3 text-center">
-                    <button type="button" className="text-[12px] font-bold text-slate-500 hover:text-slate-700">
-                      Continue as Guest
-                    </button>
-                  </div>
                   <div className="mt-4 border-t border-dashed border-slate-200 pt-3 text-center text-[11px] text-slate-500">
                     Local Character Lv.{playerLevel} · Gold {playerGold}
+                  </div>
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                    <div className="mb-1 text-[11px] font-bold text-slate-700">Data Sync Trace</div>
+                    <div className="max-h-28 space-y-1 overflow-y-auto text-[10px] text-slate-600">
+                      {dataFlowTrace.length === 0 ? (
+                        <div>No events yet</div>
+                      ) : (
+                        dataFlowTrace.slice(0, 8).map((item) => (
+                          <div key={item.id} className="flex items-center gap-2">
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${item.status === 'success' ? 'bg-emerald-500' : item.status === 'error' ? 'bg-rose-500' : 'bg-amber-400'}`} />
+                            <span>{new Date(item.time).toLocaleTimeString()} · {item.action}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

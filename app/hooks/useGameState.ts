@@ -65,15 +65,6 @@ export interface PVPUser {
   level: number
 }
 
-/** Mock PVP user list */
-export const MOCK_PVP_USERS: PVPUser[] = [
-  { id: 'u1', name: 'Red Eye', level: 3 },
-  { id: 'u2', name: 'White Wood', level: 5 },
-  { id: 'u3', name: 'Black Feather', level: 7 },
-  { id: 'u4', name: 'Blue Leaf', level: 2 },
-  { id: 'u5', name: 'Gold Well', level: 9 },
-]
-
 /** BattleLogPanel (legacy entry) item */
 export interface BattleHistoryLogItem {
   id: string
@@ -591,10 +582,8 @@ export function useGameState() {
 
   // Start PVP battle
   const startPVPBattle = useCallback(
-    (userId: string) => {
-      const user = MOCK_PVP_USERS.find((u) => u.id === userId)
-      if (!user) return
-
+    (opponent: PVPUser) => {
+      const user = opponent
       const stats = calcPlayerStats(user.level)
       if (enemies.length === 0) {
         setEnemies([...initialEnemies])

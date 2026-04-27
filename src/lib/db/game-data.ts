@@ -5,7 +5,7 @@
  * These tables are public (no auth required) and rarely change,
  * so results are safe to cache at the module level after first load.
  */
-import { supabase } from '../supabase/client'
+import { requireSupabaseClient } from '../supabase/client'
 import type { SkillRow, JobClassRow, JobClassSkillRow, EnemyTemplateRow, MapEnemyRow } from './types'
 
 // ─────────────────────────────────────────────
@@ -13,12 +13,14 @@ import type { SkillRow, JobClassRow, JobClassSkillRow, EnemyTemplateRow, MapEnem
 // ─────────────────────────────────────────────
 
 export async function fetchAllSkills(): Promise<SkillRow[]> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase.from('skills').select('*').order('id')
   if (error) throw error
   return data ?? []
 }
 
 export async function fetchSkillById(id: string): Promise<SkillRow | null> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('skills')
     .select('*')
@@ -36,12 +38,14 @@ export async function fetchSkillById(id: string): Promise<SkillRow | null> {
 // ─────────────────────────────────────────────
 
 export async function fetchAllJobClasses(): Promise<JobClassRow[]> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase.from('job_classes').select('*').order('id')
   if (error) throw error
   return data ?? []
 }
 
 export async function fetchJobClassById(id: string): Promise<JobClassRow | null> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('job_classes')
     .select('*')
@@ -61,6 +65,7 @@ export async function fetchJobClassById(id: string): Promise<JobClassRow | null>
 export async function fetchJobClassSkills(
   jobClassId: string
 ): Promise<Array<JobClassSkillRow & { skill: SkillRow }>> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('job_class_skills')
     .select('*, skill:skills(*)')
@@ -74,6 +79,7 @@ export async function fetchJobClassSkills(
  * Returns the default carried skill ids for a job class (is_default = true, up to 6).
  */
 export async function fetchDefaultCarriedSkillIds(jobClassId: string): Promise<string[]> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('job_class_skills')
     .select('skill_id')
@@ -90,6 +96,7 @@ export async function fetchDefaultCarriedSkillIds(jobClassId: string): Promise<s
 // ─────────────────────────────────────────────
 
 export async function fetchEnemyTemplate(id: string): Promise<EnemyTemplateRow | null> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('enemy_templates')
     .select('*')
@@ -103,6 +110,7 @@ export async function fetchEnemyTemplate(id: string): Promise<EnemyTemplateRow |
 }
 
 export async function fetchMapEnemies(mapId: string): Promise<MapEnemyRow[]> {
+  const supabase = requireSupabaseClient()
   const { data, error } = await supabase
     .from('map_enemies')
     .select('*')
