@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Send } from 'lucide-react'
 import type { ChatMessage, GameState } from '../hooks/useGameState'
 import type { ChatTargetOption } from './DockFeatureModal'
+import { calcEnemyStats } from '../constants'
 
 interface Props {
   game: GameState
@@ -34,6 +35,27 @@ const SYSTEM_CHAT_THREADS_STORAGE_KEY = 'battle-system-chat-threads-v1'
 const ENEMY_CHAT_THREADS_STORAGE_KEY = 'battle-enemy-chat-threads-v1'
 const EMPTY_MESSAGES: ChatMessage[] = []
 
+type ChatRuntimeContext = {
+  player?: {
+    level?: number
+    hp?: number
+    maxHp?: number
+  }
+  enemy?: {
+    id?: number
+    name?: string
+    level?: number
+    isAgent?: boolean
+    agentId?: string
+    stats?: {
+      maxHp?: number
+      atk?: number
+      def?: number
+      spd?: number
+    }
+  }
+}
+
 function toApiMessages(
   messages: ChatMessage[]
 ): { role: 'user' | 'assistant'; content: string }[] {
@@ -48,12 +70,13 @@ function toApiMessages(
 async function requestChatReply(
   history: { role: 'user' | 'assistant'; content: string }[],
   target: 'system' | 'enemy',
-  agentId?: string
+  agentId?: string,
+  context?: ChatRuntimeContext
 ): Promise<string> {
   const r = await fetch(`${AI_PROXY_BASE}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target, agentId, messages: history })
+    body: JSON.stringify({ target, agentId, context, messages: history })
   })
   const data = (await r.json()) as { reply?: string; error?: string }
   if (!r.ok) {
@@ -138,6 +161,54 @@ export default function ChatPanel({
   const activeAgentId = activeTargetId.startsWith('agent:') ? activeTargetId.slice('agent:'.length) : undefined
   const canUseAutomation = activeTargetKind === 'system' || Boolean(activeAgentId)
   const activeMessages = (activeTargetKind === 'enemy' ? enemyChatThreads : systemChatThreads)[activeTargetId] ?? EMPTY_MESSAGES
+  const activeEnemy =
+    activeAgentId
+      ? game.enemies.find((e) => (e.agentId || '').toLowerCase() === activeAgentId.toLowerCase())
+      : activeTargetKind === 'enemy'
+        ? game.nearbyEnemy
+        : null
+  const levelFallback = activeEnemy?.level ?? 1
+  const defaultEnemyStats = calcEnemyStats(levelFallback)
+  const enemyPreviewStats = game.nearbyEnemy?.id === activeEnemy?.id ? game.enemyPreview?.stats : undefined
+  const profileStats = activeEnemy?.profile
+  const resolvedEnemyStats = activeEnemy
+    ? {
+        maxHp:
+          enemyPreviewStats?.maxHp ??
+          profileStats?.maxHp ??
+          defaultEnemyStats.maxHp,
+        atk:
+          enemyPreviewStats?.atk ??
+          profileStats?.atk ??
+          defaultEnemyStats.atk,
+        def:
+          enemyPreviewStats?.def ??
+          profileStats?.def ??
+          defaultEnemyStats.def,
+        spd:
+          enemyPreviewStats?.spd ??
+          profileStats?.spd ??
+          defaultEnemyStats.spd,
+      }
+    : undefined
+
+  const chatContext: ChatRuntimeContext = {
+    player: {
+      level: game.playerLevel,
+      hp: game.playerHP,
+      maxHp: game.totalStats.maxHp,
+    },
+    enemy: activeEnemy
+      ? {
+          id: activeEnemy.id,
+          name: activeEnemy.name,
+          level: activeEnemy.level,
+          isAgent: activeEnemy.enemyType === 'agent',
+          agentId: activeEnemy.agentId,
+          stats: resolvedEnemyStats,
+        }
+      : undefined,
+  }
 
   useEffect(() => {
     if (controlledTargetId) return
@@ -275,7 +346,7 @@ export default function ChatPanel({
 
     setChatLoading(true)
     try {
-      const reply = await requestChatReply(forApi, targetKind, activeAgentId)
+      const reply = await requestChatReply(forApi, targetKind, activeAgentId, chatContext)
       appendThreadMessage(activeTargetId, activeTargetKind, reply, false)
     } catch (e) {
       const err = e instanceof Error ? e.message : 'request_failed'

@@ -26,6 +26,11 @@ Behavior:
 - If user asks for automation/task style commands (battle repeats, flee policy, farm), acknowledge clearly in natural language.
 - Tone: confident, slightly playful, competent.
 - Plain text only, no JSON, no markdown tables.`;
+const CHAT_GROUNDED_RULES = `Grounding rules:
+- You MUST prioritize provided runtime context (player/enemy level and stats) over roleplay.
+- Do NOT fabricate numeric stats (HP/ATK/DEF/SPD/level) when context is missing.
+- If a requested stat is unavailable, explicitly say you don't have that exact value now.
+- Keep roleplay flavor, but factual values must remain grounded in context.`;
 
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -172,6 +177,52 @@ function sanitizeChatMessages(raw) {
   return out;
 }
 
+function sanitizeChatContext(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  try {
+    return JSON.parse(JSON.stringify(raw));
+  } catch {
+    return null;
+  }
+}
+
+function extractLastUserMessage(history) {
+  if (!Array.isArray(history)) return '';
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const item = history[i];
+    if (item?.role === 'user') return String(item.content || '').trim();
+  }
+  return '';
+}
+
+function isStatQuestion(text) {
+  const t = String(text || '').toLowerCase();
+  if (!t) return false;
+  return /(hp|health|atk|attack|def|defense|spd|speed|stat|stats|level|lvl|血|生命|攻击|防御|速度|属性|等级)/i.test(t);
+}
+
+function hasEnemyStats(context) {
+  const s = context?.enemy?.stats;
+  return Number.isFinite(s?.maxHp) && Number.isFinite(s?.atk) && Number.isFinite(s?.def) && Number.isFinite(s?.spd);
+}
+
+function buildEnemyStatsReply(context) {
+  const enemy = context?.enemy || {};
+  const stats = enemy.stats || {};
+  const name = enemy.name || 'This enemy';
+  const level = Number.isFinite(enemy.level) ? enemy.level : null;
+  const hp = Number.isFinite(stats.maxHp) ? Math.round(stats.maxHp) : null;
+  const atk = Number.isFinite(stats.atk) ? Math.round(stats.atk) : null;
+  const def = Number.isFinite(stats.def) ? Math.round(stats.def) : null;
+  const spd = Number.isFinite(stats.spd) ? Math.round(stats.spd) : null;
+  const levelText = level == null ? 'Unknown' : String(level);
+  const hpText = hp == null ? 'Unknown' : String(hp);
+  const atkText = atk == null ? 'Unknown' : String(atk);
+  const defText = def == null ? 'Unknown' : String(def);
+  const spdText = spd == null ? 'Unknown' : String(spd);
+  return `${name} stats (ground truth): Lv.${levelText}, HP ${hpText}, ATK ${atkText}, DEF ${defText}, SPD ${spdText}.`;
+}
+
 const server = createServer(async (req, res) => {
   const path = normalizeUrlPath(req.url || '/');
   if (req.method === 'OPTIONS') {
@@ -221,14 +272,32 @@ const server = createServer(async (req, res) => {
             : CHAT_SYSTEM_ENEMY
           : CHAT_SYSTEM_BOLT;
       const history = sanitizeChatMessages(body?.messages);
+      const context = sanitizeChatContext(body?.context);
       if (history.length === 0) {
         sendJson(res, 400, { error: 'messages_required' });
         return;
       }
+      const lastUser = extractLastUserMessage(history);
+      if (target === 'enemy' && isStatQuestion(lastUser)) {
+        if (hasEnemyStats(context)) {
+          sendJson(res, 200, { reply: buildEnemyStatsReply(context) });
+          return;
+        }
+        sendJson(res, 200, { reply: 'I do not have exact enemy stats in context right now.' });
+        return;
+      }
+      const contextPrompt = context
+        ? `Runtime context (source of truth): ${JSON.stringify(context)}`
+        : 'Runtime context (source of truth): unavailable';
       const text = await postDeepSeekChatCompletions({
         temperature: 0.75,
         timeoutMs: 20000,
-        messages: [{ role: 'system', content: system }, ...history]
+        messages: [
+          { role: 'system', content: system },
+          { role: 'system', content: CHAT_GROUNDED_RULES },
+          { role: 'system', content: contextPrompt },
+          ...history
+        ]
       });
       sendJson(res, 200, { reply: text });
     } catch (error) {
