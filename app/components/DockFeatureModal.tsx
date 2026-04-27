@@ -20,6 +20,7 @@ import ChatPanel from './ChatPanel'
 import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { savePlayerSave } from '@/src/lib/db/player-saves'
 import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
+import { getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
 
 export type ChatTargetOption = {
   id: string
@@ -99,6 +100,7 @@ export default function DockFeatureModal({ game }: Props) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [authLoading, setAuthLoading] = useState(false)
+  const [authResolved, setAuthResolved] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [sessionEmail, setSessionEmail] = useState<string | null>(null)
   const [dataFlowTrace, setDataFlowTrace] = useState<DataFlowTraceItem[]>([])
@@ -109,15 +111,18 @@ export default function DockFeatureModal({ game }: Props) {
   const refreshSession = useCallback(async () => {
     if (!supabase) {
       setSessionEmail(null)
+      setAuthResolved(true)
       return
     }
     const { data } = await supabase.auth.getSession()
     const email = data.session?.user?.email ?? null
     setSessionEmail(email)
+    setAuthResolved(true)
   }, [supabase])
 
   useEffect(() => {
     if (dockPanel !== 'character_login') return
+    setAuthResolved(false)
     void refreshSession()
   }, [dockPanel, refreshSession])
 
@@ -127,6 +132,7 @@ export default function DockFeatureModal({ game }: Props) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSessionEmail(session?.user?.email ?? null)
+      setAuthResolved(true)
     })
     return () => subscription.unsubscribe()
   }, [supabase, dockPanel])
@@ -212,6 +218,16 @@ export default function DockFeatureModal({ game }: Props) {
   }, [dockPanel, supabase])
 
   const meta = useMemo(() => (dockPanel ? PANEL_META[dockPanel] : null), [dockPanel])
+  const profileAuthViewState = useMemo(
+    () =>
+      getProfileAuthViewState({
+        supabaseConfigured: isBattleSupabaseConfigured(),
+        hasSupabaseClient: Boolean(supabase),
+        authResolved,
+        sessionEmail,
+      }),
+    [authResolved, sessionEmail, supabase],
+  )
   const [pvpSearchQuery, setPvpSearchQuery] = useState('')
 
   if (!dockPanel || !meta) return null
@@ -408,7 +424,7 @@ export default function DockFeatureModal({ game }: Props) {
                     </div>
                   </div>
 
-                  {!isBattleSupabaseConfigured() || !supabase ? (
+                  {profileAuthViewState === 'guest-mode' ? (
                     <>
                       <p className="mb-4 text-center text-[12px] leading-relaxed text-slate-600">
                         Configure Supabase to enable email sign-up/login; saves still prioritize browser local storage.
@@ -421,7 +437,11 @@ export default function DockFeatureModal({ game }: Props) {
                         Continue as Guest
                       </button>
                     </>
-                  ) : sessionEmail ? (
+                  ) : profileAuthViewState === 'checking' ? (
+                    <div className="space-y-3 text-center text-[13px] text-slate-700">
+                      <p>Checking current session...</p>
+                    </div>
+                  ) : profileAuthViewState === 'authenticated' && sessionEmail ? (
                     <div className="space-y-3 text-center text-[13px] text-slate-700">
                       <p>
                         Current session: <span className="font-semibold text-slate-900">{sessionEmail}</span>
@@ -434,7 +454,7 @@ export default function DockFeatureModal({ game }: Props) {
                           setAuthLoading(true)
                           try {
                             pushDataFlowTrace('auth.signOut', 'start')
-                            await supabase.auth.signOut()
+                            await supabase!.auth.signOut()
                             logoutAccount()
                             setSessionEmail(null)
                             pushDataFlowTrace('auth.signOut', 'success')
@@ -599,7 +619,7 @@ export default function DockFeatureModal({ game }: Props) {
                           try {
                             if (authMode === 'signup') {
                               pushDataFlowTrace('auth.signUp', 'start')
-                              const { error: signUpError } = await supabase.auth.signUp({ email, password })
+                              const { error: signUpError } = await supabase!.auth.signUp({ email, password })
                               if (signUpError) {
                                 pushDataFlowTrace('auth.signUp', 'error', signUpError.message)
                                 setAuthError(signUpError.message)
@@ -607,7 +627,7 @@ export default function DockFeatureModal({ game }: Props) {
                               }
                               pushDataFlowTrace('auth.signUp', 'success')
 
-                              const { data } = await supabase.auth.getSession()
+                              const { data } = await supabase!.auth.getSession()
                               if (data.session?.user?.email) {
                                 login(data.session.user.email)
                                 setSessionEmail(data.session.user.email)
@@ -616,14 +636,14 @@ export default function DockFeatureModal({ game }: Props) {
                                 // For projects with email-confirm disabled, sign-up may still return no active session.
                                 // Retry password sign-in so users can enter the game immediately.
                                 pushDataFlowTrace('auth.signInWithPassword', 'start', 'Retry after sign-up')
-                                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+                                const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password })
                                 if (signInError) {
                                   pushDataFlowTrace('auth.signInWithPassword', 'error', signInError.message)
                                   setAuthError('Sign-up succeeded. Please sign in with the same email and password.')
                                   return
                                 }
                                 pushDataFlowTrace('auth.signInWithPassword', 'success')
-                                const { data: signedInData } = await supabase.auth.getSession()
+                                const { data: signedInData } = await supabase!.auth.getSession()
                                 const signedInEmail = signedInData.session?.user?.email
                                 if (signedInEmail) {
                                   login(signedInEmail)
@@ -633,14 +653,14 @@ export default function DockFeatureModal({ game }: Props) {
                               }
                             } else {
                               pushDataFlowTrace('auth.signInWithPassword', 'start')
-                              const { error } = await supabase.auth.signInWithPassword({ email, password })
+                              const { error } = await supabase!.auth.signInWithPassword({ email, password })
                               if (error) {
                                 pushDataFlowTrace('auth.signInWithPassword', 'error', error.message)
                                 setAuthError(error.message)
                                 return
                               }
                               pushDataFlowTrace('auth.signInWithPassword', 'success')
-                              const { data } = await supabase.auth.getSession()
+                              const { data } = await supabase!.auth.getSession()
                               const em = data.session?.user?.email
                               if (em) {
                                 login(em)

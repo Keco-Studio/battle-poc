@@ -366,12 +366,16 @@ export function useGameState() {
       return
     }
 
+    const applySessionUser = (user: { id: string; email?: string | null }) => {
+      setAuthedUserId(user.id)
+      setAccountLabel(user.email ?? user.id)
+    }
+
     async function initFromAuth() {
       try {
         const { data: { user } } = await supabaseClient!.auth.getUser()
         if (user) {
-          setAuthedUserId(user.id)
-          setAccountLabel(user.email ?? user.id)
+          applySessionUser(user)
           const save = await loadPlayerSave()
           if (save && save.level > 1) {
             // Only overwrite local state if DB has real progress (level > 1)
@@ -403,8 +407,7 @@ export function useGameState() {
 
     const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        setAuthedUserId(session.user.id)
-        setAccountLabel(session.user.email ?? session.user.id)
+        applySessionUser(session.user)
         try {
           const save = await loadPlayerSave()
           if (save) applyDbSave(save)
@@ -426,7 +429,17 @@ export function useGameState() {
         }
         setDbHydrated(true)
       }
+      if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session?.user) {
+        applySessionUser(session.user)
+      }
       if (event === 'SIGNED_OUT') {
+        // Some environments may emit transient SIGNED_OUT during auth transitions.
+        // Re-check current user before clearing local auth state.
+        const { data: { user } } = await supabaseClient.auth.getUser()
+        if (user) {
+          applySessionUser(user)
+          return
+        }
         setAuthedUserId(null)
         setAccountLabel(null)
         setDbHydrated(true)
