@@ -1338,6 +1338,7 @@ export default function GameMap({ game }: Props) {
         : 0
       const autoFleeDamageThreshold = Math.max(1, left.hp * 0.1)
       const shouldAutoFlee =
+        !isPVPMode &&
         hasCombatStarted &&
         left.hp > 0 &&
         right.hp > 0 &&
@@ -2481,7 +2482,7 @@ export default function GameMap({ game }: Props) {
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {!isGameOver && (
+              {!isGameOver && !isPVPMode && (
                 <button
                   type="button"
                   onClick={() => {
