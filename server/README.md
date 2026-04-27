@@ -30,6 +30,14 @@ Health check:
 curl http://localhost:8787/health
 ```
 
+In-game chat (Engineer Bolt / enemy) calls `POST /api/ai/chat` with JSON body `{ "target": "system" | "enemy", "agentId"?: "deepclaw", "messages": [ { "role": "user"|"assistant", "content": "..." } ] }`. Example:
+
+```bash
+curl -s -X POST http://localhost:8787/api/ai/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"target":"system","messages":[{"role":"user","content":"hi"}]}'
+```
+
 ## 3) Start frontend
 
 In another terminal:
