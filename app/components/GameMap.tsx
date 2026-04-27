@@ -97,6 +97,7 @@ const ROTATION_KEYS = [
 type RotationKey = (typeof ROTATION_KEYS)[number]
 
 const DEFAULT_DIRECTION: RotationKey = 'south'
+const HOME_DEFAULT_MAP_ID = 'top-down-pixel-art-rpg-battle-arena-map-wide-ope-1777006352683'
 
 type MoveAnim = 'idle' | 'walk' | 'running'
 
@@ -381,7 +382,7 @@ export default function GameMap({ game }: Props) {
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null)
   const [tilesetReady, setTilesetReady] = useState(false)
   const [availableMaps, setAvailableMaps] = useState<Array<{ id: string; fileName: string }>>([])
-  const [selectedMapId, setSelectedMapId] = useState<string>('demo-project')
+  const [selectedMapId, setSelectedMapId] = useState<string>(HOME_DEFAULT_MAP_ID)
   const [mapInfo, setMapInfo] = useState<{
     width: number
     height: number
@@ -630,7 +631,9 @@ export default function GameMap({ game }: Props) {
         }
         if (!active) return
         setAvailableMaps(data.maps)
-        if (data.defaultMapId) {
+        if (data.maps.some((map) => map.id === HOME_DEFAULT_MAP_ID)) {
+          setSelectedMapId(HOME_DEFAULT_MAP_ID)
+        } else if (data.defaultMapId) {
           setSelectedMapId(data.defaultMapId)
         }
       } catch (error) {
