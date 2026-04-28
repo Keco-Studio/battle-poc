@@ -254,44 +254,7 @@ type MapImpactFx = {
   y: number
 }
 
-const DEEPCLAW_ENEMY_ID = 9001
-
-function ensureDeepClawAgentEnemy(
-  enemies: Enemy[],
-  mapInfo: {
-    width: number
-    height: number
-    collision: number[]
-    ground: number[]
-    tilesetId: string | null
-  },
-): Enemy[] {
-  if (enemies.some((e) => e.enemyType === 'agent' || e.agentId === 'deepclaw' || e.id === DEEPCLAW_ENEMY_ID)) {
-    return enemies
-  }
-  const spawn = snapGridSpawnToWalkable(
-    Math.max(1, mapInfo.width - 3),
-    2,
-    mapInfo.width,
-    mapInfo.height,
-    mapInfo.collision,
-    mapInfo.ground,
-    mapInfo.tilesetId,
-  )
-  return [
-    ...enemies,
-    {
-      id: DEEPCLAW_ENEMY_ID,
-      name: 'DeepClaw Agent',
-      x: spawn.x,
-      y: spawn.y,
-      level: 8,
-      enemyType: 'agent',
-      agentId: 'deepclaw',
-      visualId: 'archerGreen',
-    },
-  ]
-}
+ 
 
 type CombatAnim = 'idle' | 'attack' | 'cast' | 'hit'
 
@@ -709,8 +672,6 @@ export default function GameMap({ game }: Props) {
             y: number
             level: number
             profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
-            enemyType?: 'wild' | 'agent'
-            agentId?: string
             visualId?: MapCharacterVisualId | null
             mapSpriteTileIndex?: number
           }>
@@ -739,15 +700,7 @@ export default function GameMap({ game }: Props) {
         )
         setPlayerPos(spawn)
         if (data.enemies.length > 0) {
-          setEnemies(
-            ensureDeepClawAgentEnemy(data.enemies, {
-              width: data.width,
-              height: data.height,
-              collision: data.collision,
-              ground: data.ground,
-              tilesetId: data.tileset?.id ?? null,
-            }),
-          )
+          setEnemies(data.enemies)
         }
       } catch (error) {
         console.warn('load airpg map failed:', error)
@@ -1889,9 +1842,7 @@ export default function GameMap({ game }: Props) {
               def: enc.stats.def,
               spd: enc.stats.spd,
             },
-            enemyType: e.enemyType,
-            agentId: e.agentId,
-            visualId: e.enemyType === 'agent' ? e.visualId : e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
+            visualId: e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
             mapSpriteTileIndex: e.mapSpriteTileIndex,
           }
           return nextEnemy
@@ -1998,17 +1949,7 @@ export default function GameMap({ game }: Props) {
           playerVisualId?: MapCharacterVisualId
         }
         if (d.playerVisualId) setPlayerVisualId(d.playerVisualId)
-        if (d.enemies?.length) {
-          setEnemies(
-            ensureDeepClawAgentEnemy(d.enemies, {
-              width: d.width ?? mapInfo.width,
-              height: d.height ?? mapInfo.height,
-              collision: d.collision ?? mapInfo.collision,
-              ground: d.ground ?? mapInfo.ground,
-              tilesetId: d.tileset?.id ?? mapInfo.tileset?.id ?? null,
-            }),
-          )
-        }
+        if (d.enemies?.length) setEnemies(d.enemies)
       }
     } catch (e) {
       setPixellabSyncHint(e instanceof Error ? e.message : 'Sync failed')
