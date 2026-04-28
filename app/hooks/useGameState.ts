@@ -63,6 +63,7 @@ export interface PVPUser {
   id: string
   name: string
   level: number
+  carriedSkillIds?: string[]
 }
 
 /** BattleLogPanel (legacy entry) item */
@@ -249,6 +250,8 @@ export function useGameState() {
   const [pvpOpponentName, setPvpOpponentName] = useState<string | undefined>()
   /** Whether currently in PVP battle mode (disables collision detection) */
   const [isPVPMode, setIsPVPMode] = useState(false)
+  /** Current PVP opponent carried skills from player_saves (app skill ids). */
+  const [pvpOpponentCarriedSkillIds, setPvpOpponentCarriedSkillIds] = useState<string[]>([])
 
   // Battle related
   const [battleLog, setBattleLog] = useState<string[]>([])
@@ -630,6 +633,11 @@ export function useGameState() {
       setBattleCount((c) => c + 1)
       setEnemyPreview({ level: user.level, stats })
       setIsPVPMode(true)
+      setPvpOpponentCarriedSkillIds(
+        Array.isArray(user.carriedSkillIds)
+          ? user.carriedSkillIds.map((id) => String(id).trim()).filter(Boolean).slice(0, 6)
+          : []
+      )
     },
     [enemies, playerPos.x, playerPos.y],
   )
@@ -650,6 +658,7 @@ export function useGameState() {
     setBattleLootDrop(null)
     setCombatEnemyId(null)
     setIsPVPMode(false)
+    setPvpOpponentCarriedSkillIds([])
   }, [])
 
   /**
@@ -1001,6 +1010,7 @@ export function useGameState() {
     battleLogs,
     setShowBattleLog,
     isPVPMode,
+    pvpOpponentCarriedSkillIds,
     login,
     setShowLogin,
     chatMessages,

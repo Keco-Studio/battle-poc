@@ -290,6 +290,7 @@ export default function GameMap({ game }: Props) {
     startBattle,
     showBattle,
     isPVPMode,
+    pvpOpponentCarriedSkillIds,
     playerLevel,
     playerHP,
     setPlayerHP,
@@ -1179,6 +1180,11 @@ export default function GameMap({ game }: Props) {
       enemyId: `enemy-${battleEnemy.id}`,
       enemyGrid: initialEnemyGrid,
       enemyStats: enemyCombatStats,
+      enemySkillIds: isPVPMode
+        ? pvpOpponentCarriedSkillIds
+            .map((id) => getSkillById(id)?.coreSkillId)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        : undefined,
       battleDecisionMode,
       llmConfig:
         battleDecisionMode === 'dual_llm'
@@ -1972,13 +1978,29 @@ export default function GameMap({ game }: Props) {
             return (
               <div
                 key={enemy.id}
-                className="absolute pointer-events-none z-20"
+                className="absolute z-20 cursor-pointer"
                 style={{
                   left: `${gridToScreen(pos.x, pos.y).x}px`,
                   top: `${gridToScreen(pos.x, pos.y).y}px`,
                   transform: 'translate(-50%, -50%)',
                   ...enemyTransitionStyle,
                 }}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  if (showBattle) return
+                  setNearbyEnemy(enemy)
+                  setShowEnemyInfo(true)
+                }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return
+                  event.preventDefault()
+                  if (showBattle) return
+                  setNearbyEnemy(enemy)
+                  setShowEnemyInfo(true)
+                }}
+                aria-label={`View ${enemy.name} info`}
               >
                 {inBattle && (
                   <div className="absolute -top-10 left-1/2 w-14 -translate-x-1/2">

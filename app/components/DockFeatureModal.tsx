@@ -73,6 +73,15 @@ type HistoryItem = {
   battleType: 'pve' | 'pvp'
 }
 
+function getFriendlyAuthErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : 'Authentication failed'
+  const dbError = error as { code?: string; message?: string } | null
+  if (dbError?.code === '23505' && /character_name/i.test(dbError.message ?? '')) {
+    return 'Display name is already taken. Please choose another one.'
+  }
+  return message
+}
+
 function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
   const base = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm'
   if (battleType === 'pvp') {
@@ -175,7 +184,7 @@ export default function DockFeatureModal({ game }: Props) {
 
         let query = supabase
           .from('player_saves')
-          .select('user_id, character_name, level')
+          .select('user_id, character_name, level, carried_skill_ids')
           .order('level', { ascending: false })
           .limit(100)
 
@@ -191,6 +200,9 @@ export default function DockFeatureModal({ game }: Props) {
           id: String(row.user_id),
           name: String(row.character_name || 'Adventurer'),
           level: Math.max(1, Number(row.level ?? 1)),
+          carriedSkillIds: Array.isArray(row.carried_skill_ids)
+            ? row.carried_skill_ids.map((id: unknown) => String(id))
+            : [],
         }))
         if (!cancelled) {
           setPvpUsers(mapped)
@@ -667,6 +679,14 @@ export default function DockFeatureModal({ game }: Props) {
                                 setSessionEmail(em)
                               }
                             }
+                          } catch (e) {
+                            const friendlyMessage = getFriendlyAuthErrorMessage(e)
+                            setAuthError(friendlyMessage)
+                            pushDataFlowTrace(
+                              authMode === 'signup' ? 'auth.signUp' : 'auth.signInWithPassword',
+                              'error',
+                              friendlyMessage
+                            )
                           } finally {
                             setAuthLoading(false)
                           }
