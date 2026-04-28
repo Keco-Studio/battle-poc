@@ -18,14 +18,7 @@ const SYSTEM_PROMPT =
 const CHAT_SYSTEM_BOLT = `You are Engineer Bolt, a friendly Lv.14 engineer robot in a fantasy battle-arena world. You have a "Tool Claw" for gear tweaks and battle tips. Keep replies concise (1–4 short sentences) unless the user asks for detail. You can give encouragement and practical combat hints. Stay in character; no JSON; plain chat only.`;
 
 const CHAT_SYSTEM_ENEMY = `You are a monster or rival the player is chatting with on the field. Reply in short, in-character lines (1–3 sentences). You may be sassy or menacing. Plain text only, no JSON.`;
-const CHAT_SYSTEM_DEEPCLAW = `You are DeepClaw Agent, the signature AI creature of battle-poc powered by DeepSeek. Stay in character as a roaming elite monster and tactical operator.
-
-Behavior:
-- Keep replies concise and practical (1–4 short sentences).
-- You can chat, give battle strategy, and accept action requests.
-- If user asks for automation/task style commands (battle repeats, flee policy, farm), acknowledge clearly in natural language.
-- Tone: confident, slightly playful, competent.
-- Plain text only, no JSON, no markdown tables.`;
+const CHAT_SYSTEM_DEEPCLAW = '';
 const CHAT_GROUNDED_RULES = `Grounding rules:
 - You MUST prioritize provided runtime context (player/enemy level and stats) over roleplay.
 - Do NOT fabricate numeric stats (HP/ATK/DEF/SPD/level) when context is missing.
@@ -267,9 +260,7 @@ const server = createServer(async (req, res) => {
       const agentId = String(body?.agentId || '').trim().toLowerCase();
       const system =
         target === 'enemy'
-          ? agentId === 'deepclaw'
-            ? CHAT_SYSTEM_DEEPCLAW
-            : CHAT_SYSTEM_ENEMY
+          ? CHAT_SYSTEM_ENEMY
           : CHAT_SYSTEM_BOLT;
       const history = sanitizeChatMessages(body?.messages);
       const context = sanitizeChatContext(body?.context);

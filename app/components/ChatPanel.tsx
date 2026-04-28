@@ -18,9 +18,9 @@ interface Props {
 const QUICK_PROMPTS = ['What are you building?', 'Tell me your skills', 'How do you use your claw?']
 
 const OFFLINE_BOLT_REPLY =
-  "Engineer Bolt is offline. Start `npm run dev:ai` and set `DEEPSEEK_API_KEY` in `server/.env`, then I'll be back online."
+  'Agent backend offline. Check /api/agent-chat backend mode and endpoint configuration.'
 
-const AI_PROXY_BASE = (process.env.NEXT_PUBLIC_BATTLE_AI_SERVER_URL || 'http://localhost:8787').replace(/\/$/, '')
+const AGENT_CHAT_API = '/api/agent-chat'
 
 const AUTO_COMMANDS = [
   { label: 'Battle 5 times', cmd: 'battle 5 times' },
@@ -73,7 +73,7 @@ async function requestChatReply(
   agentId?: string,
   context?: ChatRuntimeContext
 ): Promise<string> {
-  const r = await fetch(`${AI_PROXY_BASE}/api/ai/chat`, {
+  const r = await fetch(AGENT_CHAT_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ target, agentId, context, messages: history })
@@ -140,16 +140,7 @@ export default function ChatPanel({
   const [enemyChatThreads, setEnemyChatThreads] = useState<Record<string, ChatMessage[]>>({})
   const [chatStorageHydrated, setChatStorageHydrated] = useState(false)
 
-  const deepClawEnemy = game.enemies.find((e) => e.enemyType === 'agent' || e.agentId === 'deepclaw')
-  const defaultTargets: ChatTargetOption[] = [{ id: 'system-engineer', label: 'Engineer Bolt', kind: 'system', disabled: false }]
-  if (deepClawEnemy) {
-    defaultTargets.push({
-      id: `agent:${deepClawEnemy.agentId || 'deepclaw'}`,
-      label: deepClawEnemy.name,
-      kind: 'enemy',
-      disabled: false,
-    })
-  }
+  const defaultTargets: ChatTargetOption[] = [{ id: 'player-agent', label: 'You', kind: 'system', disabled: false }]
   const targets = chatTargets && chatTargets.length > 0 ? chatTargets : defaultTargets
   const controlledTargetId =
     activeChatTargetId && targets.some((target) => target.id === activeChatTargetId) ? activeChatTargetId : null
@@ -158,15 +149,9 @@ export default function ChatPanel({
   const activeTargetId = controlledTargetId ?? fallbackTargetId
   const activeTarget = targets.find((target) => target.id === activeTargetId) ?? targets[0]
   const activeTargetKind = activeTarget?.kind === 'enemy' ? 'enemy' : 'system'
-  const activeAgentId = activeTargetId.startsWith('agent:') ? activeTargetId.slice('agent:'.length) : undefined
-  const canUseAutomation = activeTargetKind === 'system' || Boolean(activeAgentId)
+  const canUseAutomation = true
   const activeMessages = (activeTargetKind === 'enemy' ? enemyChatThreads : systemChatThreads)[activeTargetId] ?? EMPTY_MESSAGES
-  const activeEnemy =
-    activeAgentId
-      ? game.enemies.find((e) => (e.agentId || '').toLowerCase() === activeAgentId.toLowerCase())
-      : activeTargetKind === 'enemy'
-        ? game.nearbyEnemy
-        : null
+  const activeEnemy = game.nearbyEnemy
   const levelFallback = activeEnemy?.level ?? 1
   const defaultEnemyStats = calcEnemyStats(levelFallback)
   const enemyPreviewStats = game.nearbyEnemy?.id === activeEnemy?.id ? game.enemyPreview?.stats : undefined
@@ -203,26 +188,12 @@ export default function ChatPanel({
           id: activeEnemy.id,
           name: activeEnemy.name,
           level: activeEnemy.level,
-          isAgent: activeEnemy.enemyType === 'agent',
-          agentId: activeEnemy.agentId,
           stats: resolvedEnemyStats,
         }
       : undefined,
   }
 
-  useEffect(() => {
-    if (controlledTargetId) return
-    if (game.dockPanel !== 'chat') return
-    const nearby = game.nearbyEnemy
-    if (!nearby) return
-    const preferredId =
-      nearby.enemyType === 'agent' || nearby.agentId
-        ? `agent:${nearby.agentId || 'deepclaw'}`
-        : null
-    if (!preferredId) return
-    if (!targets.some((t) => t.id === preferredId)) return
-    setLocalActiveTargetId(preferredId)
-  }, [controlledTargetId, game.dockPanel, game.nearbyEnemy, targets])
+  // No special target auto-selection; only one default player agent target.
 
   const appendThreadMessage = (targetId: string, targetKind: 'system' | 'enemy', text: string, isSelf: boolean) => {
     const normalized = text.trim()
@@ -249,11 +220,11 @@ export default function ChatPanel({
   useEffect(() => {
     let cancelled = false
     const ac = new AbortController()
-    void fetch(`${AI_PROXY_BASE}/health`, { signal: ac.signal })
+    void fetch(AGENT_CHAT_API, { method: 'GET', signal: ac.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((p: { ok?: boolean; hasKey?: boolean } | null) => {
+      .then((p: { ok?: boolean } | null) => {
         if (cancelled) return
-        if (p && p.ok && p.hasKey) setLlmChatAvailable('yes')
+        if (p && p.ok) setLlmChatAvailable('yes')
         else setLlmChatAvailable('no')
       })
       .catch(() => {
@@ -346,7 +317,7 @@ export default function ChatPanel({
 
     setChatLoading(true)
     try {
-      const reply = await requestChatReply(forApi, targetKind, activeAgentId, chatContext)
+      const reply = await requestChatReply(forApi, targetKind, undefined, chatContext)
       appendThreadMessage(activeTargetId, activeTargetKind, reply, false)
     } catch (e) {
       const err = e instanceof Error ? e.message : 'request_failed'
@@ -354,7 +325,7 @@ export default function ChatPanel({
       appendThreadMessage(
         activeTargetId,
         activeTargetKind,
-        `${who}: couldn’t reach the model (${err.slice(0, 120)}). Run npm run dev:ai and set DEEPSEEK_API_KEY in server/.env.`,
+        `${who}: couldn’t reach agent backend (${err.slice(0, 160)}). Check /api/agent-chat config.`,
         false
       )
     } finally {

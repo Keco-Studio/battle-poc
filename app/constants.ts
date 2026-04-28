@@ -121,10 +121,6 @@ export interface Enemy {
   y: number
   level: number
   profile?: EnemyStatProfile
-  /** 'agent' marks special AI characters in map (e.g. DeepClaw). */
-  enemyType?: 'wild' | 'agent'
-  /** Stable id for agent persona routing in chat backend. */
-  agentId?: string
   /** When set, uses Warrior/Archer sprite; `null` means force tile sprite only */
   visualId?: MapCharacterVisualId | null
   /** When no valid `visualId`: 1-based tile index from map tileset (consistent with tile layer convention) */
@@ -142,16 +138,6 @@ export interface EnemyStatProfile {
 export const initialEnemies: Enemy[] = [
   { id: 1, name: 'Demon Guard', x: 5, y: 5, level: 3, visualId: 'warriorBlue' },
   { id: 2, name: 'Shadow Assassin', x: 10, y: 6, level: 5, visualId: 'warriorBlue' },
-  {
-    id: 9001,
-    name: 'DeepClaw Agent',
-    x: 12,
-    y: 4,
-    level: 8,
-    enemyType: 'agent',
-    agentId: 'deepclaw',
-    visualId: 'archerGreen',
-  },
 ]
 
 // Player starting position (grid coordinates)
