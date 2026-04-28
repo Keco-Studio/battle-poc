@@ -66,8 +66,13 @@ function buildEnemyEntity(input: {
   name: string
   pos: { x: number; y: number }
   stats: EnemyCombatStats
+  skillIds?: string[]
 }): BattleEntity {
   const maxHp = Math.max(1, Math.floor(input.stats.maxHp))
+  const carried = (input.skillIds ?? [])
+    .map((id) => String(id).trim())
+    .filter((id) => id.length > 0)
+  const skillIds = carried.length > 0 ? carried : [...ENEMY_CORE_SKILLS]
   return {
     id: input.id,
     name: input.name,
@@ -88,7 +93,7 @@ function buildEnemyEntity(input: {
     atk: Math.max(1, Math.floor(input.stats.atk)),
     def: Math.max(0, Math.floor(input.stats.def)),
     spd: Math.max(1, Math.floor(input.stats.spd)),
-    skillSlots: ENEMY_CORE_SKILLS.map((skillId) => ({ skillId, cooldownTick: 0 })),
+    skillSlots: skillIds.map((skillId) => ({ skillId, cooldownTick: 0 })),
     defending: false,
     alive: true,
     effects: [],
@@ -113,6 +118,7 @@ export type MapBattleStartConfig = {
   enemyId: string
   enemyGrid: { x: number; y: number }
   enemyStats: EnemyCombatStats
+  enemySkillIds?: string[]
   battleDecisionMode?: 'manual' | 'dual_llm'
   llmConfig?: LlmProviderConfig
 }
@@ -133,6 +139,7 @@ export function createMapBattleSession(cfg: MapBattleStartConfig): BattleSession
     name: cfg.enemyName,
     pos: { x: cfg.enemyGrid.x, y: cfg.enemyGrid.y },
     stats: cfg.enemyStats,
+    skillIds: cfg.enemySkillIds,
   })
 
   return createBattleSession({
