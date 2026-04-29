@@ -140,7 +140,7 @@ describe('decision guardrail', () => {
     expect(guarded.action.type).toBe('cast_skill')
   })
 
-  it('when dash is on cooldown should rewrite to executable action', () => {
+  it('when dash is on cooldown should rewrite to defensive fallback', () => {
     const barrier = getBattleSkillDefinition('barrier')
     expect(barrier).toBeTruthy()
     if (!barrier) return
@@ -192,6 +192,6 @@ describe('decision guardrail', () => {
 
     expect(guarded.rewritten).toBe(true)
     expect(guarded.rewriteReason).toBe('dash_on_cooldown')
-    expect(guarded.action.type).toBe('noop')
+    expect(guarded.action.type).toBe('defend')
   })
 })

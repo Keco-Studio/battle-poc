@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trophy, ScrollText, MessageSquare, Swords, User } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import {
@@ -19,55 +19,44 @@ import DockFeatureModal from './DockFeatureModal'
 import BattleResultOverlay from './map-ui/BattleResultOverlay'
 import InteractionButtons from './map-ui/InteractionButtons'
 import EnemyInfoModal from './map-ui/EnemyInfoModal'
-import { resolveSkillFxProfile, type ProjectileKind } from './map-ui/skillFxProfile'
+import { resolveSkillFxProfile } from './map-ui/skillFxProfile'
 import { actionLabel, reasonLabel, rejectReasonLabel, strategyLabel } from './map-ui/battleText'
 import PixellabMapGeneratorModal from './map-ui/PixellabMapGeneratorModal'
 import CollisionEditorModal from './map-ui/CollisionEditorModal'
+import { useAutoBattleStart } from './map-ui/hooks/useAutoBattleStart'
+import { useEnemyInfoInteraction } from './map-ui/hooks/useEnemyInfoInteraction'
+import { useMapClickMove } from './map-ui/hooks/useMapClickMove'
+import { useEnemyPatrol } from './map-ui/hooks/useEnemyPatrol'
+import { useMapKeyboardMovement } from './map-ui/hooks/useMapKeyboardMovement'
+import { useMapRenderMetrics } from './map-ui/hooks/useMapRenderMetrics'
+import { useMapTransientFx } from './map-ui/hooks/useMapTransientFx'
+import { useMapUiMetrics } from './map-ui/hooks/useMapUiMetrics'
+import { useNearbyEnemyDetection } from './map-ui/hooks/useNearbyEnemyDetection'
+import { usePixellabSync } from './map-ui/hooks/usePixellabSync'
+import { ensureDeepClawAgentEnemy } from './map-ui/utils/gameMapBattleUtils'
+import {
+  ROTATION_KEYS,
+  DEFAULT_DIRECTION,
+  HOME_DEFAULT_MAP_ID,
+  MAP_DISPLAY_ORDER,
+  disengageGridPositions,
+  getMapDisplayName,
+  pixelLabSheetActorStyle,
+  resolveDirectionByDelta,
+  snapToGrid,
+  toEnemyIdlePngPath,
+  toEnemyRunningFramePath,
+  toEnemyWalkFramePath,
+  toPlayerIdlePngPath,
+  toPlayerRunningFramePath,
+  toPlayerWalkFramePath,
+  type PixelLabPackMeta,
+  type RotationKey,
+} from './map-ui/gameMapUtils'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
 import { snapPositionToWalkable } from '../../src/map-battle/walkability'
 import { mapCharacterIdleStyle } from '../lib/mapEntitySpriteStyles'
-
-/** Disengage from battle: both sides retreat a few tiles along the connection line (move if walkable) */
-function disengageGridPositions(
-  player: { x: number; y: number },
-  enemy: { x: number; y: number },
-  mapW: number,
-  mapH: number,
-  isWalkable: (x: number, y: number, role: 'playerStep' | 'enemyStep') => boolean,
-): { player: { x: number; y: number }; enemy: { x: number; y: number } } {
-  let dx = player.x - enemy.x
-  let dy = player.y - enemy.y
-  if (dx === 0 && dy === 0) {
-    dx = 1
-    dy = 0
-  }
-  const len = Math.hypot(dx, dy) || 1
-  const nx = dx / len
-  const ny = dy / len
-  const step = 2
-  let px = Math.round(player.x + nx * step)
-  let py = Math.round(player.y + ny * step)
-  let ex = Math.round(enemy.x - nx * step)
-  let ey = Math.round(enemy.y - ny * step)
-  px = Math.max(0, Math.min(mapW - 1, px))
-  py = Math.max(0, Math.min(mapH - 1, py))
-  ex = Math.max(0, Math.min(mapW - 1, ex))
-  ey = Math.max(0, Math.min(mapH - 1, ey))
-  if (!isWalkable(px, py, 'playerStep')) {
-    px = player.x
-    py = player.y
-  }
-  if (!isWalkable(ex, ey, 'enemyStep')) {
-    ex = enemy.x
-    ey = enemy.y
-  }
-  return { player: { x: px, y: py }, enemy: { x: ex, y: ey } }
-}
-
-function snapToGrid(pos: { x: number; y: number }): { x: number; y: number } {
-  return { x: Math.round(pos.x), y: Math.round(pos.y) }
-}
 
 interface Props {
   game: GameState
@@ -83,132 +72,7 @@ type MapTileset = {
   columns: number
 }
 
-const ROTATION_KEYS = [
-  'north',
-  'south',
-  'east',
-  'west',
-  'north-east',
-  'north-west',
-  'south-east',
-  'south-west',
-] as const
-
-type RotationKey = (typeof ROTATION_KEYS)[number]
-
-const DEFAULT_DIRECTION: RotationKey = 'south'
-const HOME_DEFAULT_MAP_ID = 'top-down-pixel-art-rpg-battle-arena-map-wide-ope-1777006352683'
-
 type MoveAnim = 'idle' | 'walk' | 'running'
-
-const toEnemyIdlePngPath = (direction: RotationKey) => `/enemy/idle/${direction}.png`
-const toPlayerIdlePngPath = (direction: RotationKey) => `/player/idle/${direction}.png`
-
-const ENEMY_WALK_FRAMES_BY_FACING: Record<RotationKey, number> = {
-  north: 8,
-  south: 8,
-  east: 8,
-  west: 8,
-  'north-east': 8,
-  'north-west': 8,
-  'south-east': 8,
-  'south-west': 8,
-}
-
-// Your player walk export uses hashed folder names for some directions.
-const PLAYER_WALK_DIR_BY_FACING: Record<RotationKey, string> = {
-  north: 'north',
-  south: 'south',
-  east: 'east-9b803dd5',
-  west: 'west-44afc449',
-  'north-east': 'north-east-76d09498',
-  'north-west': 'north-west-6213b10b',
-  'south-east': 'south-east-b3963b75',
-  'south-west': 'south-west-326192d3',
-}
-
-function framePath(baseDir: string, frames: number, tick: number): string {
-  const safeFrames = Math.max(1, Math.floor(frames))
-  const frame = ((tick % safeFrames) + safeFrames) % safeFrames
-  const name = `frame_${String(frame).padStart(3, '0')}.png`
-  return `${baseDir}/${name}`
-}
-
-function toEnemyWalkFramePath(direction: RotationKey, tick: number): string {
-  return framePath(`/enemy/walk/${direction}`, ENEMY_WALK_FRAMES_BY_FACING[direction] ?? 8, tick)
-}
-
-function toEnemyRunningFramePath(direction: RotationKey, tick: number): string {
-  return framePath(`/enemy/running/${direction}`, 8, tick)
-}
-
-function toPlayerWalkFramePath(direction: RotationKey, tick: number): string {
-  const dir = PLAYER_WALK_DIR_BY_FACING[direction] ?? direction
-  return framePath(`/player/walk/${dir}`, 8, tick)
-}
-
-function toPlayerRunningFramePath(direction: RotationKey, tick: number): string {
-  return framePath(`/player/running/${direction}`, 8, tick)
-}
-
-/** Consistent with the row order of the `directions` array in ai-rpg-poc PixelLab pack `meta.json` */
-const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
-  south: 0,
-  'south-west': 1,
-  west: 2,
-  'north-west': 3,
-  north: 4,
-  'north-east': 5,
-  east: 6,
-  'south-east': 7,
-}
-
-type PixelLabPackMeta = {
-  id: string
-  imageSize: { width: number; height: number }
-  framesPerDirection: number
-  layout: { rows: number; cols: number }
-  files: { previewPng: string; sheetPng: string }
-}
-
-function pixelLabSheetActorStyle(
-  meta: PixelLabPackMeta,
-  facing: RotationKey,
-  isWalking: boolean,
-  tick: number,
-  displaySize: number,
-): CSSProperties {
-  const fw = meta.imageSize.width
-  const fh = meta.imageSize.height
-  const cols = meta.layout?.cols ?? meta.framesPerDirection ?? 1
-  const rows = meta.layout?.rows ?? 8
-  const row = PIXELLAB_ROW_BY_FACING[facing] ?? 0
-  const frames = Math.max(1, meta.framesPerDirection)
-  const frame = isWalking ? tick % frames : 0
-  const rel = meta.files.sheetPng
-  const sheetUrl = rel.startsWith('/') ? rel : `/${rel.replace(/^\/+/, '')}`
-  return {
-    width: displaySize,
-    height: displaySize,
-    backgroundImage: `url("${sheetUrl}")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundSize: `${fw * cols}px ${fh * rows}px`,
-    backgroundPosition: `${-frame * fw}px ${-row * fh}px`,
-    imageRendering: 'pixelated',
-  }
-}
-
-const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
-  if (dx === 0 && dy === 0) return DEFAULT_DIRECTION
-  if (dx > 0 && dy < 0) return 'north-east'
-  if (dx < 0 && dy < 0) return 'north-west'
-  if (dx > 0 && dy > 0) return 'south-east'
-  if (dx < 0 && dy > 0) return 'south-west'
-  if (dx > 0) return 'east'
-  if (dx < 0) return 'west'
-  if (dy < 0) return 'north'
-  return 'south'
-}
 
 /**
  * battle-core map battle tick interval.
@@ -219,42 +83,6 @@ const resolveDirectionByDelta = (dx: number, dy: number): RotationKey => {
 const BASE_BATTLE_TICK_MS = 200
 
 type BattleSpeedMultiplier = 0.5 | 1 | 2
-
-type MapFloatText = {
-  id: string
-  target: 'player' | 'enemy'
-  text: string
-  variant: 'damage' | 'heal'
-  offsetX: number
-}
-
-type MapMoveFx = {
-  id: string
-  target: 'player' | 'enemy'
-  x: number
-  y: number
-}
-
-type MapProjectileFx = {
-  id: string
-  kind: ProjectileKind
-  from: 'player' | 'enemy'
-  startX: number
-  startY: number
-  deltaX: number
-  deltaY: number
-  durationMs: number
-}
-
-type MapImpactFx = {
-  id: string
-  kind: 'hit' | 'dodge'
-  target: 'player' | 'enemy'
-  x: number
-  y: number
-}
-
- 
 
 type CombatAnim = 'idle' | 'attack' | 'cast' | 'hit'
 
@@ -368,16 +196,6 @@ export default function GameMap({ game }: Props) {
     return () => window.clearTimeout(t)
   }, [fleeSuccessMessage, dismissFleeSuccessMessage])
 
-  const keysRef = useRef<Record<string, boolean>>({
-    w: false,
-    a: false,
-    s: false,
-    d: false,
-    arrowup: false,
-    arrowdown: false,
-    arrowleft: false,
-    arrowright: false,
-  })
   const mapViewportRef = useRef<HTMLDivElement | null>(null)
   const mapCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const [mounted, setMounted] = useState(false)
@@ -385,6 +203,17 @@ export default function GameMap({ game }: Props) {
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null)
   const [tilesetReady, setTilesetReady] = useState(false)
   const [availableMaps, setAvailableMaps] = useState<Array<{ id: string; fileName: string }>>([])
+  const orderedAvailableMaps = useMemo(() => {
+    const orderIndex = new Map(MAP_DISPLAY_ORDER.map((id, index) => [id, index]))
+    return [...availableMaps].sort((a, b) => {
+      const aIndex = orderIndex.get(a.id)
+      const bIndex = orderIndex.get(b.id)
+      if (aIndex !== undefined || bIndex !== undefined) {
+        return (aIndex ?? Number.MAX_SAFE_INTEGER) - (bIndex ?? Number.MAX_SAFE_INTEGER)
+      }
+      return getMapDisplayName(a.id).localeCompare(getMapDisplayName(b.id))
+    })
+  }, [availableMaps])
   const [selectedMapId, setSelectedMapId] = useState<string>(HOME_DEFAULT_MAP_ID)
   const [mapInfo, setMapInfo] = useState<{
     width: number
@@ -427,7 +256,6 @@ export default function GameMap({ game }: Props) {
   const [enemyPositions, setEnemyPositions] = useState<Record<number, { x: number; y: number }>>({})
   const [enemyFacings, setEnemyFacings] = useState<Record<number, RotationKey>>({})
   const enemyTargetsRef = useRef<Record<number, { x: number; y: number }>>({})
-  const lastKeyboardMoveAtRef = useRef(0)
 
   const enemiesRef = useRef(enemies)
   enemiesRef.current = enemies
@@ -482,28 +310,18 @@ export default function GameMap({ game }: Props) {
     ],
   )
 
-  const playerPosRef = useRef(playerPos)
-  playerPosRef.current = playerPos
-  const isWalkableRef = useRef(isWalkable)
-  isWalkableRef.current = isWalkable
-
-  const mapAspect = mapInfo.width / Math.max(1, mapInfo.height)
-  const viewAspect = viewportSize.width / Math.max(1, viewportSize.height)
-  const renderWidth =
-    viewAspect > mapAspect ? Math.floor(viewportSize.height * mapAspect) : Math.floor(viewportSize.width)
-  const renderHeight =
-    viewAspect > mapAspect ? Math.floor(viewportSize.height) : Math.floor(viewportSize.width / mapAspect)
-  const renderOffsetX = Math.max(0, Math.floor((viewportSize.width - renderWidth) / 2))
-  const renderOffsetY = Math.max(0, Math.floor((viewportSize.height - renderHeight) / 2))
-  const mapCellDisplayPx =
-    Math.min(renderWidth / Math.max(1, mapInfo.width), renderHeight / Math.max(1, mapInfo.height)) * 0.92
-
-  /** Unified display size for player and enemy, scales with grid, aligned with ai-rpg-poc look and feel */
-  const actorPx = Math.max(32, Math.round(mapCellDisplayPx * 1.5))
-
-  const gridToScreen = (x: number, y: number) => ({
-    x: renderOffsetX + ((x + 0.5) / mapInfo.width) * renderWidth,
-    y: renderOffsetY + ((y + 0.5) / mapInfo.height) * renderHeight,
+  const {
+    renderWidth,
+    renderHeight,
+    renderOffsetX,
+    renderOffsetY,
+    mapCellDisplayPx,
+    actorPx,
+    gridToScreen,
+  } = useMapRenderMetrics({
+    viewportSize,
+    mapWidth: mapInfo.width,
+    mapHeight: mapInfo.height,
   })
 
   function skillCooldownRemaining(endAt: Record<string, number>, skillId: string): number {
@@ -536,10 +354,17 @@ export default function GameMap({ game }: Props) {
   const [battleSpeed, setBattleSpeed] = useState<BattleSpeedMultiplier>(1)
   const battleSpeedRef = useRef<BattleSpeedMultiplier>(1)
   battleSpeedRef.current = battleSpeed
-  const [floatTexts, setFloatTexts] = useState<MapFloatText[]>([])
-  const [moveFx, setMoveFx] = useState<MapMoveFx[]>([])
-  const [projectileFx, setProjectileFx] = useState<MapProjectileFx[]>([])
-  const [impactFx, setImpactFx] = useState<MapImpactFx[]>([])
+  const {
+    floatTexts,
+    moveFx,
+    projectileFx,
+    impactFx,
+    clearTransientFx,
+    pushFloatText,
+    pushMoveFx,
+    pushProjectileFx,
+    pushImpactFx,
+  } = useMapTransientFx()
   const [playerCombatFx, setPlayerCombatFx] = useState<CombatFxState>({
     anim: 'idle',
     untilMs: 0,
@@ -611,16 +436,13 @@ export default function GameMap({ game }: Props) {
 
   useEffect(() => {
     if (!showBattle) {
-      setFloatTexts([])
-      setMoveFx([])
-      setProjectileFx([])
-      setImpactFx([])
+      clearTransientFx()
       setPlayerCombatFx({ anim: 'idle', untilMs: 0, offsetX: 0, offsetY: 0 })
       setEnemyCombatFx({})
       projectileTargetByCommandRef.current = {}
       commandMetaByIdRef.current = {}
     }
-  }, [showBattle])
+  }, [clearTransientFx, showBattle])
 
   useEffect(() => {
     let active = true
@@ -907,204 +729,16 @@ export default function GameMap({ game }: Props) {
     viewportSize.width,
   ])
 
-  // Initialize enemy position
-  useEffect(() => {
-    const initial: Record<number, { x: number; y: number }> = {}
-    const facings: Record<number, RotationKey> = {}
-    enemies.forEach(e => {
-      initial[e.id] = { x: e.x, y: e.y }
-      facings[e.id] = ROTATION_KEYS[Math.abs(e.id) % ROTATION_KEYS.length]
-    })
-    setEnemyPositions(initial)
-    setEnemyFacings(facings)
-    enemyTargetsRef.current = { ...initial }
-  }, [enemies])
-
-  // NPC smooth patrol: continuous movement (non grid-snapping), and rotate in real-time based on displacement
-  useEffect(() => {
-    const tickMs = 80
-    const speedCellPerSec = 0.95
-    const moveInterval = window.setInterval(() => {
-      setEnemyPositions((prev) => {
-        const next = { ...prev }
-        const facingUpdates: Record<number, RotationKey> = {}
-        const nextTargets = { ...enemyTargetsRef.current }
-
-        enemies.forEach((enemy) => {
-          if (showBattle && isPVPMode) return
-          if (showBattle && combatEnemyId !== null && enemy.id === combatEnemyId) return
-
-          const from = next[enemy.id] ?? { x: enemy.x, y: enemy.y }
-          let target = nextTargets[enemy.id] ?? from
-
-          let dx = target.x - from.x
-          let dy = target.y - from.y
-          let distance = Math.hypot(dx, dy)
-
-          if (distance < 0.02) {
-            const baseX = Math.round(from.x)
-            const baseY = Math.round(from.y)
-            const candidates = [
-              { x: baseX + 1, y: baseY },
-              { x: baseX - 1, y: baseY },
-              { x: baseX, y: baseY + 1 },
-              { x: baseX, y: baseY - 1 },
-            ].filter((c) => isWalkable(c.x, c.y, { ignoreEnemyIds: [enemy.id] }))
-
-            if (candidates.length > 0) {
-              target = candidates[Math.floor(Math.random() * candidates.length)]
-              nextTargets[enemy.id] = target
-              dx = target.x - from.x
-              dy = target.y - from.y
-              distance = Math.hypot(dx, dy)
-            }
-          }
-
-          if (distance <= 0) {
-            next[enemy.id] = from
-            return
-          }
-
-          const step = (speedCellPerSec * tickMs) / 1000
-          const move = Math.min(step, distance)
-          const nx = from.x + (dx / distance) * move
-          const ny = from.y + (dy / distance) * move
-          next[enemy.id] = { x: nx, y: ny }
-          facingUpdates[enemy.id] = resolveDirectionByDelta(nx - from.x, ny - from.y)
-        })
-
-        if (Object.keys(facingUpdates).length > 0) {
-          setEnemyFacings((prevFacing) => ({ ...prevFacing, ...facingUpdates }))
-        }
-        enemyTargetsRef.current = nextTargets
-        return next
-      })
-    }, tickMs)
-
-    return () => window.clearInterval(moveInterval)
-  }, [combatEnemyId, enemies, isPVPMode, isWalkable, showBattle])
-
-  // Player keyboard movement enhancement: supports WASD + arrow keys for movement, and keeps facing direction updated based on movement
-  useEffect(() => {
-    const CONTROL_KEYS = new Set([
-      'w',
-      'a',
-      's',
-      'd',
-      'arrowup',
-      'arrowdown',
-      'arrowleft',
-      'arrowright',
-    ])
-
-    const CODE_TO_KEY: Record<string, string> = {
-      keyw: 'w',
-      keya: 'a',
-      keys: 's',
-      keyd: 'd',
-      arrowup: 'arrowup',
-      arrowdown: 'arrowdown',
-      arrowleft: 'arrowleft',
-      arrowright: 'arrowright',
-    }
-    const resolveControlKey = (e: KeyboardEvent): string => {
-      const key = typeof e.key === 'string' ? e.key.toLowerCase() : ''
-      if (CONTROL_KEYS.has(key)) return key
-      const code = typeof e.code === 'string' ? e.code.toLowerCase() : ''
-      return CODE_TO_KEY[code] ?? ''
-    }
-    const isTypingInEditableField = (): boolean => {
-      const el = document.activeElement
-      if (!el || !(el instanceof HTMLElement)) return false
-      const tag = el.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
-      return el.isContentEditable
-    }
-    const debugInput = (...args: unknown[]) => {
-      if (typeof window === 'undefined') return
-      if ((window as Window & { __MAP_DEBUG_INPUT__?: boolean }).__MAP_DEBUG_INPUT__) {
-        console.debug('[map-input]', ...args)
-      }
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const key = resolveControlKey(e)
-      if (!key) return
-      e.preventDefault()
-      if (!(key in keysRef.current)) return
-      keysRef.current[key] = true
-      debugInput('keydown', { key: e.key, code: e.code, resolved: key, keys: { ...keysRef.current } })
-    }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      const key = resolveControlKey(e)
-      if (!key) return
-      e.preventDefault()
-      if (!(key in keysRef.current)) return
-      keysRef.current[key] = false
-      debugInput('keyup', { key: e.key, code: e.code, resolved: key, keys: { ...keysRef.current } })
-    }
-
-    const move = () => {
-      if (showBattle) {
-        debugInput('skip:showBattle')
-        return
-      }
-      if (isTypingInEditableField()) {
-        debugInput('skip:typing')
-        return
-      }
-
-      const k = keysRef.current
-      const dx = (k.d || k.arrowright ? 1 : 0) + (k.a || k.arrowleft ? -1 : 0)
-      const dy = (k.s || k.arrowdown ? 1 : 0) + (k.w || k.arrowup ? -1 : 0)
-      if (dx === 0 && dy === 0) return
-
-      // Only move in straight lines; when both keys pressed, follow “vertical first then horizontal” rule to take one axis, avoid diagonal clipping
-      const stepDx = dy !== 0 ? 0 : Math.sign(dx)
-      const stepDy = dy !== 0 ? Math.sign(dy) : 0
-      if (stepDx === 0 && stepDy === 0) return
-
-      const now = Date.now()
-      if (now - lastKeyboardMoveAtRef.current < 90) {
-        debugInput('skip:cooldown')
-        return
-      }
-      lastKeyboardMoveAtRef.current = now
-
-      const p = playerPosRef.current
-      const baseX = Math.floor(p.x)
-      const baseY = Math.floor(p.y)
-      const nx = baseX + stepDx
-      const ny = baseY + stepDy
-      if (!isWalkableRef.current(nx, ny)) {
-        debugInput('skip:notWalkable', { from: { x: p.x, y: p.y }, to: { x: nx, y: ny } })
-        return
-      }
-
-      setPlayerFacing(resolveDirectionByDelta(stepDx, stepDy))
-      setPlayerPos({ x: nx, y: ny })
-      debugInput('move', { from: { x: p.x, y: p.y }, to: { x: nx, y: ny } })
-    }
-
-    window.addEventListener('keydown', handleKeyDown, { capture: true })
-    window.addEventListener('keyup', handleKeyUp, { capture: true })
-    const handleBlur = () => {
-      Object.keys(keysRef.current).forEach((k) => {
-        keysRef.current[k] = false
-      })
-      debugInput('blur:reset')
-    }
-    window.addEventListener('blur', handleBlur)
-    const intervalId = window.setInterval(move, 130)
-
-    return () => {
-      window.clearInterval(intervalId)
-      window.removeEventListener('keydown', handleKeyDown, { capture: true })
-      window.removeEventListener('keyup', handleKeyUp, { capture: true })
-      window.removeEventListener('blur', handleBlur)
-    }
-  }, [setPlayerFacing, setPlayerPos, showBattle])
+  useEnemyPatrol({
+    enemies,
+    showBattle,
+    isPVPMode,
+    combatEnemyId,
+    isWalkable,
+    setEnemyPositions,
+    setEnemyFacings,
+    enemyTargetsRef,
+  })
 
   // battle-core tick: only updates grid coordinates of both battling sides on map (no Phaser, no full-screen overlay)
   // Must use combatEnemyId instead of nearbyEnemy: after pulling, distance between both sides will exceed INTERACTION_RANGE,
@@ -1184,19 +818,19 @@ export default function GameMap({ game }: Props) {
       enemyStats: enemyCombatStats,
       enemySkillIds: isPVPMode
         ? pvpOpponentCarriedSkillIds
-            .map((id) => getSkillById(id)?.coreSkillId)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+          .map((id) => getSkillById(id)?.coreSkillId)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
         : undefined,
       battleDecisionMode,
       llmConfig:
         battleDecisionMode === 'dual_llm'
           ? {
-              provider:
-                llmProvider,
-              model: process.env.NEXT_PUBLIC_BATTLE_LLM_MODEL,
-              proxyUrl: aiProxyUrl,
-              timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 7000),
-            }
+            provider:
+              llmProvider,
+            model: process.env.NEXT_PUBLIC_BATTLE_LLM_MODEL,
+            proxyUrl: aiProxyUrl,
+            timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 7000),
+          }
           : undefined,
     }
     const ctrl = new MapBattleController(cfg)
@@ -1208,7 +842,7 @@ export default function GameMap({ game }: Props) {
     setBattlePlayerMaxHp(ctrl.session.left.resources.maxHp)
     setBattleTimeSec(0)
     setLastBattleTickCount(0)
-    setFloatTexts([])
+    clearTransientFx()
     setBattleLog((prev) => [...prev, 'Preparation phase started'])
 
     battleTimerRef.current = null
@@ -1222,39 +856,6 @@ export default function GameMap({ game }: Props) {
       battleTimerRef.current = null
       cdTimerRef.current = null
       tickTimeoutRef.current = null
-    }
-
-    const pushFloat = (item: Omit<MapFloatText, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setFloatTexts((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setFloatTexts((prev) => prev.filter((h) => h.id !== id))
-      }, 1050)
-    }
-
-    const pushMoveFx = (item: Omit<MapMoveFx, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setMoveFx((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setMoveFx((prev) => prev.filter((h) => h.id !== id))
-      }, 380)
-    }
-
-    const pushProjectileFx = (item: Omit<MapProjectileFx, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setProjectileFx((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setProjectileFx((prev) => prev.filter((h) => h.id !== id))
-      }, item.durationMs + 80)
-      return id
-    }
-
-    const pushImpactFx = (item: Omit<MapImpactFx, 'id'>) => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-      setImpactFx((prev) => [...prev, { ...item, id }])
-      window.setTimeout(() => {
-        setImpactFx((prev) => prev.filter((h) => h.id !== id))
-      }, item.kind === 'dodge' ? 420 : 320)
     }
 
     const triggerCombatFx = (
@@ -1575,7 +1176,7 @@ export default function GameMap({ game }: Props) {
           if (tid === 'poc-player') {
             setBattleLog((prev) => [...prev, `Took ${dmg} damage`])
             if (dmg > 0) {
-              pushFloat({
+              pushFloatText({
                 target: 'player',
                 text: `-${dmg}`,
                 variant: 'damage',
@@ -1585,7 +1186,7 @@ export default function GameMap({ game }: Props) {
           } else if (tid === s.right.id) {
             setBattleLog((prev) => [...prev, `Dealt ${dmg} damage`])
             if (dmg > 0) {
-              pushFloat({
+              pushFloatText({
                 target: 'enemy',
                 text: `-${dmg}`,
                 variant: 'damage',
@@ -1776,29 +1377,32 @@ export default function GameMap({ game }: Props) {
     mapInfo.tileset?.id,
   ])
 
-  // Detect nearby enemies (using dynamic position)
-  useEffect(() => {
-    // In battle, coordinates driven by battle-core; if using distance check will clear nearbyEnemy, causing other logic to malfunction; nearbyEnemy is set by startBattle at battle start
-    if (showBattle) return
-    const found = enemies.find(enemy => {
-      const pos = enemyPositions[enemy.id] || { x: enemy.x, y: enemy.y }
-      const dx = pos.x - playerPos.x
-      const dy = pos.y - playerPos.y
-      return Math.sqrt(dx * dx + dy * dy) < INTERACTION_RANGE
-    })
-    setNearbyEnemy(found || null)
-    // Auto-open challenge buttons when entering interaction range; close when leaving.
-    setShowInteraction(Boolean(found))
-  }, [playerPos, enemies, enemyPositions, setNearbyEnemy, setShowInteraction, playerLevel, showBattle])
+  useMapKeyboardMovement({
+    showBattle,
+    playerPos,
+    isWalkable: (x, y) => isWalkable(x, y),
+    setPlayerFacing,
+    setPlayerPos,
+  })
 
-  /** Automation: auto-start battle when nearby enemy detected */
-  useEffect(() => {
-    if (!automationTask) return
-    if (showBattle) return
-    if (!nearbyEnemy) return
-    const ep = enemyPositions[nearbyEnemy.id] || { x: nearbyEnemy.x, y: nearbyEnemy.y }
-    startBattle({ player: { ...playerPos }, enemy: { ...ep } })
-  }, [automationTask, showBattle, nearbyEnemy, enemyPositions, playerPos, startBattle])
+  useNearbyEnemyDetection({
+    showBattle,
+    enemies,
+    enemyPositions,
+    playerPos,
+    interactionRange: INTERACTION_RANGE,
+    setNearbyEnemy,
+    setShowInteraction,
+  })
+
+  useAutoBattleStart({
+    automationTask,
+    showBattle,
+    nearbyEnemy,
+    enemyPositions,
+    playerPos,
+    startBattle,
+  })
 
   /** After defeat, keep same id, change name/stats/spawn point, equivalent to wild monster refresh */
   const respawnDefeatedEnemy = useCallback(
@@ -1897,65 +1501,55 @@ export default function GameMap({ game }: Props) {
     [isGameOver, skillCooldownEndAt, setNextAttackSkillId, setBattleLog],
   )
 
-  // Click map to move (within walkable tiles)
-  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (showBattle) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const localX = e.clientX - rect.left
-    const localY = e.clientY - rect.top
-    if (
-      localX < renderOffsetX ||
-      localY < renderOffsetY ||
-      localX > renderOffsetX + renderWidth ||
-      localY > renderOffsetY + renderHeight
-    ) {
-      return
-    }
-    const px = (localX - renderOffsetX) / Math.max(1, renderWidth)
-    const py = (localY - renderOffsetY) / Math.max(1, renderHeight)
-    const x = Math.min(mapInfo.width - 1, Math.max(0, Math.floor(px * mapInfo.width)))
-    const y = Math.min(mapInfo.height - 1, Math.max(0, Math.floor(py * mapInfo.height)))
-    if (!isWalkable(x, y)) return
-    setPlayerFacing(resolveDirectionByDelta(x - playerPos.x, y - playerPos.y))
-    setPlayerPos({ x, y })
-  }
+  const handleMapClick = useMapClickMove({
+    showBattle,
+    renderOffsetX,
+    renderOffsetY,
+    renderWidth,
+    renderHeight,
+    mapWidth: mapInfo.width,
+    mapHeight: mapInfo.height,
+    playerPos,
+    isWalkable: (x, y) => isWalkable(x, y),
+    setPlayerFacing,
+    setPlayerPos,
+  })
+  const { handleEnemyMarkerClick, handleEnemyMarkerKeyDown } = useEnemyInfoInteraction({
+    showBattle,
+    setNearbyEnemy,
+    setShowEnemyInfo,
+  })
 
-  const enemyLevelRangeMin = Math.max(1, playerLevel - 2)
-  const enemyLevelRangeMax = Math.max(1, playerLevel - 1)
-  const playerHpMaxForUi = showBattle ? Math.max(1, battlePlayerMaxHp) : Math.max(1, totalStats.maxHp)
-  const playerHpRatioForUi = Math.max(0, Math.min(100, (playerHP / playerHpMaxForUi) * 100))
-  const enemyHpMaxForUi = Math.max(1, enemyMaxHp)
-  const enemyHpRatioForUi = Math.max(0, Math.min(100, (enemyHP / enemyHpMaxForUi) * 100))
+  const {
+    enemyLevelRangeMin,
+    enemyLevelRangeMax,
+    playerHpMaxForUi,
+    playerHpRatioForUi,
+    enemyHpMaxForUi,
+    enemyHpRatioForUi,
+  } = useMapUiMetrics({
+    playerLevel,
+    showBattle,
+    battlePlayerMaxHp,
+    totalPlayerMaxHp: totalStats.maxHp,
+    playerHP,
+    enemyMaxHp,
+    enemyHP,
+  })
 
-  const handlePixellabSync = useCallback(async () => {
-    setPixellabSyncHint('Syncing...')
-    try {
-      const res = await fetch('/api/pixellab-sync', { method: 'POST' })
-      const data = (await res.json()) as { ok?: boolean; copiedFiles?: number; errors?: string[] }
-      if (data.ok) {
-        setPixellabSyncHint(`Synced ${data.copiedFiles ?? 0} files`)
-      } else {
-        setPixellabSyncHint(data.errors?.[0] ?? 'Sync incomplete')
-      }
-      const mapRes = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
-      if (mapRes.ok) {
-        const d = (await mapRes.json()) as {
-          width?: number
-          height?: number
-          collision?: number[]
-          ground?: number[]
-          tileset?: { id?: string | null } | null
-          enemies: typeof enemies
-          playerVisualId?: MapCharacterVisualId
-        }
-        if (d.playerVisualId) setPlayerVisualId(d.playerVisualId)
-        if (d.enemies?.length) setEnemies(d.enemies)
-      }
-    } catch (e) {
-      setPixellabSyncHint(e instanceof Error ? e.message : 'Sync failed')
-    }
-    window.setTimeout(() => setPixellabSyncHint(null), 4200)
-  }, [mapInfo.collision, mapInfo.ground, mapInfo.height, mapInfo.tileset?.id, mapInfo.width, selectedMapId, setEnemies])
+  const handlePixellabSync = usePixellabSync({
+    selectedMapId,
+    mapInfo: {
+      width: mapInfo.width,
+      height: mapInfo.height,
+      collision: mapInfo.collision,
+      ground: mapInfo.ground,
+      tilesetId: mapInfo.tileset?.id ?? null,
+    },
+    setPixellabSyncHint,
+    setPlayerVisualId,
+    setEnemies,
+  })
 
   return (
     <main className="relative w-screen h-screen overflow-hidden">
@@ -1992,21 +1586,10 @@ export default function GameMap({ game }: Props) {
                   transform: 'translate(-50%, -50%)',
                   ...enemyTransitionStyle,
                 }}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  if (showBattle) return
-                  setNearbyEnemy(enemy)
-                  setShowEnemyInfo(true)
-                }}
+                onClick={handleEnemyMarkerClick(enemy)}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return
-                  event.preventDefault()
-                  if (showBattle) return
-                  setNearbyEnemy(enemy)
-                  setShowEnemyInfo(true)
-                }}
+                onKeyDown={handleEnemyMarkerKeyDown(enemy)}
                 aria-label={`View ${enemy.name} info`}
               >
                 {inBattle && (
@@ -2366,7 +1949,7 @@ export default function GameMap({ game }: Props) {
       </div>
 
       <div className="absolute top-4 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
-        Map: {mapInfo.mapId} · {mapInfo.width}x{mapInfo.height} (grid) {tilesetReady ? ' · Sprites' : ' · Fallback render'}
+        Map: {getMapDisplayName(mapInfo.mapId)} · {mapInfo.width}x{mapInfo.height} (grid) {tilesetReady ? ' · Sprites' : ' · Fallback render'}
       </div>
       <div className="absolute top-16 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
         <label className="mr-2">Map</label>
@@ -2375,9 +1958,9 @@ export default function GameMap({ game }: Props) {
           value={selectedMapId}
           onChange={(e) => setSelectedMapId(e.target.value)}
         >
-          {availableMaps.map((map) => (
+          {orderedAvailableMaps.map((map) => (
             <option key={map.id} value={map.id}>
-              {map.id}
+              {getMapDisplayName(map.id)}
             </option>
           ))}
         </select>

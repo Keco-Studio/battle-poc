@@ -209,19 +209,19 @@ function breakLoop(
     }
   }
 
-  if (current !== 'defend') {
-    return {
-      action: { type: 'defend', path: currentAction.path + '>break_loop:defend' },
-      rewritten: true,
-      rewriteReason: reason,
-    }
-  }
-
   const approach = computeFallbackApproach(ctx)
   // `current` is narrowed to `'defend'` above, so no need to compare with `'dash'`.
   if (approach) {
     return {
       action: { type: 'dash', target: approach, path: currentAction.path + '>break_loop:dash' },
+      rewritten: true,
+      rewriteReason: reason,
+    }
+  }
+
+  if (current !== 'defend') {
+    return {
+      action: { type: 'defend', path: currentAction.path + '>break_loop:defend' },
       rewritten: true,
       rewriteReason: reason,
     }
@@ -400,7 +400,8 @@ function remapDashUnavailable(
     }
   }
   return {
-    action: { type: 'noop', path: action.path + '>remap:noop_dash_unavailable' },
+    // Avoid pure idle turns when dash is blocked and no attack is currently legal.
+    action: { type: 'defend', path: action.path + '>remap:defend_dash_unavailable' },
     rewritten: true,
     rewriteReason: reason,
   }
