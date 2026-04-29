@@ -125,6 +125,17 @@ export interface Enemy {
   visualId?: MapCharacterVisualId | null
   /** When no valid `visualId`: 1-based tile index from map tileset (consistent with tile layer convention) */
   mapSpriteTileIndex?: number
+
+  /**
+   * Optional: special enemy category.
+   * Currently used by `ensureDeepClawAgentEnemy()` to inject agent-style enemies.
+   */
+  enemyType?: 'agent' | string
+
+  /**
+   * Optional: identifier for agent enemies (e.g. deepclaw).
+   */
+  agentId?: string
 }
 
 export interface EnemyStatProfile {

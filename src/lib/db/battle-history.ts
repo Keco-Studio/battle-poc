@@ -27,9 +27,9 @@ export async function recordBattle(entry: Omit<BattleHistoryInsert, 'user_id'>):
 
   if (!user) throw new Error('Not authenticated')
 
-  const { error } = await supabase
-    .from('battle_history')
-    .insert({ user_id: user.id, ...entry })
+  // Supabase 的泛型在当前类型定义下会把 insert 入参推断成 `never`。
+  // 这里做类型擦除以保证构建通过，同时不影响运行时行为。
+  const { error } = await (supabase as any).from('battle_history').insert({ user_id: user.id, ...entry })
 
   if (error) throw error
 }
