@@ -205,8 +205,6 @@ export default function BattlePanel({ game }: Props) {
     return () => window.clearInterval(id)
   }, [showBattle, isGameOver])
 
-    playerName: 'Player',
-    enemyName: 'Enemy',
   useEffect(() => {
     if (!showBattle) return
     setShowCenterBattleIcon(true)

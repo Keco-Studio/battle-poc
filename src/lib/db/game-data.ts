@@ -88,7 +88,7 @@ export async function fetchDefaultCarriedSkillIds(jobClassId: string): Promise<s
     .limit(6)
 
   if (error) throw error
-  return (data ?? []).map((row) => row.skill_id)
+  return ((data ?? []) as Array<{ skill_id: string }>).map((row) => row.skill_id)
 }
 
 // ─────────────────────────────────────────────
