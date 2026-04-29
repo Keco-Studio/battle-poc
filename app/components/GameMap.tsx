@@ -494,8 +494,6 @@ export default function GameMap({ game }: Props) {
             y: number
             level: number
             profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
-            enemyType?: 'wild' | 'agent'
-            agentId?: string
             visualId?: MapCharacterVisualId | null
             mapSpriteTileIndex?: number
           }>
@@ -524,15 +522,7 @@ export default function GameMap({ game }: Props) {
         )
         setPlayerPos(spawn)
         if (data.enemies.length > 0) {
-          setEnemies(
-            ensureDeepClawAgentEnemy(data.enemies, {
-              width: data.width,
-              height: data.height,
-              collision: data.collision,
-              ground: data.ground,
-              tilesetId: data.tileset?.id ?? null,
-            }),
-          )
+          setEnemies(data.enemies)
         }
       } catch (error) {
         console.warn('load airpg map failed:', error)
@@ -1456,9 +1446,7 @@ export default function GameMap({ game }: Props) {
               def: enc.stats.def,
               spd: enc.stats.spd,
             },
-            enemyType: e.enemyType,
-            agentId: e.agentId,
-            visualId: e.enemyType === 'agent' ? e.visualId : e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
+            visualId: e.visualId === 'archerGreen' ? 'warriorBlue' : e.visualId,
             mapSpriteTileIndex: e.mapSpriteTileIndex,
           }
           return nextEnemy
