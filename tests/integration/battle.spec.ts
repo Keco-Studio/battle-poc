@@ -13,23 +13,21 @@ async function openDockPanel(page: Page, panelName: 'Chat' | 'Profile' | 'Start 
 async function startPveBattleFromEnemyModal(page: Page) {
   const enemyTrigger = page.locator('[aria-label^="View "][aria-label$=" info"]').first()
   await expect(enemyTrigger).toBeVisible()
-  const battleButton = page.getByRole('button', { name: /^BATTLE$/ })
-  let opened = false
   for (let attempt = 0; attempt < 3; attempt++) {
     await enemyTrigger.dispatchEvent('click')
     try {
+      const battleButton = page.getByRole('button', { name: /^BATTLE$/ })
       await expect(battleButton).toBeVisible({ timeout: 1500 })
-      opened = true
-      break
+      await battleButton.click({ force: true })
+      await expect(page.getByText('In Battle · battle-core session')).toBeVisible()
+      return
     } catch {
       await enemyTrigger.focus()
       await page.keyboard.press('Enter')
       await page.waitForTimeout(120)
     }
   }
-  expect(opened).toBeTruthy()
-  await battleButton.click({ force: true })
-  await expect(page.getByText('In Battle · battle-core session')).toBeVisible()
+  throw new Error('Failed to open battle modal and enter battle')
 }
 
 async function getPlayerMarkerPosition(page: Page): Promise<{ left: number; top: number }> {
@@ -73,7 +71,14 @@ async function pickAffordableCooldownSkill(page: Page) {
   return null
 }
 
+async function getCurrentMp(page: Page): Promise<number> {
+  const mpStat = await page.locator('span', { hasText: /^MP \d+\/\d+$/ }).first().textContent()
+  return Number((mpStat ?? '0/0').match(/MP\s+(\d+)\//)?.[1] ?? '0')
+}
+
 test.describe('战斗规则正确性（P0）', () => {
+  test.describe.configure({ timeout: 150000 })
+
   test('战斗页基础渲染可见', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('body')).toBeVisible()
@@ -110,6 +115,49 @@ test.describe('战斗规则正确性（P0）', () => {
 
     await trackedSkill.click()
     await expect(page.getByText(/Ready: next action will use/i).first()).toBeVisible()
+  })
+
+  test('不同技能冷却互不影响', async ({ page }) => {
+    await page.goto('/')
+    await startPveBattleFromEnemyModal(page)
+
+    const currentMp = await getCurrentMp(page)
+    const cooldownSkills = page.locator('button').filter({ hasText: /MP \d+ · [1-9]\d*t/ })
+    const total = await cooldownSkills.count()
+    let primary: ReturnType<typeof cooldownSkills.nth> | null = null
+    let secondary: ReturnType<typeof cooldownSkills.nth> | null = null
+
+    for (let i = 0; i < total; i++) {
+      const skill = cooldownSkills.nth(i)
+      const text = (await skill.textContent()) ?? ''
+      const mpCost = Number(text.match(/MP\s+(\d+)/)?.[1] ?? '999')
+      if (mpCost > currentMp) continue
+      if (!primary) {
+        primary = skill
+        continue
+      }
+      const primaryText = (await primary.textContent()) ?? ''
+      if (text !== primaryText) {
+        secondary = skill
+        break
+      }
+    }
+
+    test.skip(!primary || !secondary, 'Need two different affordable cooldown skills')
+    await expect(primary!).toBeEnabled()
+    await expect(secondary!).toBeEnabled()
+
+    await primary!.click()
+    await expect(primary!).toBeDisabled({ timeout: 15000 })
+    await expect(secondary!).toBeEnabled()
+  })
+
+  test('战斗结束后展示结算并可返回地图', async ({ page }) => {
+    await page.goto('/')
+    await startPveBattleFromEnemyModal(page)
+    await expect(page.getByRole('heading', { name: /VICTORY!|DEFEAT/ })).toBeVisible({ timeout: 120000 })
+    await page.getByRole('button', { name: 'CONTINUE' }).click()
+    await expect(page.getByText('In Battle · battle-core session')).toBeHidden({ timeout: 15000 })
   })
 })
 
