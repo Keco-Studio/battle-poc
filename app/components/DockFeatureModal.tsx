@@ -22,6 +22,74 @@ import { savePlayerSave } from '@/src/lib/db/player-saves'
 import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
 import { getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
 
+const CACHE_TTL_MS = 300 * 1000
+const SESSION_CACHE_KEY = 'battle:profile-session-cache'
+const PVP_CACHE_KEY = 'battle:pvp-users-cache'
+
+type SessionCachePayload = {
+  email: string | null
+  cachedAt: number
+}
+
+type PvpCachePayload = {
+  users: PVPUser[]
+  cachedAt: number
+}
+
+function readSessionCache(): SessionCachePayload | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SessionCachePayload
+    if (typeof parsed?.cachedAt !== 'number') return null
+    if (Date.now() - parsed.cachedAt > CACHE_TTL_MS) return null
+    return {
+      email: typeof parsed.email === 'string' ? parsed.email : null,
+      cachedAt: parsed.cachedAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeSessionCache(email: string | null) {
+  if (typeof window === 'undefined') return
+  try {
+    const payload: SessionCachePayload = { email, cachedAt: Date.now() }
+    window.sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore cache errors and continue with live auth behavior.
+  }
+}
+
+function readPvpUsersCache(): PvpCachePayload | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(PVP_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PvpCachePayload
+    if (typeof parsed?.cachedAt !== 'number' || !Array.isArray(parsed?.users)) return null
+    if (Date.now() - parsed.cachedAt > CACHE_TTL_MS) return null
+    return {
+      users: parsed.users,
+      cachedAt: parsed.cachedAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+function writePvpUsersCache(users: PVPUser[]) {
+  if (typeof window === 'undefined') return
+  try {
+    const payload: PvpCachePayload = { users, cachedAt: Date.now() }
+    window.sessionStorage.setItem(PVP_CACHE_KEY, JSON.stringify(payload))
+  } catch {
+    // Ignore cache errors and continue with live data behavior.
+  }
+}
+
 export type ChatTargetOption = {
   id: string
   label: string
@@ -123,9 +191,16 @@ export default function DockFeatureModal({ game }: Props) {
       setAuthResolved(true)
       return
     }
+    const cached = readSessionCache()
+    if (cached) {
+      setSessionEmail(cached.email)
+      setAuthResolved(true)
+      return
+    }
     const { data } = await supabase.auth.getSession()
     const email = data.session?.user?.email ?? null
     setSessionEmail(email)
+    writeSessionCache(email)
     setAuthResolved(true)
   }, [supabase])
 
@@ -140,7 +215,9 @@ export default function DockFeatureModal({ game }: Props) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionEmail(session?.user?.email ?? null)
+      const email = session?.user?.email ?? null
+      setSessionEmail(email)
+      writeSessionCache(email)
       setAuthResolved(true)
     })
     return () => subscription.unsubscribe()
@@ -168,6 +245,13 @@ export default function DockFeatureModal({ game }: Props) {
     if (!supabase) {
       setPvpUsers([])
       setPvpError('Supabase is not configured')
+      return
+    }
+    const cached = readPvpUsersCache()
+    if (cached) {
+      setPvpUsers(cached.users)
+      setPvpError(null)
+      setPvpLoading(false)
       return
     }
 
@@ -206,6 +290,7 @@ export default function DockFeatureModal({ game }: Props) {
         }))
         if (!cancelled) {
           setPvpUsers(mapped)
+          writePvpUsersCache(mapped)
           pushDataFlowTrace('loadPvpUsers', 'success', `Loaded ${mapped.length} players`)
         }
       } catch (e) {
