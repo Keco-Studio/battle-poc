@@ -13,6 +13,7 @@ import {
   Search,
   Eye,
   EyeOff,
+  PlugZap,
 } from 'lucide-react'
 import type { DockPanelId, GameState, PVPUser } from '../hooks/useGameState'
 import { calcPlayerStats } from '../constants'
@@ -185,6 +186,43 @@ export default function DockFeatureModal({ game }: Props) {
   const [pvpLoading, setPvpLoading] = useState(false)
   const [pvpError, setPvpError] = useState<string | null>(null)
 
+  const [openclawGatewayUrl, setOpenclawGatewayUrl] = useState('')
+  const [openclawToken, setOpenclawToken] = useState('')
+  const [showOpenclawToken, setShowOpenclawToken] = useState(false)
+  const [openclawLoading, setOpenclawLoading] = useState(false)
+  const [openclawStatus, setOpenclawStatus] = useState<
+    | { kind: 'idle' }
+    | { kind: 'ok' }
+    | { kind: 'not_bound' }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+
+  const invokeSupabaseFn = useCallback(
+    async <T,>(name: string, body: Record<string, unknown> = {}): Promise<T> => {
+      if (!supabase) throw new Error('supabase_not_configured')
+      const { data, error } = await supabase.functions.invoke(name, { body })
+      if (error) throw new Error(error.message)
+      return data as T
+    },
+    [supabase],
+  )
+
+  const refreshOpenclawHealth = useCallback(async () => {
+    if (!supabase) return
+    try {
+      const r = await invokeSupabaseFn<{ ok?: boolean; error?: string }>('openclaw_health', {})
+      if (r?.ok) {
+        setOpenclawStatus({ kind: 'ok' })
+        return
+      }
+      const msg = String(r?.error || '').trim()
+      setOpenclawStatus(msg === 'not_bound' ? { kind: 'not_bound' } : { kind: 'error', message: msg || 'unhealthy' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'health_check_failed'
+      setOpenclawStatus({ kind: 'error', message: msg })
+    }
+  }, [invokeSupabaseFn, supabase])
+
   const refreshSession = useCallback(async () => {
     if (!supabase) {
       setSessionEmail(null)
@@ -239,6 +277,13 @@ export default function DockFeatureModal({ game }: Props) {
     window.addEventListener(DATA_FLOW_TRACE_EVENT, refresh as EventListener)
     return () => window.removeEventListener(DATA_FLOW_TRACE_EVENT, refresh as EventListener)
   }, [dockPanel])
+
+  useEffect(() => {
+    if (dockPanel !== 'character_login') return
+    if (!supabase) return
+    if (!sessionEmail) return
+    void refreshOpenclawHealth()
+  }, [dockPanel, refreshOpenclawHealth, sessionEmail, supabase])
 
   useEffect(() => {
     if (dockPanel !== 'battle_system') return
@@ -568,6 +613,117 @@ export default function DockFeatureModal({ game }: Props) {
                         Sign out
                       </button>
                       {authError && <p className="text-[12px] text-rose-600">{authError}</p>}
+
+                      <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
+                        <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-slate-800">
+                          <PlugZap size={14} className="text-orange-500" />
+                          OpenClaw Chat Bridge
+                          <span
+                            className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              openclawStatus.kind === 'ok'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : openclawStatus.kind === 'not_bound'
+                                  ? 'bg-slate-200 text-slate-600'
+                                  : openclawStatus.kind === 'error'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {openclawStatus.kind === 'ok'
+                              ? 'CONNECTED'
+                              : openclawStatus.kind === 'not_bound'
+                                ? 'NOT BOUND'
+                                : openclawStatus.kind === 'error'
+                                  ? 'ERROR'
+                                  : 'IDLE'}
+                          </span>
+                        </div>
+
+                        <p className="mb-2 text-[11px] leading-relaxed text-slate-600">
+                          Bind your own OpenClaw bridge URL + token. The game will proxy chat through Supabase Edge Functions (Vercel-friendly).
+                        </p>
+
+                        <label className="mb-2 block">
+                          <span className="mb-1 block text-[11px] font-bold text-slate-700">Gateway URL (https, host only)</span>
+                          <input
+                            type="url"
+                            value={openclawGatewayUrl}
+                            onChange={(e) => setOpenclawGatewayUrl(e.target.value)}
+                            placeholder="https://your-bridge.example.com"
+                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[12px] text-slate-800 outline-none focus:border-orange-400"
+                          />
+                        </label>
+
+                        <label className="mb-3 block">
+                          <span className="mb-1 block text-[11px] font-bold text-slate-700">Bridge token</span>
+                          <div className="relative">
+                            <input
+                              type={showOpenclawToken ? 'text' : 'password'}
+                              value={openclawToken}
+                              onChange={(e) => setOpenclawToken(e.target.value)}
+                              placeholder="BRIDGE_TOKEN"
+                              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-[12px] text-slate-800 outline-none focus:border-orange-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowOpenclawToken((v) => !v)}
+                              aria-label={showOpenclawToken ? 'Hide token' : 'Show token'}
+                              className="absolute inset-y-0 right-2 my-auto flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                            >
+                              {showOpenclawToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </label>
+
+                        {openclawStatus.kind === 'error' && (
+                          <div className="mb-2 rounded-lg bg-rose-50 px-2 py-1.5 text-[11px] text-rose-700">
+                            {openclawStatus.message.slice(0, 220)}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={openclawLoading || !openclawGatewayUrl.trim() || !openclawToken.trim()}
+                            onClick={async () => {
+                              setOpenclawLoading(true)
+                              try {
+                                await invokeSupabaseFn('openclaw_bind', {
+                                  gatewayUrl: openclawGatewayUrl.trim(),
+                                  secret: openclawToken.trim(),
+                                  authType: 'bearer',
+                                  webhookPath: '/battle/openclaw/chat',
+                                  healthPath: '/battle/openclaw/health',
+                                })
+                                await refreshOpenclawHealth()
+                              } catch (e) {
+                                const msg = e instanceof Error ? e.message : 'bind_failed'
+                                setOpenclawStatus({ kind: 'error', message: msg })
+                              } finally {
+                                setOpenclawLoading(false)
+                              }
+                            }}
+                            className="flex-1 rounded-lg bg-orange-500 px-3 py-2 text-[12px] font-bold text-white hover:bg-orange-400 disabled:opacity-50"
+                          >
+                            {openclawLoading ? 'Saving…' : 'Save & Test'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={openclawLoading}
+                            onClick={async () => {
+                              setOpenclawLoading(true)
+                              try {
+                                await refreshOpenclawHealth()
+                              } finally {
+                                setOpenclawLoading(false)
+                              }
+                            }}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            Test
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <>

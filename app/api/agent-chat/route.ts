@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { createServerSupabase } from '@/src/lib/supabase/server'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -58,12 +59,15 @@ function gatewayHelpText(): string {
   return 'OpenClaw gateway is not reachable. Start it in another terminal: `openclaw gateway --port 18789`'
 }
 
-function resolveMode(): 'deepseek' | 'openclaw' {
+function resolveMode(): 'deepseek' | 'openclaw' | 'supabase_openclaw' {
   const raw =
     process.env.CHAT_BACKEND_MODE ??
     process.env.NEXT_PUBLIC_CHAT_BACKEND_MODE ??
     'deepseek'
-  return raw.trim().toLowerCase() === 'openclaw' ? 'openclaw' : 'deepseek'
+  const v = raw.trim().toLowerCase()
+  if (v === 'openclaw') return 'openclaw'
+  if (v === 'supabase_openclaw') return 'supabase_openclaw'
+  return 'deepseek'
 }
 
 function deepseekBase() {
@@ -267,6 +271,64 @@ async function proxyToOpenClaw(body: Required<Pick<ChatRequestBody, 'target' | '
   }
 }
 
+function getSupabaseEnv(): { url: string; anonKey: string } | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !anonKey) return null
+  return { url, anonKey }
+}
+
+async function getUserAccessToken(): Promise<string> {
+  const supabase = await createServerSupabase()
+  if (!supabase) throw new Error('supabase_not_configured')
+  const { data, error } = await supabase.auth.getSession()
+  if (error) throw new Error(`supabase_session_error:${error.message}`)
+  const token = String(data?.session?.access_token || '').trim()
+  if (!token) throw new Error('supabase_not_signed_in')
+  return token
+}
+
+async function callSupabaseFunction<T>(fnName: string, accessToken: string, body: unknown, timeoutMs = 15000): Promise<T> {
+  const env = getSupabaseEnv()
+  if (!env) throw new Error('supabase_not_configured')
+  const url = `${env.url.replace(/\/$/, '')}/functions/v1/${fnName}`
+  const resp = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: env.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    },
+    timeoutMs,
+  )
+  const text = await resp.text()
+  let payload: any = null
+  if (text) {
+    try {
+      payload = JSON.parse(text)
+    } catch {
+      payload = { error: text.slice(0, 240) }
+    }
+  }
+  if (!resp.ok) {
+    const msg = String(payload?.error || payload?.message || '').trim()
+    throw new Error(msg || `supabase_fn_http_${resp.status}`)
+  }
+  return payload as T
+}
+
+async function proxyToSupabaseOpenClaw(body: Required<Pick<ChatRequestBody, 'target' | 'agentId' | 'context' | 'messages'>>) {
+  const accessToken = await getUserAccessToken()
+  const payload = await callSupabaseFunction<{ reply?: string; error?: string }>('openclaw_chat', accessToken, body, 20000)
+  const reply = String(payload?.reply || '').trim()
+  if (!reply) throw new Error(payload?.error || 'openclaw_empty_reply')
+  return reply
+}
+
 export async function GET() {
   const mode = resolveMode()
   try {
@@ -277,6 +339,16 @@ export async function GET() {
         mode,
         ok: Boolean(payload?.ok && payload?.hasKey),
       })
+    }
+    if (mode === 'supabase_openclaw') {
+      try {
+        const accessToken = await getUserAccessToken()
+        const p = await callSupabaseFunction<{ ok?: boolean; error?: string }>('openclaw_health', accessToken, {}, 7000)
+        return NextResponse.json({ mode, ok: Boolean(p?.ok), error: p?.ok ? undefined : p?.error })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        return NextResponse.json({ mode, ok: false, error: msg })
+      }
     }
     try {
       try {
@@ -322,10 +394,11 @@ export async function POST(request: Request) {
     }
 
     const mode = resolveMode()
-    const reply =
-      mode === 'openclaw'
-        ? await proxyToOpenClaw(body)
-        : await proxyToDeepSeek(body)
+    const reply = await (async () => {
+      if (mode === 'supabase_openclaw') return await proxyToSupabaseOpenClaw(body)
+      if (mode === 'openclaw') return await proxyToOpenClaw(body)
+      return await proxyToDeepSeek(body)
+    })()
     return NextResponse.json({ mode, reply })
   } catch (error) {
     return NextResponse.json(
