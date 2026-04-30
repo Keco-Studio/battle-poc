@@ -1,4 +1,4 @@
-import { json, readJson, pickAuthHeader, ensureHttpsUrl, blockSuspiciousHost } from '../_shared/http.ts'
+import { corsPreflight, json, readJson, pickAuthHeader, ensureHttpsUrl, blockSuspiciousHost } from '../_shared/http.ts'
 import { createSupabaseAuthed } from '../_shared/supabase.ts'
 import { encryptText } from '../_shared/crypto.ts'
 
@@ -20,6 +20,7 @@ function normalizePath(p: string, fallback: string) {
 }
 
 (globalThis as any).Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return corsPreflight()
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   try {
     const authHeader = pickAuthHeader(req)

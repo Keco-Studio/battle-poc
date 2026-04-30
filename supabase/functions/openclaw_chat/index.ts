@@ -1,4 +1,4 @@
-import { json, readJson, pickAuthHeader } from '../_shared/http.ts'
+import { corsPreflight, json, readJson, pickAuthHeader } from '../_shared/http.ts'
 import { createSupabaseAuthed } from '../_shared/supabase.ts'
 import { decryptText } from '../_shared/crypto.ts'
 
@@ -30,6 +30,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 1500
 }
 
 (globalThis as any).Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return corsPreflight()
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   try {
     const authHeader = pickAuthHeader(req)
