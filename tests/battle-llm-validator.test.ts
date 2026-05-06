@@ -69,8 +69,10 @@ it('illegal action falls back to fallback command', () => {
       }
     })
     expect(out.ok).toBe(true)
-    expect(out.command.action).toBe('cast_skill')
-    expect(out.command.skillId).toBe('arcane_bolt')
+    expect(out.command).toBeDefined()
+    const command = out.command!
+    expect(command.action).toBe('cast_skill')
+    expect(command.skillId).toBe('arcane_bolt')
   })
 })
 

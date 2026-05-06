@@ -55,11 +55,8 @@ export const MAP_DISPLAY_ORDER = [
 ]
 
 export function getMapDisplayName(mapId: string): string {
-  if (mapId === HOME_DEFAULT_MAP_ID) return 'Battle Arena'
-  if (mapId === 'bottom-up-map') return 'Bottom-up Arena'
-  if (mapId === 'demo-project') return 'Demo Map'
-  if (mapId === 'pixel-npc') return 'Pixel NPC Town'
-  if (mapId === 'top-down-pixel-art-village-map-houses-paths-tree-1776773208725') return 'Village'
+  if (mapId === HOME_DEFAULT_MAP_ID) return 'Top-down battle arena'
+  if (mapId === 'bottom-up-map') return 'Bottom-up battle arena'
   return mapId
 }
 

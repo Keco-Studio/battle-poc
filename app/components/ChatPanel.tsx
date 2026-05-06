@@ -26,7 +26,7 @@ const AUTO_COMMANDS = [
   { label: 'Battle 5 times', cmd: 'battle 5 times' },
   { label: 'Battle 10 times', cmd: 'battle 10 times' },
   { label: 'Flee if losing', cmd: 'flee if losing' },
-  { label: 'Farm gold & exp', cmd: 'farm gold and exp' },
+  { label: 'Farm exp', cmd: 'farm exp' },
   { label: 'Auto mode', cmd: 'auto mode' },
   { label: 'Stop', cmd: 'stop' },
 ]
