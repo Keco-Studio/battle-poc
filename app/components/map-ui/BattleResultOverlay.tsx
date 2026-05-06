@@ -8,7 +8,6 @@ export type BattleResultOverlayProps = {
   enemyName: string
   battleTimeSec: number
   lastBattleTickCount: number
-  gainedGold: number
   gainedExp: number
   battleLootDrop: { name: string; icon: string } | null
   onContinue: () => void
@@ -21,7 +20,6 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
     enemyName,
     battleTimeSec,
     lastBattleTickCount,
-    gainedGold,
     gainedExp,
     battleLootDrop,
     onContinue,
@@ -90,11 +88,11 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
           </div>
           {battleResult === 'win' && (
             <div className="text-yellow-200">
-              💰 +{gainedGold} · ⭐ +{gainedExp}
-              {battleLootDrop ? ` · Dropped ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
+              ⭐ +{gainedExp}
+              {battleLootDrop ? ` · 掉落 ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
             </div>
           )}
-          {battleResult === 'lose' && <div className="text-rose-200">Lost all gold; equipment and backpack retained.</div>}
+          {battleResult === 'lose' && <div className="text-rose-200">战斗失败；装备与背包保留。</div>}
         </div>
 
         <div className="flex w-full max-w-[320px] flex-col gap-3">

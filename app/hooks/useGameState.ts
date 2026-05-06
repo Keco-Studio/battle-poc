@@ -711,7 +711,7 @@ export function useGameState() {
       }
       const afterLevelUp = tryLevelUp(playerExp + expGain)
       setPlayerExp(afterLevelUp.exp)
-      setBattleLog((prev) => [...prev, closingLog, `Gained ${expGain} EXP and ${goldGain} Gold!`])
+      setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验！`])
       const winEntry = {
         id: `bh-${Date.now()}`,
         result: 'win' as const,
@@ -738,7 +738,25 @@ export function useGameState() {
         setBattleLog((prev) => [...prev, `Level up! Now Lv.${afterLevelUp.level}`])
       }
     },
-    [authedUserId, battleRound, enemyLevel, playerExp, playerLevel, setBattleLog, setBattleResult, setGainedExp, setGainedGold, setInventory, setIsGameOver, setPlayerExp, setPlayerGold, tryLevelUp],
+    [
+      authedUserId,
+      battleRound,
+      enemyLevel,
+      nearbyEnemy,
+      playerExp,
+      playerLevel,
+      pvpOpponentName,
+      setBattleLog,
+      setBattleLogs,
+      setBattleResult,
+      setGainedExp,
+      setGainedGold,
+      setInventory,
+      setIsGameOver,
+      setPlayerExp,
+      setPlayerGold,
+      tryLevelUp,
+    ],
   )
 
   /** Map battle: defeat */

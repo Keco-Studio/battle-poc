@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { X, User, Swords, Shield, Heart, Zap, Sparkles } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import { EquipmentType, equipmentTypes, expForLevel } from '../constants'
@@ -12,7 +13,6 @@ export default function CharacterPanel({ game }: Props) {
   const {
     playerLevel,
     playerExp,
-    playerGold,
     playerHP,
     totalStats,
     equippedGear,
@@ -48,7 +48,7 @@ export default function CharacterPanel({ game }: Props) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">Profile</div>
             <div className="truncate text-[11px] text-slate-500">
-              Lv.{playerLevel} Warrior · Gold {playerGold}
+              Lv.{playerLevel} Warrior
             </div>
           </div>
           <button
@@ -67,7 +67,7 @@ export default function CharacterPanel({ game }: Props) {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200">
-                <img src="/player/idle/south.png" alt="Player" className="h-12 w-12 object-contain" />
+                <Image src="/player/idle/south.png" alt="Player" width={48} height={48} className="h-12 w-12 object-contain" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 flex items-center justify-between text-[12px] font-bold text-slate-700">
@@ -115,7 +115,7 @@ export default function CharacterPanel({ game }: Props) {
                 : 'bg-emerald-500 text-white hover:bg-emerald-400'
               }`}
             >
-              {!canHeal ? 'Full HP' : 'Recover Full HP (Costs Gold)'}
+              {!canHeal ? '满血状态' : '回复满血'}
             </button>
           </div>
 

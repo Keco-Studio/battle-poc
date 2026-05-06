@@ -2,6 +2,14 @@ import path from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { NextResponse } from 'next/server'
 
+type PixellabResponse = {
+  error?: string
+  detail?: string
+  image?: {
+    base64?: string
+  }
+}
+
 function safeSlug(input: string): string {
   return (
     input
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
       }),
     })
 
-    const apiJson = (await apiResp.json().catch(() => null)) as any
+    const apiJson = (await apiResp.json().catch(() => null)) as PixellabResponse | null
     if (!apiResp.ok) {
       const detail = apiJson?.error || apiJson?.detail || `${apiResp.status} ${apiResp.statusText}`
       return NextResponse.json({ ok: false, error: `PixelLab request failed: ${detail}` }, { status: apiResp.status })

@@ -2,9 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { SeededRNG } from '../../rng/SeededRNG';
 import { calcDamage } from '../CombatSystem';
 import { tickStatus, applyPoison, applyBurn } from '../StatusEffects';
-import type { CombatActor } from '../CombatTypes';
+import type { CombatActor, CombatStats } from '../CombatTypes';
 
-function createActor(overrides: Partial<CombatActor> & { id: string; side: 'player' | 'enemy' }): CombatActor {
+function createActor(
+  overrides: Omit<Partial<CombatActor>, 'stats'> & {
+    id: string
+    side: 'player' | 'enemy'
+    stats?: Partial<CombatStats>
+  },
+): CombatActor {
   return {
     id: overrides.id,
     name: overrides.name ?? overrides.id,

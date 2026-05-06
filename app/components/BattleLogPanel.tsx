@@ -56,10 +56,9 @@ export default function BattleLogPanel({ game }: Props) {
                 </div>
                 <span className="text-gray-300 text-xs">Round {log.rounds}</span>
               </div>
-              {log.result === 'win' && log.expGained !== undefined && log.goldGained !== undefined && (
+              {log.result === 'win' && log.expGained !== undefined && (
                 <div className="flex gap-4 text-xs">
-                  <span className="text-yellow-400">⭐ EXP +{log.expGained}</span>
-                  <span className="text-yellow-400">💰 Gold +{log.goldGained}</span>
+                  <span className="text-yellow-400">⭐ 经验 +{log.expGained}</span>
                 </div>
               )}
             </div>
