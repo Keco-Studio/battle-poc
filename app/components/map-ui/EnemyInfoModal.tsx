@@ -1,5 +1,7 @@
 'use client'
 
+import Image from 'next/image'
+
 export type EnemyInfoModalProps = {
   open: boolean
   enemyName: string
@@ -27,7 +29,7 @@ export default function EnemyInfoModal(props: EnemyInfoModalProps) {
         <div className="font-arcade rounded-2xl border border-white/90 bg-white/75 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-sm">
           <div className="mb-4 flex items-start gap-3 rounded-2xl border border-sky-200 bg-gradient-to-r from-white/85 to-sky-100/90 p-3">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-cyan-200 bg-gradient-to-b from-sky-50 to-indigo-100 shadow-[inset_0_2px_0_rgba(255,255,255,0.8)]">
-              <img src="/enemy/idle/south.png" alt="Enemy" className="h-16 object-contain pixelated" />
+              <Image src="/enemy/idle/south.png" alt="Enemy" width={64} height={64} className="h-16 w-16 object-contain pixelated" />
             </div>
             <div className="flex min-h-20 flex-1 flex-col justify-between py-0.5">
               <h3 className="text-xl font-black leading-none text-slate-800">{enemyName}</h3>

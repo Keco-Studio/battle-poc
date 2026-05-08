@@ -124,7 +124,7 @@ const PANEL_META: Record<
   },
   character_login: {
     title: 'Profile',
-    subtitle: (g) => `Lv.${g.playerLevel} · Gold ${g.playerGold}`,
+    subtitle: (g) => `Lv.${g.playerLevel} Warrior`,
     Icon: User,
   },
 }
@@ -168,7 +168,7 @@ function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
 }
 
 export default function DockFeatureModal({ game }: Props) {
-  const { dockPanel, closeDockPanel, playerLevel, playerGold, battleLog, login, logoutAccount } = game
+  const { dockPanel, closeDockPanel, playerLevel, battleLog, login, logoutAccount } = game
   const supabase = useSupabaseOptional()
   const [loginAccount, setLoginAccount] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -948,7 +948,7 @@ export default function DockFeatureModal({ game }: Props) {
                     </>
                   )}
                   <div className="mt-4 border-t border-dashed border-slate-200 pt-3 text-center text-[11px] text-slate-500">
-                    Local Character Lv.{playerLevel} · Gold {playerGold}
+                    本地角色 Lv.{playerLevel}
                   </div>
                   <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
                     <div className="mb-1 text-[11px] font-bold text-slate-700">Data Sync Trace</div>

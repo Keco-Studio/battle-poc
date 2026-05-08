@@ -141,7 +141,6 @@ export default function BattlePanel({ game }: Props) {
     isDefending,
     setIsDefending,
     gainedExp,
-    gainedGold,
     battleLog,
     setBattleLog,
     closeBattle,
@@ -150,7 +149,6 @@ export default function BattlePanel({ game }: Props) {
     tryLevelUp,
     playerExp,
     setPlayerExp,
-    playerGold,
     setPlayerGold,
     setInventory,
     setEnemyHP,
@@ -250,7 +248,7 @@ export default function BattlePanel({ game }: Props) {
       }
       const afterLevelUp = tryLevelUp(playerExp + expGain)
       setPlayerExp(afterLevelUp.exp)
-      setBattleLog((prev) => [...prev, closingLog, `Gained ${expGain} EXP and ${goldGain} Gold!`])
+      setBattleLog((prev) => [...prev, closingLog, `获得 ${expGain} 经验！`])
       if (afterLevelUp.level > playerLevel) {
         setBattleLog((prev) => [...prev, `Level up! Now Lv.${afterLevelUp.level}`])
       }
@@ -395,6 +393,7 @@ export default function BattlePanel({ game }: Props) {
   }, [
     showBattle,
     isGameOver,
+    enemyCombatStats,
     beginSkillCooldown,
     flashFx,
     handleVictory,
@@ -553,15 +552,11 @@ export default function BattlePanel({ game }: Props) {
             </div>
             {battleResult === 'win' && (
               <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
-                <div className="text-orange-900 text-sm mb-2">Battle Rewards</div>
+                <div className="text-orange-900 text-sm mb-2">战斗奖励</div>
                 <div className="flex justify-around">
                   <div>
-                    <div className="text-2xl">💰</div>
-                    <div className="text-xs text-orange-900">Gold+{gainedGold}</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl">⭐</div>
-                    <div className="text-xs text-orange-900">EXP+{gainedExp}</div>
+                    <div className="text-2xl text-center">⭐</div>
+                    <div className="text-xs text-orange-900">经验+{gainedExp}</div>
                   </div>
                 </div>
               </div>
@@ -569,7 +564,7 @@ export default function BattlePanel({ game }: Props) {
             {battleResult === 'lose' && (
               <div className="relative z-10 bg-white/30 rounded-xl p-4 mb-4">
                 <div className="text-orange-900 text-sm leading-relaxed">
-                  Lost all gold; equipment and backpack retained.
+                  战斗失败；装备与背包保留。
                 </div>
               </div>
             )}

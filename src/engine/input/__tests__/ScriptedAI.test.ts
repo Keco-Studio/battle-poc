@@ -24,8 +24,11 @@ describe('ScriptedAI', () => {
 
     expect(action).not.toBeNull();
     expect(action!.type).toBe('attack');
+    if (!action || action.type !== 'attack') {
+      throw new Error('Expected attack action');
+    }
     // Should target one of the players
-    expect(['player1', 'player2']).toContain(action!.targetId);
+    expect(['player1', 'player2']).toContain(action.targetId);
   });
 
   it('returns null when no living enemies', () => {

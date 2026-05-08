@@ -4,6 +4,18 @@ import { NextResponse } from 'next/server'
 
 const LOCAL_MAPS_DIR = path.join(process.cwd(), 'data', 'maps')
 
+type MapNode = {
+  width?: number
+  height?: number
+  collisionLayer?: number[]
+}
+
+type MapProjectLike = {
+  config?: { startingMap?: string }
+  maps?: Record<string, MapNode>
+  metadata?: Record<string, unknown>
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {
@@ -17,10 +29,10 @@ export async function POST(req: Request) {
 
     const mapFilePath = path.join(LOCAL_MAPS_DIR, `${path.basename(mapId)}.json`)
     const raw = await readFile(mapFilePath, 'utf8')
-    const project = JSON.parse(raw) as any
+    const project = JSON.parse(raw) as MapProjectLike
 
     const startingMapId: string | undefined = project?.config?.startingMap
-    const maps: Record<string, any> | undefined = project?.maps
+    const maps: Record<string, MapNode> | undefined = project?.maps
     if (!maps || typeof maps !== 'object') {
       return NextResponse.json({ ok: false, error: 'Map JSON format abnormal: missing maps' }, { status: 400 })
     }

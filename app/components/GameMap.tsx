@@ -159,7 +159,6 @@ export default function GameMap({ game }: Props) {
     battleResult,
     gainedExp,
     setGainedExp,
-    gainedGold,
     setGainedGold,
     getAvailableSkills,
     finalizeMapBattleFleeSuccess,
