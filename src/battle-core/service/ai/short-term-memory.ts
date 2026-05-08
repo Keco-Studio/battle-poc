@@ -12,10 +12,14 @@ export type ShortTermMemory = {
   targetHpDelta: number
 }
 
+/** Max executed-action lines merged into LLM `memorySummary` (after scanning recent events). */
+export const MEMORY_SUMMARY_ACTION_LIMIT = 20
+
 export function buildShortTermMemory(
   session: BattleSession,
   actorId: string,
-  windowSize = 10
+  /** Recent raw events window; widen when fights emit many non-action events between strikes */
+  windowSize = 200
 ): ShortTermMemory {
   const actor = session.left.id === actorId ? session.left : session.right
   const target = actor.id === session.left.id ? session.right : session.left
@@ -43,7 +47,7 @@ export function buildShortTermMemory(
     targetId: target.id,
     windowSize,
     recentEvents: events,
-    recentActionSummary: actionSummary.slice(-6),
+    recentActionSummary: actionSummary.slice(-MEMORY_SUMMARY_ACTION_LIMIT),
     recentRejectReasons: rejectReasons,
     hpDelta,
     targetHpDelta

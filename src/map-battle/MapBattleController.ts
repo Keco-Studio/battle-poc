@@ -11,6 +11,8 @@ import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
 import { BattleCoreOrchestrator, type RawSequenceData } from '../battle-core/service/ai/battle-core-orchestrator'
 import { ActionSequenceStore, parseSequenceFromLlm } from '../battle-core/service/ai/decision-tree/action-sequence'
 import { clampDashDestination } from './walkability'
+import { resolveBattleDashPosition } from './battleGridMovement'
+import type { BattleCommandWalkContext } from '../battle-core/engine/command-processor'
 import {
   selectTacticalMode,
   selectAction,
@@ -25,11 +27,12 @@ import {
   type TacticalMode,
   type ReadySkill,
 } from '../battle-core/service/ai/decision-tree'
+import { buildWalkableRowsForLlm } from '../battle-core/service/ai/decision-tree/map-grid-for-llm'
 
 const MELEE_RANGE = 1.6
 const RANGE_BUFFER = BATTLE_BALANCE.tacticalRangeBuffer
 const DEFAULT_BATTLE_TICK_MS = 200
-const MAX_BATTLE_TICKS = 300
+// const MAX_BATTLE_TICKS = 300 — stalemate timeout disabled (see applyStalemateTimeoutIfNeeded)
 
 function distBetween(session: BattleSession): number {
   const a = session.left.position
@@ -125,22 +128,66 @@ export class MapBattleController {
   private battleStartTick = 0
 
   constructor(cfg: MapBattleStartConfig) {
+    const mapW = cfg.mapWidth
+    const mapH = cfg.mapHeight
+    const isWalkable = cfg.isWalkable
+    this.mapW = mapW
+    this.mapH = mapH
+    this.isWalkable = isWalkable
+
     this.session = createMapBattleSession(cfg)
     this.decisionMode = cfg.battleDecisionMode || 'manual'
     this.llmOrchestrator =
       this.decisionMode === 'dual_llm'
         ? new BattleCoreOrchestrator({
-          llmConfig: cfg.llmConfig
+          llmConfig: cfg.llmConfig,
+          augmentLlmContext: ({ session, actor, target }) => {
+            const dist = Math.hypot(actor.position.x - target.position.x, actor.position.y - target.position.y)
+            const readySkills = buildReadySkills(actor, session.tick, dist)
+            const ctx = buildDecisionContext(session, actor, target, session.tick, dist, readySkills)
+            const tacticalMode = selectTacticalMode(ctx)
+            return {
+              mapGrid: isWalkable
+                ? {
+                    width: mapW,
+                    height: mapH,
+                    walkableRows: buildWalkableRowsForLlm(mapW, mapH, isWalkable),
+                  }
+                : undefined,
+              battleId: session.id,
+              currentIntent: tacticalMode,
+            }
+          },
+          onLlmSingleActionCommitted: (actorId) => {
+            this.sequenceStore.invalidate(actorId)
+          },
+          shouldDeferPrefetch: (actorId) => this.sequenceStore.hasActiveSequence(actorId),
         })
         : null
     this.llmOrchestrator?.ensureLlmAvailability()
     const battleTickMs = Math.max(80, Math.floor(Number(cfg.battleTickMs || DEFAULT_BATTLE_TICK_MS)))
     this.playerInterval = intervalTicksForSpd(this.session.left.spd, battleTickMs)
     this.enemyInterval = intervalTicksForSpd(this.session.right.spd, battleTickMs)
-    this.mapW = cfg.mapWidth
-    this.mapH = cfg.mapHeight
-    this.isWalkable = cfg.isWalkable
     this.battleStartTick = this.session.preparationEndTick
+  }
+
+  public getDecisionMode(): 'manual' | 'dual_llm' {
+    return this.decisionMode
+  }
+
+  public getLlmRuntimeStatus(): 'available' | 'unavailable' | 'unknown' | 'disabled' {
+    if (this.decisionMode !== 'dual_llm') return 'disabled'
+    if (!this.llmOrchestrator) return 'unavailable'
+    return this.llmOrchestrator.getLlmRuntimeStatus()
+  }
+
+  private buildCommandWalkContext(): BattleCommandWalkContext | undefined {
+    if (!this.isWalkable) return undefined
+    return {
+      mapW: this.mapW,
+      mapH: this.mapH,
+      isTerrainWalkable: this.isWalkable,
+    }
   }
 
   private clampDashMoveTarget(actor: BattleEntity, tx: number, ty: number): { x: number; y: number } {
@@ -156,22 +203,34 @@ export class MapBattleController {
     })
   }
 
-  private canDashToward(actor: BattleEntity, tx: number, ty: number): boolean {
-    const c = this.clampDashMoveTarget(actor, tx, ty)
-    return Math.hypot(c.x - actor.position.x, c.y - actor.position.y) > 0.12
+  private clampDashGoal(tx: number, ty: number): { x: number; y: number } {
+    const minX = this.session.mapBounds.minX + 0.5
+    const maxX = this.session.mapBounds.maxX - 0.5
+    const minY = this.session.mapBounds.minY + 0.5
+    const maxY = this.session.mapBounds.maxY - 0.5
+    return {
+      x: Math.max(minX, Math.min(maxX, tx)),
+      y: Math.max(minY, Math.min(maxY, ty)),
+    }
   }
 
-  private previewDashDestination(
+  private resolveDashMoveStep(action: Extract<DecisionAction, { type: 'dash' }>): number {
+    return action.moveStep != null
+      ? Math.max(0.4, Math.min(4.2, Number(action.moveStep)))
+      : 2.2
+  }
+
+  /**
+   * When there is no walk grid, approximate one dash step (axis-aligned) toward the clamped ray target — matches command-processor fallback.
+   */
+  private lineDashOneStepNoTerrain(
     actor: BattleEntity,
     target: BattleEntity,
-    action: Extract<DecisionAction, { type: 'dash' }>,
+    goalX: number,
+    goalY: number,
+    moveStep: number,
   ): { x: number; y: number } | null {
-    if (!this.canDashToward(actor, action.target.x, action.target.y)) return null
-    const c = this.clampDashMoveTarget(actor, action.target.x, action.target.y)
-    const moveStep =
-      action.moveStep != null
-        ? Math.max(0.4, Math.min(4.2, Number(action.moveStep)))
-        : 2.2
+    const c = this.clampDashMoveTarget(actor, goalX, goalY)
     const minX = this.session.mapBounds.minX + 0.5
     const maxX = this.session.mapBounds.maxX - 0.5
     const minY = this.session.mapBounds.minY + 0.5
@@ -198,6 +257,33 @@ export class MapBattleController {
       return null
     }
     return { x: safeX, y: safeY }
+  }
+
+  /** Whether a dash toward goal would move this tick (pathfinding when terrain exists). */
+  private canDashReachGoal(
+    actor: BattleEntity,
+    opponent: BattleEntity,
+    goalX: number,
+    goalY: number,
+    action: Extract<DecisionAction, { type: 'dash' }>,
+  ): boolean {
+    const goal = this.clampDashGoal(goalX, goalY)
+    const moveStep = this.resolveDashMoveStep(action)
+    const walk = this.buildCommandWalkContext()
+    if (walk) {
+      const next = resolveBattleDashPosition({
+        session: this.session,
+        actor,
+        opponent,
+        clampedTargetX: goal.x,
+        clampedTargetY: goal.y,
+        moveStep,
+        walk,
+      })
+      return Math.hypot(next.x - actor.position.x, next.y - actor.position.y) > 0.12
+    }
+    const step = this.lineDashOneStepNoTerrain(actor, opponent, goal.x, goal.y, moveStep)
+    return step != null
   }
 
   step(input: {
@@ -230,7 +316,7 @@ export class MapBattleController {
         targetId: this.session.right.id,
       }
       this.enqueueIntentCommand(cmd, 'retreat', fleeReason, 'root>flee')
-      const out = this.engine.tick(this.session)
+      const out = this.engine.tick(this.session, this.buildCommandWalkContext())
       this.session = out.session
     } else if (this.decisionMode === 'dual_llm' && this.llmOrchestrator) {
       this.llmOrchestrator.ensureLlmAvailability()
@@ -238,22 +324,30 @@ export class MapBattleController {
         const dist = distBetween(this.session)
         this.enqueueEnemyIntent(input.executeAtTick, dist)
         this.enqueuePlayerIntent(input.executeAtTick, dist, input)
-        const out = this.engine.tick(this.session)
+        const out = this.engine.tick(this.session, this.buildCommandWalkContext())
         this.session = out.session
       } else {
         const prepared = this.llmOrchestrator.prepareCommands(this.session, input.executeAtTick)
         this.session = prepared.session
         this.registerLlmSequences(prepared.sequences, input.executeAtTick)
-        if (prepared.failedActorIds.length > 0) {
-          const dist = distBetween(this.session)
-          if (prepared.failedActorIds.includes(this.session.right.id)) {
-            this.enqueueEnemyIntent(input.executeAtTick, dist)
-          }
-          if (prepared.failedActorIds.includes(this.session.left.id)) {
-            this.enqueuePlayerIntent(input.executeAtTick, dist, input)
-          }
+        const dist = distBetween(this.session)
+        const tick = input.executeAtTick
+        const orch = this.llmOrchestrator
+        const leftId = this.session.left.id
+        const rightId = this.session.right.id
+        // LLM 可用时：仅使用 prepareCommands 入队的指令 + 多步 sequence（经 enqueue* 里的 resolveDecision 消费）。
+        // 请求进行中则等待；无指令且无 sequence 时不走本地战术树（与 shouldUseLlm===false 分支区分）。
+        if (this.hasBattleCommandForActorAtTick(this.session, leftId, tick)) {
+          this.nextPlayerDue = tick + this.playerInterval
+        } else if (!orch.isPrefetchPending(leftId) && this.sequenceStore.hasActiveSequence(leftId)) {
+          this.enqueuePlayerIntent(tick, dist, input)
         }
-        const out = this.engine.tick(this.session)
+        if (this.hasBattleCommandForActorAtTick(this.session, rightId, tick)) {
+          this.nextEnemyDue = tick + this.enemyInterval
+        } else if (!orch.isPrefetchPending(rightId) && this.sequenceStore.hasActiveSequence(rightId)) {
+          this.enqueueEnemyIntent(tick, dist)
+        }
+        const out = this.engine.tick(this.session, this.buildCommandWalkContext())
         this.session = out.session
         this.llmOrchestrator.onTickFinished(this.session)
       }
@@ -261,11 +355,12 @@ export class MapBattleController {
       const dist = distBetween(this.session)
       this.enqueueEnemyIntent(input.executeAtTick, dist)
       this.enqueuePlayerIntent(input.executeAtTick, dist, input)
-      const out = this.engine.tick(this.session)
+      const out = this.engine.tick(this.session, this.buildCommandWalkContext())
       this.session = out.session
     }
 
-    this.applyStalemateTimeoutIfNeeded()
+    // Stalemate cap disabled: battles are not force-ended by tick count.
+    // this.applyStalemateTimeoutIfNeeded()
 
     const uiOutcome = getPocBattleUiOutcome(this.session)
     return {
@@ -276,51 +371,14 @@ export class MapBattleController {
     }
   }
 
+  /*
   private applyStalemateTimeoutIfNeeded(): void {
     if (this.session.result !== 'ongoing') return
     if (this.session.phase !== 'battle') return
     if (this.session.tick < MAX_BATTLE_TICKS) return
-
-    const left = this.session.left.resources
-    const right = this.session.right.resources
-    const leftRatio = left.maxHp > 0 ? left.hp / left.maxHp : 0
-    const rightRatio = right.maxHp > 0 ? right.hp / right.maxHp : 0
-    const scoreDiff = leftRatio - rightRatio
-
-    const result: 'left_win' | 'right_win' =
-      Math.abs(scoreDiff) > 1e-6
-        ? scoreDiff > 0
-          ? 'left_win'
-          : 'right_win'
-        : left.hp >= right.hp
-          ? 'left_win'
-          : 'right_win'
-
-    this.session = {
-      ...this.session,
-      result,
-      chaseState: { status: 'none' },
-      events: [
-        ...this.session.events,
-        {
-          eventId: newCommandId(),
-          sessionId: this.session.id,
-          tick: this.session.tick,
-          type: 'battle_ended',
-          payload: {
-            result,
-            reason: 'timeout_hp_compare',
-            leftHp: left.hp,
-            leftMaxHp: left.maxHp,
-            rightHp: right.hp,
-            rightMaxHp: right.maxHp,
-          },
-          createdAt: Date.now(),
-        },
-      ],
-      updatedAt: Date.now(),
-    }
+    // … force end by remaining HP …
   }
+  */
 
   private resolveDecision(ctx: DecisionContext, actorId: string, mode: TacticalMode): DecisionAction {
     this.sequenceStore.updateHpSnapshot(actorId, ctx.actorHpRatio)
@@ -356,11 +414,28 @@ export class MapBattleController {
     return action
   }
 
+  private hasBattleCommandForActorAtTick(
+    session: BattleSession,
+    actorId: string,
+    tick: number,
+  ): boolean {
+    return session.commandQueue.some((c) => c.actorId === actorId && c.tick === tick)
+  }
+
   private registerLlmSequences(sequences: RawSequenceData[] | undefined, currentTick: number): void {
     if (!sequences) return
     for (const { actorId, raw } of sequences) {
+      this.sequenceStore.invalidate(actorId)
       const parsed = parseSequenceFromLlm(raw, 'llm')
-      if (!parsed) continue
+      if (!parsed) {
+        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
+          const len = Array.isArray(raw.sequence) ? raw.sequence.length : -1
+          console.warn(
+            `[battle] LLM sequence rejected for ${actorId} (invalid length or steps); raw length=${len}`,
+          )
+        }
+        continue
+      }
       const actor = this.session.left.id === actorId ? this.session.left : this.session.right
       const readySkills = buildReadySkills(actor, currentTick, distBetween(this.session))
       const ctx = buildDecisionContext(this.session, actor,
@@ -572,15 +647,15 @@ export class MapBattleController {
       case 'defend':
         return { ...base, action: 'defend' }
       case 'dash': {
-        const nextPos = this.previewDashDestination(actor, target, action)
-        if (!nextPos) return null
+        const goal = this.clampDashGoal(action.target.x, action.target.y)
+        if (!this.canDashReachGoal(actor, target, goal.x, goal.y, action)) return null
         return {
           ...base,
           action: 'dash',
           targetId: target.id,
           metadata: {
-            moveTargetX: nextPos.x,
-            moveTargetY: nextPos.y,
+            moveTargetX: goal.x,
+            moveTargetY: goal.y,
             ...(action.moveStep != null ? { moveStep: action.moveStep } : {}),
           },
         }

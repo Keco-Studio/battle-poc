@@ -37,6 +37,26 @@ The frontend connects to the proxy via `NEXT_PUBLIC_BATTLE_AI_SERVER_URL` (defau
 
 See `server/README.md` for more details.
 
+### MiniMax（经本地代理）
+
+在 `server/.env` 中设置：
+
+```bash
+AI_LLM_PROVIDER=minimax
+MINIMAX_API_KEY=你的密钥
+MINIMAX_MODEL=MiniMax-M2.1
+MINIMAX_BASE_URL=https://api.minimax.io
+```
+
+前端 `.env.local`：
+
+```bash
+NEXT_PUBLIC_BATTLE_LLM_PROVIDER=minimax
+NEXT_PUBLIC_BATTLE_LLM_MODEL=MiniMax-M2.1
+```
+
+然后 `npm run dev:ai` 启动代理。
+
 ## Common Commands
 
 ```bash

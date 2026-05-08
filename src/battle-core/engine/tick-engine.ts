@@ -1,5 +1,5 @@
 import { BattleSession } from '../domain/entities/battle-session'
-import { processBattleCommands } from './command-processor'
+import { processBattleCommands, type BattleCommandWalkContext } from './command-processor'
 import { tickStatusEffects } from './effect-processor'
 
 export type TickEngineResult = {
@@ -8,7 +8,7 @@ export type TickEngineResult = {
 }
 
 export class BattleTickEngine {
-  public tick(session: BattleSession): TickEngineResult {
+  public tick(session: BattleSession, walk?: BattleCommandWalkContext): TickEngineResult {
     const advancedTick = session.tick + 1
     const shouldEnterBattle =
       session.phase === 'preparation' && advancedTick >= session.preparationEndTick
@@ -18,7 +18,7 @@ export class BattleTickEngine {
       phase: shouldEnterBattle ? 'battle' : session.phase,
       updatedAt: Date.now()
     }
-    const processed = processBattleCommands(advancedSession)
+    const processed = processBattleCommands(advancedSession, walk)
     const withEffects = tickStatusEffects(processed.session)
     const withRecovery = recoverPassiveResources(withEffects)
     return {

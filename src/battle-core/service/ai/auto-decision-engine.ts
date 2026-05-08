@@ -2,7 +2,11 @@ import type { BattleEntity } from '../../domain/entities/battle-entity'
 import type { BattleSession } from '../../domain/entities/battle-session'
 import { getBattleSkillDefinition } from '../../content/skills/basic-skill-catalog'
 import type { ShortTermMemory } from './short-term-memory'
-import { buildStructuredPayload, buildSystemPrompt } from './decision-tree/llm-prompt-builder'
+import {
+  buildStructuredPayload,
+  buildSystemPrompt,
+  type LlmMapGridSnapshot,
+} from './decision-tree/llm-prompt-builder'
 
 export type RawBattleDecision = {
   action?: string
@@ -15,7 +19,7 @@ export type RawBattleDecision = {
 }
 
 export type LlmProviderConfig = {
-  provider: 'deepseek' | 'zhipu' | 'custom'
+  provider: 'deepseek' | 'zhipu' | 'minimax' | 'custom'
   apiKey?: string
   model?: string
   proxyUrl?: string
@@ -32,6 +36,29 @@ export type LlmDecisionContext = {
   actor: BattleEntity
   target: BattleEntity
   memory: ShortTermMemory
+  /** Session id for tracing */
+  battleId?: string
+  decisionRefreshReason?: string
+  currentIntent?: string
+  recentEventsSummary?: string
+  /** Row-major walkable matrix from map collision (optional when no grid available) */
+  mapGrid?: LlmMapGridSnapshot
+}
+
+export type { LlmMapGridSnapshot }
+
+function structuredPayloadArgs(context: LlmDecisionContext): Parameters<typeof buildStructuredPayload>[0] {
+  return {
+    session: context.session,
+    actor: context.actor,
+    target: context.target,
+    refreshReason: context.decisionRefreshReason ?? 'interval',
+    currentIntent: context.currentIntent ?? 'trade',
+    memorySummary: context.memory.recentActionSummary.join(', ') || 'No recent actions.',
+    battleId: context.battleId,
+    recentEventsSummary: context.recentEventsSummary,
+    mapGrid: context.mapGrid,
+  }
 }
 
 export type DecisionResult = {
@@ -45,7 +72,8 @@ interface DecisionProvider {
 }
 
 const MIN_TIMEOUT_MS = 400
-const DEFAULT_TIMEOUT_MS = 7000
+/** Proxy + MiniMax + 大地图 payload 常需 10–25s+；须大于浏览器/代理上游等待时间 */
+const DEFAULT_TIMEOUT_MS = 60000
 const ERROR_BODY_SNIPPET_LIMIT = 140
 
 class HeuristicDecisionProvider implements DecisionProvider {
@@ -116,6 +144,7 @@ abstract class BaseHttpLlmProvider implements DecisionProvider {
   protected getDefaultModel(): string {
     if (this.config.provider === 'deepseek') return 'deepseek-chat'
     if (this.config.provider === 'zhipu') return 'glm-4.5'
+    if (this.config.provider === 'minimax') return 'MiniMax-M2.1'
     return 'gpt-4o-mini'
   }
 
@@ -132,14 +161,7 @@ class ProxyLlmDecisionProvider extends BaseHttpLlmProvider {
 
   protected buildRequest(context: LlmDecisionContext, timeoutMs: number) {
     const proxyBase = String(this.config.proxyUrl || 'http://localhost:8787').replace(/\/$/, '')
-    const payload = buildStructuredPayload({
-      session: context.session,
-      actor: context.actor,
-      target: context.target,
-      refreshReason: 'interval',
-      currentIntent: 'trade',
-      memorySummary: context.memory.recentActionSummary.join(', ') || 'No recent actions.',
-    })
+    const payload = buildStructuredPayload(structuredPayloadArgs(context))
     return {
       endpoint: `${proxyBase}/api/ai/battle-decision`,
       init: {
@@ -157,13 +179,18 @@ class ProxyLlmDecisionProvider extends BaseHttpLlmProvider {
   }
 
   protected async parseResponse(resp: Response): Promise<RawBattleDecision> {
-    const payload = (await resp.json()) as {
-      decision?: RawBattleDecision
-      error?: string
+    const text = await resp.text()
+    let payload: { decision?: RawBattleDecision; error?: string }
+    try {
+      payload = JSON.parse(text) as { decision?: RawBattleDecision; error?: string }
+    } catch {
+      throw new Error(`proxy_response_not_json:${text.slice(0, 140)}`)
     }
     if (payload.error) throw new Error(payload.error)
     const parsed = payload.decision as Record<string, unknown> | undefined
-    if (!parsed || typeof parsed !== 'object') throw new Error('proxy_parse_error')
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('proxy_parse_error:no_decision_object')
+    }
     return parsed as RawBattleDecision
   }
 }
@@ -171,15 +198,8 @@ class ProxyLlmDecisionProvider extends BaseHttpLlmProvider {
 class DirectRemoteLlmDecisionProvider extends BaseHttpLlmProvider {
   protected readonly httpErrorPrefix = 'llm_http_'
 
-  protected buildRequest(context: LlmDecisionContext) {
-    const payload = buildStructuredPayload({
-      session: context.session,
-      actor: context.actor,
-      target: context.target,
-      refreshReason: 'interval',
-      currentIntent: 'trade',
-      memorySummary: context.memory.recentActionSummary.join(', ') || 'No recent actions.',
-    })
+  protected buildRequest(context: LlmDecisionContext, _timeoutMs: number) {
+    const payload = buildStructuredPayload(structuredPayloadArgs(context))
     return {
       endpoint: this.getEndpoint(),
       init: {
@@ -261,6 +281,10 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export class AutoDecisionEngine {
   private readonly provider: DecisionProvider
   private readonly usesRemoteProvider: boolean
@@ -281,18 +305,26 @@ export class AutoDecisionEngine {
   }
 
   async requestDecision(context: LlmDecisionContext): Promise<DecisionResult> {
-    try {
-      const decision = await this.provider.request(context)
-      return {
-        decision,
-        source: this.usesRemoteProvider ? 'remote_llm' : 'heuristic_fallback'
+    const attempts = this.usesRemoteProvider ? 2 : 1
+    let lastError: string | undefined
+    for (let a = 0; a < attempts; a += 1) {
+      try {
+        const decision = await this.provider.request(context)
+        return {
+          decision,
+          source: this.usesRemoteProvider ? 'remote_llm' : 'heuristic_fallback'
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error)
+        if (a + 1 < attempts) {
+          await sleep(280)
+        }
       }
-    } catch (error) {
-      return {
-        decision: null,
-        source: 'heuristic_fallback',
-        error: error instanceof Error ? error.message : String(error)
-      }
+    }
+    return {
+      decision: null,
+      source: 'heuristic_fallback',
+      error: lastError
     }
   }
 }

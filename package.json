@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:ai": "NODE_USE_ENV_PROXY=1 node server/ai-proxy.mjs",
+    "dev:openclaw-service": "node server/openclaw-chat-bridge.mjs",
+    "dev:openclaw-bridge": "npm run dev:openclaw-service",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

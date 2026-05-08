@@ -35,7 +35,7 @@ export type ActionRecord = {
 const PLAN_REUSE_TICKS = 4
 const MAX_CONSECUTIVE_REJECTS = 2
 const HP_SPIKE_THRESHOLD = 0.15
-const MAX_ACTION_HISTORY = 12
+const MAX_ACTION_HISTORY = 24
 
 export class IntentStore {
   private intents = new Map<string, StoredIntent>()
@@ -136,8 +136,8 @@ export class IntentStore {
   buildMemorySummary(actorId: string): string {
     const history = this.actionHistory.get(actorId)
     if (!history || history.length === 0) return 'No recent actions.'
-    const last6 = history.slice(-6)
-    return last6.map((r) => `t${r.tick}:${r.actionKey}`).join(', ')
+    const last20 = history.slice(-20)
+    return last20.map((r) => `t${r.tick}:${r.actionKey}`).join(', ')
   }
 
   invalidate(actorId: string): void {
@@ -153,7 +153,8 @@ export class IntentStore {
   private inferCurrentMode(ctx: DecisionContext): TacticalMode {
     if (
       ctx.actorHpRatio <= BATTLE_BALANCE.tacticalLowHpRetreatRatio &&
-      ctx.distance <= BATTLE_BALANCE.tacticalKiteMinDistance
+      ctx.distance <= BATTLE_BALANCE.tacticalKiteMinDistance &&
+      ctx.actorHpRatio < ctx.targetHpRatio
     ) {
       return 'retreat'
     }

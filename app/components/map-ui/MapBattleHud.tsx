@@ -1,6 +1,7 @@
 import type { MutableRefObject } from 'react'
 import type { Skill } from '@/app/constants'
 import BattleResultOverlay from './BattleResultOverlay'
+import BattleLlmDebugPanel from '@/app/components/battle/BattleLlmDebugPanel'
 
 type Props = {
   showBattle: boolean
@@ -27,7 +28,19 @@ type Props = {
   battleResult: 'win' | 'lose' | null
   nearbyEnemyName: string
   gainedExp: number
+  gainedGold: number
   battleLootDrop: { name: string; icon: string } | null
+  battleAiDebugStats: {
+    totalCommands: number
+    llmCommands: number
+    llmSeqCommands: number
+    fallbackCommands: number
+    totalRejects: number
+    dashBlockedRejects: number
+  }
+  battleEvents?: Array<{ type: string; payload?: Record<string, unknown> }>
+  decisionMode?: 'manual' | 'dual_llm'
+  llmRuntime?: 'available' | 'unavailable' | 'unknown' | 'disabled'
   onContinue: () => void
 }
 
@@ -57,9 +70,31 @@ export default function MapBattleHud(props: Props) {
     battleResult,
     nearbyEnemyName,
     gainedExp,
+    gainedGold,
     battleLootDrop,
+    battleAiDebugStats,
+    battleEvents,
+    decisionMode,
+    llmRuntime,
     onContinue,
   } = props
+
+  const llmHitRate =
+    battleAiDebugStats.totalCommands > 0
+      ? Math.round((battleAiDebugStats.llmCommands / battleAiDebugStats.totalCommands) * 100)
+      : 0
+  const seqShare =
+    battleAiDebugStats.llmCommands > 0
+      ? Math.round((battleAiDebugStats.llmSeqCommands / battleAiDebugStats.llmCommands) * 100)
+      : 0
+  const fallbackRate =
+    battleAiDebugStats.totalCommands > 0
+      ? Math.round((battleAiDebugStats.fallbackCommands / battleAiDebugStats.totalCommands) * 100)
+      : 0
+  const dashBlockedRate =
+    battleAiDebugStats.totalRejects > 0
+      ? Math.round((battleAiDebugStats.dashBlockedRejects / battleAiDebugStats.totalRejects) * 100)
+      : 0
 
   if (!showBattle) return null
 
@@ -82,6 +117,21 @@ export default function MapBattleHud(props: Props) {
             </span>
           </div>
         </div>
+        {battleEvents ? (
+          <BattleLlmDebugPanel
+            events={battleEvents}
+            decisionMode={decisionMode}
+            llmRuntime={llmRuntime}
+            className="mb-1 grid grid-cols-2 gap-x-2 gap-y-1 rounded border border-cyan-500/35 bg-slate-950/55 px-2 py-1 text-[10px] text-cyan-100"
+          />
+        ) : (
+          <div className="mb-1 grid grid-cols-2 gap-x-2 gap-y-1 rounded border border-cyan-500/35 bg-slate-950/55 px-2 py-1 text-[10px] text-cyan-100">
+            <div>LLM hit: {llmHitRate}% ({battleAiDebugStats.llmCommands}/{battleAiDebugStats.totalCommands})</div>
+            <div>LLM seq share: {seqShare}% ({battleAiDebugStats.llmSeqCommands}/{battleAiDebugStats.llmCommands})</div>
+            <div>Fallback: {fallbackRate}% ({battleAiDebugStats.fallbackCommands}/{battleAiDebugStats.totalCommands})</div>
+            <div>dash_blocked: {dashBlockedRate}% ({battleAiDebugStats.dashBlockedRejects}/{battleAiDebugStats.totalRejects})</div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {!isGameOver && !isPVPMode && (
             <button
@@ -143,6 +193,7 @@ export default function MapBattleHud(props: Props) {
         battleTimeSec={battleTimeSec}
         lastBattleTickCount={lastBattleTickCount}
         gainedExp={gainedExp}
+        gainedGold={gainedGold}
         battleLootDrop={battleLootDrop}
         onContinue={onContinue}
       />

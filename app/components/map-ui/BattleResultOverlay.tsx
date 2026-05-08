@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { Coins, Diamond, Package, Star } from 'lucide-react'
 
 export type BattleResultOverlayProps = {
   open: boolean
@@ -8,6 +9,7 @@ export type BattleResultOverlayProps = {
   enemyName: string
   battleTimeSec: number
   lastBattleTickCount: number
+  gainedGold: number
   gainedExp: number
   battleLootDrop: { name: string; icon: string } | null
   onContinue: () => void
@@ -20,6 +22,7 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
     enemyName,
     battleTimeSec,
     lastBattleTickCount,
+    gainedGold,
     gainedExp,
     battleLootDrop,
     onContinue,
@@ -31,12 +34,18 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
   const subtitle: ReactNode =
     battleResult === 'win' ? (
       <>
-        <span className="text-yellow-200">◆ YOU DEFEATED </span>
+        <span className="inline-flex items-center gap-1 text-yellow-200">
+          <Diamond className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden strokeWidth={2.5} />
+          YOU DEFEATED{' '}
+        </span>
         <span className="text-orange-300">{enemyName.toUpperCase()}</span>
       </>
     ) : (
       <>
-        <span className="text-yellow-200">◆ YOU WERE DEFEATED BY </span>
+        <span className="inline-flex items-center gap-1 text-yellow-200">
+          <Diamond className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden strokeWidth={2.5} />
+          YOU WERE DEFEATED BY{' '}
+        </span>
         <span className="text-orange-300">{enemyName.toUpperCase()}</span>
       </>
     )
@@ -87,9 +96,29 @@ export default function BattleResultOverlay(props: BattleResultOverlayProps) {
             </span>
           </div>
           {battleResult === 'win' && (
-            <div className="text-yellow-200">
-              ⭐ +{gainedExp}
-              {battleLootDrop ? ` · 掉落 ${battleLootDrop.icon} ${battleLootDrop.name}` : ''}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-yellow-200">
+              <span className="inline-flex items-center gap-1">
+                <Coins className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden strokeWidth={2.2} />
+                +{gainedGold}
+              </span>
+              <span className="text-white/35" aria-hidden>
+                ·
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 shrink-0 fill-amber-200 text-amber-200" aria-hidden strokeWidth={2} />
+                +{gainedExp}
+              </span>
+              {battleLootDrop ? (
+                <>
+                  <span className="text-white/35" aria-hidden>
+                    ·
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Package className="h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden strokeWidth={2.2} />
+                    掉落 {battleLootDrop.name}
+                  </span>
+                </>
+              ) : null}
             </div>
           )}
           {battleResult === 'lose' && <div className="text-rose-200">战斗失败；装备与背包保留。</div>}

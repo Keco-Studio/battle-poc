@@ -8,46 +8,77 @@ import type { StrategyTemplateName } from './strategy-template'
 import type { RefreshReason } from './intent-store'
 import type { TacticalMode } from './decision-context'
 
-export type StructuredLlmPayload = {
-  tick: number
-  phase: string
-  refreshReason: RefreshReason | string
-  currentIntent: TacticalMode | string
-  memorySummary: string
-
-  actor: EntityPayload
-  actorRoleProfile: RoleProfile
-  actorSkillsDetailed: SkillDetail[]
-
-  target: EntityPayload
-  targetRoleProfile: RoleProfile
-  targetSkillsDetailed: SkillDetail[]
-
-  distance: number
-  actorHpRatio: number
-  targetHpRatio: number
-
-  battleRules: BattleRulesPayload
-  availableActions: string[]
-  availableStrategyTemplates: StrategyTemplateName[]
+/** Walkable matrix for prompts: walkableRows[rowY][colX] === true → cell (colX, rowY) is walkable. */
+export type LlmMapGridSnapshot = {
+  width: number
+  height: number
+  walkableRows: boolean[][]
 }
 
-type EntityPayload = {
+export type LlmEffectPayload = {
+  type: string
+  remainingTicks: number
+  stackRule?: string
+}
+
+export type LlmCombatantPayload = {
   id: string
   name: string
   team: string
-  hp: number
-  maxHp: number
-  mp: number
-  maxMp: number
-  stamina: number
-  maxStamina: number
-  atk: number
-  def: number
-  spd: number
-  posX: number
-  posY: number
-  activeEffects: string[]
+  position: { x: number; y: number }
+  resources: {
+    hp: number
+    maxHp: number
+    mp: number
+    maxMp: number
+    stamina: number
+    maxStamina: number
+    rage: number
+    maxRage: number
+    shield: number
+    maxShield: number
+  }
+  attributes: { atk: number; def: number; spd: number }
+  effects: LlmEffectPayload[]
+  roleProfile: RoleProfile
+  skills: SkillDetail[]
+}
+
+export type LlmOutputContractPayload = {
+  /** One HTTP round-trip to the LLM is often several seconds; plan multiple steps in one JSON. */
+  oneRequestCovers: string
+  /** Engine accepts 20–24 steps for `sequence` (ActionSequenceStore). */
+  sequenceSteps: { min: number; max: number }
+  /** Clamped to 3–192 in engine; default 128. New LLM response replaces the prior sequence. */
+  ttlTicksSuggest: { min: number; max: number }
+}
+
+export type StructuredLlmPayload = {
+  meta: {
+    tick: number
+    phase: string
+    battleId?: string
+    decisionRefreshReason: string
+    currentIntent: string
+    memorySummary: string
+    recentEventsSummary?: string
+    outputContract: LlmOutputContractPayload
+  }
+  map: {
+    bounds: { minX: number; maxX: number; minY: number; maxY: number }
+    coordinateSystem: string
+    grid?: LlmMapGridSnapshot
+  }
+  actor: LlmCombatantPayload
+  target: LlmCombatantPayload
+  relative: {
+    distance: number
+    actorHpRatio: number
+    targetHpRatio: number
+  }
+  battleRules: BattleRulesPayload
+  availableActions: string[]
+  availableStrategyTemplates: StrategyTemplateName[]
 }
 
 type SkillDetail = {
@@ -76,6 +107,9 @@ const ALL_TEMPLATES: StrategyTemplateName[] = [
   'kite_cycle', 'retreat_edge', 'safe_trade', 'guerrilla_warfare', 'bait_and_punish',
 ]
 
+const COORDINATE_SYSTEM_NOTE =
+  'Continuous coordinates align with battle-core: float positions; grid cells use integer (colX,rowY). map.grid.walkableRows[rowY][colX] matches isWalkable(colX,rowY). Dash targets are clamped server-side to walkable ray.'
+
 export function buildStructuredPayload(input: {
   session: BattleSession
   actor: BattleEntity
@@ -83,31 +117,49 @@ export function buildStructuredPayload(input: {
   refreshReason: RefreshReason | string
   currentIntent: TacticalMode | string
   memorySummary: string
+  battleId?: string
+  recentEventsSummary?: string
+  mapGrid?: LlmMapGridSnapshot
 }): StructuredLlmPayload {
   const { session, actor, target } = input
   const distance = Math.hypot(
     actor.position.x - target.position.x,
     actor.position.y - target.position.y,
   )
+  const roundedDist = Math.round(distance * 100) / 100
+  const actorHpRatio =
+    actor.resources.maxHp > 0 ? Math.round((actor.resources.hp / actor.resources.maxHp) * 100) / 100 : 1
+  const targetHpRatio =
+    target.resources.maxHp > 0 ? Math.round((target.resources.hp / target.resources.maxHp) * 100) / 100 : 1
+
   return {
-    tick: session.tick,
-    phase: session.phase,
-    refreshReason: input.refreshReason,
-    currentIntent: input.currentIntent,
-    memorySummary: input.memorySummary,
-
-    actor: buildEntityPayload(actor),
-    actorRoleProfile: inferRoleProfile(actor),
-    actorSkillsDetailed: buildSkillDetails(actor, session.tick, distance),
-
-    target: buildEntityPayload(target),
-    targetRoleProfile: inferRoleProfile(target),
-    targetSkillsDetailed: buildSkillDetails(target, session.tick, distance),
-
-    distance: Math.round(distance * 100) / 100,
-    actorHpRatio: actor.resources.maxHp > 0 ? Math.round((actor.resources.hp / actor.resources.maxHp) * 100) / 100 : 1,
-    targetHpRatio: target.resources.maxHp > 0 ? Math.round((target.resources.hp / target.resources.maxHp) * 100) / 100 : 1,
-
+    meta: {
+      tick: session.tick,
+      phase: session.phase,
+      ...(input.battleId ? { battleId: input.battleId } : {}),
+      decisionRefreshReason: String(input.refreshReason),
+      currentIntent: String(input.currentIntent),
+      memorySummary: input.memorySummary,
+      ...(input.recentEventsSummary ? { recentEventsSummary: input.recentEventsSummary } : {}),
+      outputContract: {
+        oneRequestCovers:
+          'One model call may take many seconds. Prefer a 20-24 step `sequence` and set `ttlTicks` to 128 (engine default). When a new response arrives, the prior sequence is discarded. Avoid returning only one bare `action` unless the situation is trivial.',
+        sequenceSteps: { min: 20, max: 24 },
+        ttlTicksSuggest: { min: 128, max: 128 },
+      },
+    },
+    map: {
+      bounds: { ...session.mapBounds },
+      coordinateSystem: COORDINATE_SYSTEM_NOTE,
+      ...(input.mapGrid ? { grid: input.mapGrid } : {}),
+    },
+    actor: buildCombatantPayload(actor, session.tick, roundedDist),
+    target: buildCombatantPayload(target, session.tick, roundedDist),
+    relative: {
+      distance: roundedDist,
+      actorHpRatio,
+      targetHpRatio,
+    },
     battleRules: {
       basicAttackRange: MELEE_RANGE,
       dodgeStaminaCost: BATTLE_BALANCE.dodgeStaminaCost,
@@ -119,75 +171,98 @@ export function buildStructuredPayload(input: {
   }
 }
 
+function buildCombatantPayload(
+  self: BattleEntity,
+  currentTick: number,
+  distanceToOpponent: number,
+): LlmCombatantPayload {
+  const dist = distanceToOpponent
+  return {
+    id: self.id,
+    name: self.name,
+    team: self.team,
+    position: {
+      x: Math.round(self.position.x * 100) / 100,
+      y: Math.round(self.position.y * 100) / 100,
+    },
+    resources: {
+      hp: self.resources.hp,
+      maxHp: self.resources.maxHp,
+      mp: self.resources.mp,
+      maxMp: self.resources.maxMp,
+      stamina: self.resources.stamina,
+      maxStamina: self.resources.maxStamina,
+      rage: self.resources.rage,
+      maxRage: self.resources.maxRage,
+      shield: self.resources.shield,
+      maxShield: self.resources.maxShield,
+    },
+    attributes: { atk: self.atk, def: self.def, spd: self.spd },
+    effects: self.effects.map((e) => ({
+      type: e.effectType,
+      remainingTicks: e.remainingTick,
+      stackRule: e.stackRule,
+    })),
+    roleProfile: inferRoleProfile(self),
+    skills: buildSkillDetails(self, currentTick, dist),
+  }
+}
+
 export function buildSystemPrompt(): string {
   return [
     'You are a tactical battle AI. Output ONLY valid JSON, no extra text.',
     '',
-    'You MUST respond with a multi-step action sequence (3-5 steps). The engine executes one step per tick.',
+    'LATENCY / PLANNING: Each HTTP call to you may take many seconds. meta.outputContract explains it: one response must amortize that cost — prefer style (A) with 20–24 steps so the battle can consume many ticks from one JSON.',
     '',
-    'Response format:',
+    'INPUT you receive includes:',
+    '- meta: tick, phase, battleId?, decisionRefreshReason, currentIntent (engine tactical mode: retreat | finish | kite | trade — retreat only when low HP, close, and lower HP% than target to avoid both sides fleeing), memorySummary, meta.outputContract (sequence length + ttlTicks guidance), optional recentEventsSummary',
+    '- map.bounds and optional map.grid.walkableRows[rowY][colX] (true = walkable); use it to avoid suggesting paths through blocked cells',
+    '- actor / target: position, resources, attributes, effects, roleProfile, skills (with canCast, inRange, cooldowns)',
+    '- relative.distance and HP ratios',
+    '',
+    'OUTPUT — choose ONE style:',
+    '',
+    '(A) Multi-step sequence (DEFAULT — use whenever combat is not trivial), exactly 20–24 steps (engine requirement; fewer or more are rejected), one step consumed each time this actor gets a turn:',
     '{',
-    '  "name": "<short combo name, e.g. freeze_shatter_combo>",',
+    '  "name": "<short combo name>",',
     '  "sequence": [',
-    '    { "action": "cast_skill", "skillId": "frost_lock" },',
-    '    { "action": "dash", "moveTargetX": 5.0, "moveTargetY": 3.0 },',
-    '    { "action": "cast_skill", "skillId": "arcane_bolt" }',
+    '    ... exactly 20 to 24 objects; mix dash (with moveTargetX/Y), cast_skill (skillId from actor.skills), basic_attack, defend, dodge as appropriate ...',
     '  ],',
-    '  "ttlTicks": 6,',
+    '  "ttlTicks": 128,',
     '  "reasoning": "<1-sentence explanation>"',
     '}',
+    'Use ttlTicks: 128 (engine default; max plan window 192 ticks). A new LLM response replaces the previous plan.',
     '',
-    'Each step in "sequence" has:',
+    '(B) Single-tick intent (only for very simple micro-adjustments):',
+    '{',
+    '  "intent": "move_and_act | cast_only | move_only | defend | dodge",',
+    '  "move": { "targetX": 5.5, "targetY": 3.0 },',
+    '  "action": { "type": "basic_attack | cast_skill | defend | dodge | none", "skillId": "<when cast_skill>" },',
+    '  "priority": "move_first | act_first",',
+    '  "ttlTicks": 128,',
+    '  "reasoning": "..."',
+    '}',
+    'Use priority move_first to dash then attack/cast; act_first to strike then reposition. Server expands this into dash/skill commands.',
+    '',
+    '(C) Legacy single action (last resort): top-level "action": "cast_skill" with "skillId", or "dash" with metadata.moveTargetX/Y.',
+    '',
+    'Sequence step fields:',
     '- "action": "basic_attack" | "cast_skill" | "defend" | "dash" | "dodge"',
     '- "skillId": required if action="cast_skill"',
-    '- "moveTargetX", "moveTargetY": required if action="dash"',
-    '',
-    'Sequence rules:',
-    '- 3 to 5 steps per sequence',
-    '- ttlTicks: how many ticks the plan stays valid (3-12, default 6)',
-    '- Plan combos: control → reposition → burst (e.g. freeze → dash back → shatter)',
-    '- The engine will invalidate your sequence if HP drops sharply or actor gets stunned',
-    '',
-    'Strategy templates guide your overall approach:',
-    '- opening_probe: Cautious poke to test enemy, basic attacks or short dashes',
-    '- pressure_chase: All-in aggressive pursuit, close distance and burst',
-    '- control_chain: Lead with control skills (freeze/stun), then follow up burst',
-    '- burst_window: Maximize burst damage in short window, use highest-ratio skills',
-    '- kite_cycle: Maintain safe distance, cast ranged skills, retreat when too close',
-    '- retreat_edge: Emergency retreat to map edge, dodge and disengage',
-    '- safe_trade: Balanced offense/defense, defend when low HP, steady damage',
-    '- guerrilla_warfare: 6-tick cycle: poke→retreat→burst, never commit fully',
-    '- bait_and_punish: Bait enemy approach with retreat, then counter-attack',
+    '- "moveTargetX", "moveTargetY": required if action="dash" — goal position in continuous map coords (not teleport); each tick the engine advances one step along the shortest *walkable grid path* toward that goal (same as metadata.moveTargetX/Y on a lone dash).',
     '',
     'Rules:',
-    `- basic_attack range is ${MELEE_RANGE}; if distance > ${MELEE_RANGE}, use dash first`,
-    '- cast_skill requires: skill not on cooldown, enough MP, within skill range',
-    '- dodge costs stamina; defend is free but wastes time if far from enemy',
-    '- Consider actor/target role profiles for optimal strategy',
-    '- Prioritize control skills to open burst windows (freeze → shatter combo)',
-    '- If HP is critically low (<15%), strongly consider retreat_edge or dodge sequence',
-    '- ALWAYS plan ahead: if you want to cast a skill but are out of range, dash first THEN cast',
+    '- Align with meta.currentIntent when it conflicts with a greedy plan: retreat → prioritize defend/dodge/dash away; finish → pressure/burst; kite → keep spacing while casting; trade → measured exchanges.',
+    `- basic_attack range is ${MELEE_RANGE}; if distance > ${MELEE_RANGE}, dash into range first`,
+    '- cast_skill requires: skill ready, enough MP, target in range',
+    '- dodge costs stamina; defend is defensive stance',
+    '- If HP critically low, prefer retreat/dodge sequences; invalid moves are clamped server-side',
+    '- ALWAYS plan: out of range → dash toward valid walkable target THEN cast',
+    '- Avoid repeating the same move direction every tick; if movement was blocked or made no progress, choose a different reachable target cell',
+    '- Prefer dynamic adaptation from current context and memorySummary; do not output fixed hardcoded loops',
+    '',
+    'Strategy template names (for context): opening_probe, pressure_chase, control_chain, burst_window, kite_cycle, retreat_edge, safe_trade, guerrilla_warfare, bait_and_punish.',
   ].join('\n')
-}
-
-function buildEntityPayload(entity: BattleEntity): EntityPayload {
-  return {
-    id: entity.id,
-    name: entity.name,
-    team: entity.team,
-    hp: entity.resources.hp,
-    maxHp: entity.resources.maxHp,
-    mp: entity.resources.mp,
-    maxMp: entity.resources.maxMp,
-    stamina: entity.resources.stamina,
-    maxStamina: entity.resources.maxStamina,
-    atk: entity.atk,
-    def: entity.def,
-    spd: entity.spd,
-    posX: Math.round(entity.position.x * 100) / 100,
-    posY: Math.round(entity.position.y * 100) / 100,
-    activeEffects: entity.effects.map((e) => `${e.effectType}(${e.remainingTick}t)`),
-  }
 }
 
 function buildSkillDetails(

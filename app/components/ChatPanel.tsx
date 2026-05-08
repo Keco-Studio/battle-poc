@@ -1,10 +1,23 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Send } from 'lucide-react'
 import type { ChatMessage, GameState } from '../hooks/useGameState'
 import type { ChatTargetOption } from './DockFeatureModal'
 import { calcEnemyStats } from '../constants'
+import { BotAvatar } from './chat-panel/BotAvatar'
+import { ChatAutomationSection } from './chat-panel/ChatAutomationSection'
+import { ChatComposer } from './chat-panel/ChatComposer'
+import { ChatConnectionHint } from './chat-panel/ChatConnectionHint'
+import { ChatMessageList } from './chat-panel/ChatMessageList'
+import { ChatQuickPrompts } from './chat-panel/ChatQuickPrompts'
+import { ChatTargetBar } from './chat-panel/ChatTargetBar'
+import {
+  AGENT_CHAT_API,
+  ENEMY_CHAT_THREADS_STORAGE_KEY,
+  OFFLINE_BOLT_REPLY,
+  SYSTEM_CHAT_THREADS_STORAGE_KEY,
+} from './chat-panel/chatPanelConstants'
+import { readAgentChatStream } from './chat-panel/readAgentChatStream'
 
 interface Props {
   game: GameState
@@ -15,24 +28,6 @@ interface Props {
   onSelectChatTarget?: (targetId: string) => void
 }
 
-const QUICK_PROMPTS = ['What are you building?', 'Tell me your skills', 'How do you use your claw?']
-
-const OFFLINE_BOLT_REPLY =
-  'Agent backend offline. Check /api/agent-chat backend mode and endpoint configuration.'
-
-const AGENT_CHAT_API = '/api/agent-chat'
-
-const AUTO_COMMANDS = [
-  { label: 'Battle 5 times', cmd: 'battle 5 times' },
-  { label: 'Battle 10 times', cmd: 'battle 10 times' },
-  { label: 'Flee if losing', cmd: 'flee if losing' },
-  { label: 'Farm exp', cmd: 'farm exp' },
-  { label: 'Auto mode', cmd: 'auto mode' },
-  { label: 'Stop', cmd: 'stop' },
-]
-
-const SYSTEM_CHAT_THREADS_STORAGE_KEY = 'battle-system-chat-threads-v1'
-const ENEMY_CHAT_THREADS_STORAGE_KEY = 'battle-enemy-chat-threads-v1'
 const EMPTY_MESSAGES: ChatMessage[] = []
 
 type ChatRuntimeContext = {
@@ -67,62 +62,6 @@ function toApiMessages(
     .filter((m) => m.content.length > 0)
 }
 
-async function requestChatReply(
-  history: { role: 'user' | 'assistant'; content: string }[],
-  target: 'system' | 'enemy',
-  agentId?: string,
-  context?: ChatRuntimeContext
-): Promise<string> {
-  const r = await fetch(AGENT_CHAT_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target, agentId, context, messages: history })
-  })
-  const data = (await r.json()) as { reply?: string; error?: string }
-  if (!r.ok) {
-    throw new Error(data.error || `http_${r.status}`)
-  }
-  if (!data.reply?.trim()) throw new Error('empty_reply')
-  return data.reply.trim()
-}
-
-/** Green pixel robot avatar placeholder (Engineer Bolt) */
-function BotAvatar({ size = 28 }: { size?: number }) {
-  return (
-    <div
-      aria-hidden
-      className="shrink-0 rounded-md bg-emerald-500 p-[3px] shadow-sm"
-      style={{ width: size, height: size, imageRendering: 'pixelated' }}
-    >
-      <div
-        className="grid h-full w-full grid-cols-5 grid-rows-5 gap-[1px]"
-        style={{ imageRendering: 'pixelated' }}
-      >
-        {[
-          0, 1, 1, 1, 0,
-          1, 2, 1, 2, 1,
-          1, 1, 1, 1, 1,
-          1, 3, 3, 3, 1,
-          0, 1, 0, 1, 0,
-        ].map((v, i) => (
-          <span
-            key={i}
-            className={
-              v === 0
-                ? 'bg-transparent'
-                : v === 2
-                  ? 'bg-slate-900'
-                  : v === 3
-                    ? 'bg-lime-300'
-                    : 'bg-emerald-600'
-            }
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function ChatPanel({
   game,
   embedded = false,
@@ -139,18 +78,22 @@ export default function ChatPanel({
   const [systemChatThreads, setSystemChatThreads] = useState<Record<string, ChatMessage[]>>({})
   const [enemyChatThreads, setEnemyChatThreads] = useState<Record<string, ChatMessage[]>>({})
   const [chatStorageHydrated, setChatStorageHydrated] = useState(false)
+  const [streamingDraft, setStreamingDraft] = useState<string | null>(null)
 
   const defaultTargets: ChatTargetOption[] = [{ id: 'player-agent', label: 'You', kind: 'system', disabled: false }]
   const targets = chatTargets && chatTargets.length > 0 ? chatTargets : defaultTargets
   const controlledTargetId =
     activeChatTargetId && targets.some((target) => target.id === activeChatTargetId) ? activeChatTargetId : null
   const fallbackTargetId =
-    localActiveTargetId && targets.some((target) => target.id === localActiveTargetId) ? localActiveTargetId : targets[0].id
+    localActiveTargetId && targets.some((target) => target.id === localActiveTargetId)
+      ? localActiveTargetId
+      : targets[0].id
   const activeTargetId = controlledTargetId ?? fallbackTargetId
   const activeTarget = targets.find((target) => target.id === activeTargetId) ?? targets[0]
   const activeTargetKind = activeTarget?.kind === 'enemy' ? 'enemy' : 'system'
   const canUseAutomation = true
-  const activeMessages = (activeTargetKind === 'enemy' ? enemyChatThreads : systemChatThreads)[activeTargetId] ?? EMPTY_MESSAGES
+  const activeMessages =
+    (activeTargetKind === 'enemy' ? enemyChatThreads : systemChatThreads)[activeTargetId] ?? EMPTY_MESSAGES
   const activeEnemy = game.nearbyEnemy
   const levelFallback = activeEnemy?.level ?? 1
   const defaultEnemyStats = calcEnemyStats(levelFallback)
@@ -159,21 +102,10 @@ export default function ChatPanel({
   const resolvedEnemyStats = activeEnemy
     ? {
         maxHp:
-          enemyPreviewStats?.maxHp ??
-          profileStats?.maxHp ??
-          defaultEnemyStats.maxHp,
-        atk:
-          enemyPreviewStats?.atk ??
-          profileStats?.atk ??
-          defaultEnemyStats.atk,
-        def:
-          enemyPreviewStats?.def ??
-          profileStats?.def ??
-          defaultEnemyStats.def,
-        spd:
-          enemyPreviewStats?.spd ??
-          profileStats?.spd ??
-          defaultEnemyStats.spd,
+          enemyPreviewStats?.maxHp ?? profileStats?.maxHp ?? defaultEnemyStats.maxHp,
+        atk: enemyPreviewStats?.atk ?? profileStats?.atk ?? defaultEnemyStats.atk,
+        def: enemyPreviewStats?.def ?? profileStats?.def ?? defaultEnemyStats.def,
+        spd: enemyPreviewStats?.spd ?? profileStats?.spd ?? defaultEnemyStats.spd,
       }
     : undefined
 
@@ -192,8 +124,6 @@ export default function ChatPanel({
         }
       : undefined,
   }
-
-  // No special target auto-selection; only one default player agent target.
 
   const appendThreadMessage = (targetId: string, targetKind: 'system' | 'enemy', text: string, isSelf: boolean) => {
     const normalized = text.trim()
@@ -277,7 +207,7 @@ export default function ChatPanel({
 
   useEffect(() => {
     scrollToBottom()
-  }, [activeMessages])
+  }, [activeMessages, streamingDraft])
 
   const sendChatMessage = async (raw: string) => {
     if (!raw.trim() || chatLoading) return
@@ -316,9 +246,20 @@ export default function ChatPanel({
     }
 
     setChatLoading(true)
+    setStreamingDraft('')
     try {
-      const reply = await requestChatReply(forApi, targetKind, undefined, chatContext)
-      appendThreadMessage(activeTargetId, activeTargetKind, reply, false)
+      const finalText = await readAgentChatStream(
+        AGENT_CHAT_API,
+        {
+          target: targetKind,
+          context: chatContext as Record<string, unknown>,
+          messages: forApi,
+        },
+        (chunk) => {
+          setStreamingDraft((prev) => `${prev ?? ''}${chunk}`)
+        }
+      )
+      appendThreadMessage(activeTargetId, activeTargetKind, finalText, false)
     } catch (e) {
       const err = e instanceof Error ? e.message : 'request_failed'
       const who = targetKind === 'enemy' ? 'Rival' : 'Engineer Bolt'
@@ -329,6 +270,7 @@ export default function ChatPanel({
         false
       )
     } finally {
+      setStreamingDraft(null)
       setChatLoading(false)
     }
   }
@@ -371,157 +313,46 @@ export default function ChatPanel({
       )}
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-white p-3">
-        <div className="mb-2 flex flex-wrap gap-2">
-          {targets.map((target) => {
-            const isActive = target.id === activeTargetId
-            const isDisabled = Boolean(target.disabled)
-            return (
-              <button
-                key={target.id}
-                type="button"
-                disabled={isDisabled}
-                onClick={() => {
-                  if (isDisabled) return
-                  setLocalActiveTargetId(target.id)
-                  onSelectChatTarget?.(target.id)
-                  setInput('')
-                }}
-                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition ${
-                  isDisabled
-                    ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
-                    : isActive
-                      ? 'border-orange-300 bg-orange-100 text-orange-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {target.label}
-              </button>
-            )
-          })}
-        </div>
+        <ChatTargetBar
+          targets={targets}
+          activeTargetId={activeTargetId}
+          onSelect={(targetId) => {
+            setLocalActiveTargetId(targetId)
+            onSelectChatTarget?.(targetId)
+            setInput('')
+          }}
+        />
 
-        <div className="mb-2 flex items-center justify-between text-[10px] text-slate-500">
-          <span>
-            {llmChatAvailable === 'yes'
-              ? 'AI chat connected'
-              : llmChatAvailable === 'no'
-                ? 'AI not connected (run npm run dev:ai and set DEEPSEEK_API_KEY in server/.env)'
-                : 'Checking AI service...'}
-          </span>
-        </div>
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {QUICK_PROMPTS.map((q) => (
-            <button
-              key={q}
-              type="button"
-              disabled={chatLoading}
-              onClick={() => {
-                void sendChatMessage(q)
-              }}
-              className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] text-slate-600 hover:bg-slate-100 disabled:opacity-50"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-        {activeMessages.length === 0 && (
-          <div className="mt-10 text-center text-sm text-slate-400">No messages yet, start chatting!</div>
-        )}
-        {activeMessages.map((msg) =>
-          msg.isSelf ? (
-            <div key={msg.id} className="flex justify-end">
-              <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-slate-100 px-3 py-2 text-[13px] text-slate-800">
-                <div>{msg.text}</div>
-                <div className="mt-1 text-right text-[10px] text-slate-400">
-                  {new Date(msg.timestamp).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div key={msg.id} className="flex items-end gap-2">
-              <BotAvatar size={24} />
-              <div className="max-w-[80%] rounded-2xl rounded-bl-sm bg-orange-100 px-3 py-2 text-[13px] text-orange-900">
-                <div className="whitespace-pre-wrap">{msg.text}</div>
-                <div className="mt-1 text-right text-[10px] text-orange-500">
-                  {new Date(msg.timestamp).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
-              </div>
-            </div>
-          ),
-        )}
-        <div ref={messagesEndRef} />
+        <ChatConnectionHint llmChatAvailable={llmChatAvailable} />
+
+        <ChatQuickPrompts disabled={chatLoading} onPick={(q) => void sendChatMessage(q)} />
+
+        <ChatMessageList
+          messages={activeMessages}
+          streamingDraft={streamingDraft}
+          messagesEndRef={messagesEndRef}
+        />
       </div>
 
       <div className="border-t border-slate-100 bg-white px-3 py-2">
-        {canUseAutomation && automationTask && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700">
-            <span className="font-bold">Automation:</span>
-            <span>{automationTask.kind}</span>
-            {automationTask.kind === 'repeat_battle' && <span>{automationTask.remaining} remaining</span>}
-            {automationTask.kind === 'kill_count' && <span>Killed {automationTask.killed}/{automationTask.remaining}</span>}
-            <button
-              type="button"
-              onClick={() => {
-                cancelAutomation()
-                appendThreadMessage(activeTargetId, activeTargetKind, 'Automation task cancelled', false)
-              }}
-              className="ml-auto rounded border border-emerald-300 bg-white px-2 py-0.5 text-[11px] hover:bg-emerald-100"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-        {canUseAutomation && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {AUTO_COMMANDS.map((item) => (
-              <button
-                key={item.cmd}
-                type="button"
-                disabled={chatLoading}
-                onClick={() => {
-                  void sendChatMessage(item.cmd)
-                }}
-                className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1 text-[11px] font-semibold text-orange-700 hover:bg-orange-100 disabled:opacity-50"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <ChatAutomationSection
+          canUseAutomation={canUseAutomation}
+          automationTask={automationTask}
+          chatLoading={chatLoading}
+          onCancelAutomation={cancelAutomation}
+          onAppendSystemMessage={(msg) => appendThreadMessage(activeTargetId, activeTargetKind, msg, false)}
+          onSendCommand={(cmd) => void sendChatMessage(cmd)}
+        />
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleClear}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-bold text-slate-500 hover:bg-slate-50"
-          >
-            Clear
-          </button>
-          <input
-            type="text"
-            value={input}
-            disabled={chatLoading}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={canUseAutomation ? 'Message Engineer Bolt...' : 'Chat with enemy...'}
-            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-orange-300 focus:bg-white focus:outline-none disabled:opacity-50"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={chatLoading}
-            aria-label="Send"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500 text-white hover:bg-orange-400 disabled:opacity-50"
-          >
-            <Send size={15} className={chatLoading ? 'animate-pulse' : undefined} />
-          </button>
-        </div>
+        <ChatComposer
+          input={input}
+          chatLoading={chatLoading}
+          placeholder={canUseAutomation ? 'Message Engineer Bolt...' : 'Chat with enemy...'}
+          onChange={setInput}
+          onSend={handleSend}
+          onKeyDown={handleKeyDown}
+          onClear={handleClear}
+        />
       </div>
     </div>
   )

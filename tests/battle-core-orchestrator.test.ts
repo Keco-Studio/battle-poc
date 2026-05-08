@@ -78,5 +78,22 @@ describe('battle core orchestrator', () => {
     const hasAction = session.events.some((event) => event.type === 'action_executed')
     expect(hasAction).toBe(true)
   })
+
+  it('prioritizes LLM by not marking actor failed while request is pending', () => {
+    const left = makeEntity({ id: 'left-pending', team: 'left', x: 3, y: 2, skills: ['arcane_bolt'] })
+    const right = makeEntity({ id: 'right-pending', team: 'right', x: 6.2, y: 2, skills: ['arcane_bolt'] })
+    const session = createBattleSession({ left, right, preparationTicks: 0 })
+    const orchestrator = new BattleCoreOrchestrator()
+
+    const internal = orchestrator as unknown as {
+      llmAvailability: 'unknown' | 'available' | 'unavailable'
+      actorStates: Map<string, { pending: boolean; cachedDecision: null; lastError: string | null }>
+    }
+    internal.llmAvailability = 'available'
+    internal.actorStates.set(left.id, { pending: true, cachedDecision: null, lastError: null })
+
+    const prepared = orchestrator.prepareCommands(session, 1)
+    expect(prepared.failedActorIds.includes(left.id)).toBe(false)
+  })
 })
 

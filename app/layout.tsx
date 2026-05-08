@@ -5,6 +5,7 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Battle Demo',
   description: 'NPC Battle System Demo',
+  icons: { icon: '/favicon.svg' },
 }
 
 export default function RootLayout({

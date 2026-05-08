@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
+import { resolveBattleDashPosition, type BattleWalkTerrainContext } from '../../map-battle/battleGridMovement'
 import { BattleEntity } from '../domain/entities/battle-entity'
 import { BattleSession } from '../domain/entities/battle-session'
 import { BattleCommand } from '../domain/types/command-types'
@@ -7,6 +8,8 @@ import { BattleStatusEffect } from '../domain/types/effect-types'
 import { getBattleSkillDefinition } from '../content/skills/basic-skill-catalog'
 import { applyFreezeToEntity } from './effect-processor'
 import { BATTLE_BALANCE } from '../config/battle-balance'
+
+export type BattleCommandWalkContext = BattleWalkTerrainContext
 
 const AUTO_FLEE_GUARANTEE_AFTER_FAILURES = 3
 const CHASE_WINDOW_TICKS = 3
@@ -47,7 +50,10 @@ export function enqueueBattleCommand(
   }
 }
 
-export function processBattleCommands(session: BattleSession): CommandProcessorResult {
+export function processBattleCommands(
+  session: BattleSession,
+  walk?: BattleCommandWalkContext,
+): CommandProcessorResult {
   if (session.result !== 'ongoing') {
     return { session, appliedCommandCount: 0 }
   }
@@ -88,7 +94,7 @@ export function processBattleCommands(session: BattleSession): CommandProcessorR
   let applied = 0
 
   sorted.forEach((command) => {
-    const result = applySingleCommand(nextSession, command)
+    const result = applySingleCommand(nextSession, command, walk)
     nextSession = result.session
     if (result.applied) {
       applied += 1
@@ -106,7 +112,8 @@ export function processBattleCommands(session: BattleSession): CommandProcessorR
 
 function applySingleCommand(
   session: BattleSession,
-  command: BattleCommand
+  command: BattleCommand,
+  walk?: BattleCommandWalkContext,
 ): { session: BattleSession; applied: boolean } {
   session = resolveChaseByTimeout(resolveChaseByPosition(session))
   if (session.result !== 'ongoing') {
@@ -282,31 +289,63 @@ function applySingleCommand(
           : actor.position.y
     const clampedTargetX = clamp(rawTargetX, session.mapBounds.minX + 0.5, session.mapBounds.maxX - 0.5)
     const clampedTargetY = clamp(rawTargetY, session.mapBounds.minY + 0.5, session.mapBounds.maxY - 0.5)
-    const delta = clampedTargetX - actor.position.x
-    const direction = delta === 0 ? 0 : delta > 0 ? 1 : -1
-    const movedX =
-      direction === 0
-        ? actor.position.x
-        : actor.position.x + direction * Math.min(Math.abs(delta), moveStep)
-    const safeX = ensureSpacingWithOpponent(
-      movedX,
-      actor.team,
-      opponent,
-      session.mapBounds.minX + 0.5,
-      session.mapBounds.maxX - 0.5
-    )
-    const yDelta = clampedTargetY - actor.position.y
-    const movedY =
-      yDelta === 0
-        ? actor.position.y
-        : actor.position.y + Math.sign(yDelta) * Math.min(Math.abs(yDelta), moveStep * 0.6)
-    const safeY = clamp(movedY, session.mapBounds.minY + 0.5, session.mapBounds.maxY - 0.5)
+
+    let safeX: number
+    let safeY: number
+    if (walk) {
+      const resolved = resolveBattleDashPosition({
+        session,
+        actor,
+        opponent,
+        clampedTargetX,
+        clampedTargetY,
+        moveStep,
+        walk,
+      })
+      safeX = resolved.x
+      safeY = resolved.y
+    } else {
+      const delta = clampedTargetX - actor.position.x
+      const direction = delta === 0 ? 0 : delta > 0 ? 1 : -1
+      const movedX =
+        direction === 0
+          ? actor.position.x
+          : actor.position.x + direction * Math.min(Math.abs(delta), moveStep)
+      safeX = ensureSpacingWithOpponent(
+        movedX,
+        actor.team,
+        opponent,
+        session.mapBounds.minX + 0.5,
+        session.mapBounds.maxX - 0.5,
+      )
+      const yDelta = clampedTargetY - actor.position.y
+      const movedY =
+        yDelta === 0
+          ? actor.position.y
+          : actor.position.y + Math.sign(yDelta) * Math.min(Math.abs(yDelta), moveStep * 0.6)
+      safeY = clamp(movedY, session.mapBounds.minY + 0.5, session.mapBounds.maxY - 0.5)
+    }
     const nextActor: BattleEntity = {
       ...actor,
       position: {
         ...actor.position,
         x: safeX,
         y: safeY
+      }
+    }
+    const movedDist = Math.hypot(nextActor.position.x - actor.position.x, nextActor.position.y - actor.position.y)
+    if (movedDist <= 0.12) {
+      return {
+        session: appendEvent(session, 'command_rejected', {
+          commandId: command.commandId,
+          actorId: actor.id,
+          reason: 'dash_blocked',
+          fromX: Number(actor.position.x.toFixed(2)),
+          fromY: Number(actor.position.y.toFixed(2)),
+          targetX: Number(clampedTargetX.toFixed(2)),
+          targetY: Number(clampedTargetY.toFixed(2)),
+        }),
+        applied: false
       }
     }
     let movedSession = resolveChaseByPosition(updateEntity(session, nextActor))

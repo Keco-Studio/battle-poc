@@ -27,8 +27,13 @@ export type SequenceInvalidateReason =
   | 'target_died'
   | 'forced'
 
-const DEFAULT_SEQUENCE_TTL = 8
-const MAX_SEQUENCE_LENGTH = 5
+/** Default / max TTL (battle ticks) for an LLM sequence plan; new LLM response replaces the plan. */
+const DEFAULT_SEQUENCE_TTL = 128
+const MIN_SEQUENCE_TTL = 3
+const MAX_SEQUENCE_TTL = 192
+/** LLM `sequence` array length (inclusive). */
+export const MIN_SEQUENCE_LENGTH = 20
+export const MAX_SEQUENCE_LENGTH = 24
 const HP_SPIKE_THRESHOLD = 0.15
 
 export class ActionSequenceStore {
@@ -47,8 +52,8 @@ export class ActionSequenceStore {
     currentTick: number,
     ttlTicks?: number,
   ): boolean {
-    if (steps.length === 0 || steps.length > MAX_SEQUENCE_LENGTH) return false
-    const ttl = Math.max(3, Math.min(24, ttlTicks ?? DEFAULT_SEQUENCE_TTL))
+    if (steps.length < MIN_SEQUENCE_LENGTH || steps.length > MAX_SEQUENCE_LENGTH) return false
+    const ttl = Math.max(MIN_SEQUENCE_TTL, Math.min(MAX_SEQUENCE_TTL, ttlTicks ?? DEFAULT_SEQUENCE_TTL))
     this.sequences.set(actorId, {
       name,
       steps,
@@ -144,7 +149,7 @@ export class ActionSequenceStore {
  *     { "action": "cast_skill", "skillId": "arcane_bolt" }
  *   ],
  *   "name": "freeze_shatter_combo",
- *   "ttlTicks": 6
+ *   "ttlTicks": 128
  * }
  */
 export function parseSequenceFromLlm(
@@ -152,20 +157,26 @@ export function parseSequenceFromLlm(
   fallbackPath: string,
 ): { name: string; steps: SequenceStep[]; ttlTicks: number } | null {
   const rawSeq = raw.sequence
-  if (!Array.isArray(rawSeq) || rawSeq.length === 0) return null
+  if (
+    !Array.isArray(rawSeq) ||
+    rawSeq.length < MIN_SEQUENCE_LENGTH ||
+    rawSeq.length > MAX_SEQUENCE_LENGTH
+  ) {
+    return null
+  }
 
   const name = typeof raw.name === 'string' ? raw.name : 'llm_sequence'
   const ttlTicks = typeof raw.ttlTicks === 'number' ? raw.ttlTicks : DEFAULT_SEQUENCE_TTL
 
   const steps: SequenceStep[] = []
-  for (let i = 0; i < Math.min(rawSeq.length, MAX_SEQUENCE_LENGTH); i++) {
+  for (let i = 0; i < rawSeq.length; i++) {
     const item = rawSeq[i]
     if (!item || typeof item !== 'object') continue
     const parsed = parseOneStep(item as Record<string, unknown>, `${fallbackPath}>seq[${i}]`)
     if (parsed) steps.push(parsed)
   }
 
-  if (steps.length === 0) return null
+  if (steps.length < MIN_SEQUENCE_LENGTH) return null
   return { name, steps, ttlTicks }
 }
 

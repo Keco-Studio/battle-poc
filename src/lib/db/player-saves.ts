@@ -8,18 +8,27 @@ import { pushDataFlowTrace } from '../debug/data-flow-trace'
 export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
   const supabase = requireSupabaseClient()
   pushDataFlowTrace('loadPlayerSave', 'start')
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    pushDataFlowTrace('loadPlayerSave', 'success', 'Not authenticated')
+    return null
+  }
+  // PVP 迁移里有 `using (true)` 的全表可读策略；必须按 user_id 过滤，否则 .maybeSingle() 会对多行报错 PGRST116。
   const { data, error } = await supabase
     .from('player_saves')
     .select('*')
-    .single()
+    .eq('user_id', user.id)
+    .maybeSingle()
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      pushDataFlowTrace('loadPlayerSave', 'success', 'No save row yet')
-      return null // no rows
-    }
     pushDataFlowTrace('loadPlayerSave', 'error', error.message)
     throw error
+  }
+  if (!data) {
+    pushDataFlowTrace('loadPlayerSave', 'success', 'No save row yet')
+    return null
   }
   pushDataFlowTrace('loadPlayerSave', 'success')
   return data

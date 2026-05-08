@@ -87,6 +87,24 @@ type ReceivedCommandMeta = {
   metadata: Record<string, unknown>
 }
 
+type BattleAiDebugStats = {
+  totalCommands: number
+  llmCommands: number
+  llmSeqCommands: number
+  fallbackCommands: number
+  totalRejects: number
+  dashBlockedRejects: number
+}
+
+const EMPTY_BATTLE_AI_DEBUG_STATS: BattleAiDebugStats = {
+  totalCommands: 0,
+  llmCommands: 0,
+  llmSeqCommands: 0,
+  fallbackCommands: 0,
+  totalRejects: 0,
+  dashBlockedRejects: 0,
+}
+
 const MANUAL_FLEE_DEBOUNCE_MS = 450
 
 export default function GameMap({ game }: Props) {
@@ -353,6 +371,7 @@ export default function GameMap({ game }: Props) {
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [, setCdUiTick] = useState(0)
   const [battlePlayerMaxHp, setBattlePlayerMaxHp] = useState(0)
+  const [battleAiDebugStats, setBattleAiDebugStats] = useState<BattleAiDebugStats>(EMPTY_BATTLE_AI_DEBUG_STATS)
 
   const refreshMapsCatalog = useCallback(async (preferSelectId?: string) => {
     try {
@@ -773,8 +792,12 @@ export default function GameMap({ game }: Props) {
 
     const battleDecisionMode: 'manual' | 'dual_llm' =
       process.env.NEXT_PUBLIC_BATTLE_DECISION_MODE === 'dual_llm' ? 'dual_llm' : 'manual'
-    const llmProvider: 'deepseek' | 'zhipu' | 'custom' =
-      process.env.NEXT_PUBLIC_BATTLE_LLM_PROVIDER === 'zhipu' ? 'zhipu' : 'deepseek'
+    const llmProvider: 'deepseek' | 'zhipu' | 'minimax' | 'custom' =
+      process.env.NEXT_PUBLIC_BATTLE_LLM_PROVIDER === 'zhipu'
+        ? 'zhipu'
+        : process.env.NEXT_PUBLIC_BATTLE_LLM_PROVIDER === 'minimax'
+          ? 'minimax'
+          : 'deepseek'
     const aiProxyUrl = process.env.NEXT_PUBLIC_BATTLE_AI_SERVER_URL || 'http://localhost:8787'
     const centerGrid = {
       x: Math.max(1, Math.min(mapInfo.width - 2, Math.floor(mapInfo.width / 2))),
@@ -814,7 +837,7 @@ export default function GameMap({ game }: Props) {
               llmProvider,
             model: process.env.NEXT_PUBLIC_BATTLE_LLM_MODEL,
             proxyUrl: aiProxyUrl,
-            timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 7000),
+            timeoutMs: Number(process.env.NEXT_PUBLIC_BATTLE_LLM_TIMEOUT_MS || 60000),
           }
           : undefined,
     }
@@ -827,6 +850,7 @@ export default function GameMap({ game }: Props) {
     setBattlePlayerMaxHp(ctrl.session.left.resources.maxHp)
     setBattleTimeSec(0)
     setLastBattleTickCount(0)
+    setBattleAiDebugStats(EMPTY_BATTLE_AI_DEBUG_STATS)
     clearTransientFx()
     setBattleLog((prev) => [...prev, 'Preparation phase started'])
 
@@ -878,6 +902,53 @@ export default function GameMap({ game }: Props) {
         setBattleLog((prev) => [...prev, 'Preparation phase ended'])
       }
       const evStart = Math.max(0, s.events.length - step.newEventCount)
+      const aiStatsDelta = {
+        totalCommands: 0,
+        llmCommands: 0,
+        llmSeqCommands: 0,
+        fallbackCommands: 0,
+        totalRejects: 0,
+        dashBlockedRejects: 0,
+      }
+      for (let i = evStart; i < s.events.length; i++) {
+        const ev = s.events[i]
+        if (ev.type === 'command_received') {
+          aiStatsDelta.totalCommands += 1
+          const meta =
+            ev.payload && typeof ev.payload.metadata === 'object' && ev.payload.metadata !== null
+              ? (ev.payload.metadata as Record<string, unknown>)
+              : {}
+          const decisionSource = typeof meta.decisionSource === 'string' ? meta.decisionSource : ''
+          const decisionPath = typeof meta.decisionPath === 'string' ? meta.decisionPath : ''
+          const isLlmSeq = decisionPath.includes('llm_seq:')
+          const isLlm = decisionSource === 'llm' || isLlmSeq
+          if (isLlm) {
+            aiStatsDelta.llmCommands += 1
+            if (isLlmSeq) aiStatsDelta.llmSeqCommands += 1
+          } else {
+            aiStatsDelta.fallbackCommands += 1
+          }
+        } else if (ev.type === 'command_rejected') {
+          aiStatsDelta.totalRejects += 1
+          const reason = typeof ev.payload?.reason === 'string' ? ev.payload.reason : ''
+          if (reason === 'dash_blocked') {
+            aiStatsDelta.dashBlockedRejects += 1
+          }
+        }
+      }
+      if (
+        aiStatsDelta.totalCommands > 0 ||
+        aiStatsDelta.totalRejects > 0
+      ) {
+        setBattleAiDebugStats((prev) => ({
+          totalCommands: prev.totalCommands + aiStatsDelta.totalCommands,
+          llmCommands: prev.llmCommands + aiStatsDelta.llmCommands,
+          llmSeqCommands: prev.llmSeqCommands + aiStatsDelta.llmSeqCommands,
+          fallbackCommands: prev.fallbackCommands + aiStatsDelta.fallbackCommands,
+          totalRejects: prev.totalRejects + aiStatsDelta.totalRejects,
+          dashBlockedRejects: prev.dashBlockedRejects + aiStatsDelta.dashBlockedRejects,
+        }))
+      }
 
       applyMapBattleStepState({
         session: s,
@@ -1113,7 +1184,7 @@ export default function GameMap({ game }: Props) {
     mapWidth: mapInfo.width,
     mapHeight: mapInfo.height,
     playerPos,
-    isWalkable: (x, y) => isWalkable(x, y),
+    isWalkable,
     setPlayerFacing,
     setPlayerPos,
   })
@@ -1369,7 +1440,12 @@ export default function GameMap({ game }: Props) {
         battleResult={battleResult}
         nearbyEnemyName={nearbyEnemy?.name ?? 'Enemy'}
         gainedExp={gainedExp}
+        gainedGold={game.gainedGold}
         battleLootDrop={battleLootDrop}
+        battleAiDebugStats={battleAiDebugStats}
+        battleEvents={mapBattleControllerRef.current?.session?.events ?? []}
+        decisionMode={mapBattleControllerRef.current?.getDecisionMode?.()}
+        llmRuntime={mapBattleControllerRef.current?.getLlmRuntimeStatus?.()}
         onContinue={finishBattleAndClose}
       />
 
