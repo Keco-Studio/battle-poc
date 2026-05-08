@@ -21,6 +21,17 @@ export {
   buildStructuredPayload,
   buildSystemPrompt,
 } from './llm-prompt-builder'
-export type { StructuredLlmPayload } from './llm-prompt-builder'
-export { ActionSequenceStore, parseSequenceFromLlm } from './action-sequence'
+export type {
+  StructuredLlmPayload,
+  LlmMapGridSnapshot,
+  LlmCombatantPayload,
+  LlmEffectPayload,
+} from './llm-prompt-builder'
+export { buildWalkableRowsForLlm } from './map-grid-for-llm'
+export {
+  ActionSequenceStore,
+  parseSequenceFromLlm,
+  MIN_SEQUENCE_LENGTH,
+  MAX_SEQUENCE_LENGTH,
+} from './action-sequence'
 export type { SequenceStep, ActionSequence } from './action-sequence'

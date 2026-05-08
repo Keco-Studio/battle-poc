@@ -3,7 +3,12 @@ import type { DecisionContext, TacticalMode } from './decision-context'
 import { KITE_EXTRA_RANGE, MELEE_RANGE } from './decision-constants'
 
 export function selectTacticalMode(ctx: DecisionContext): TacticalMode {
-  if (ctx.actorHpRatio <= BATTLE_BALANCE.tacticalLowHpRetreatRatio && ctx.distance <= BATTLE_BALANCE.tacticalKiteMinDistance) {
+  // Avoid mirror "both flee": only retreat when low HP *and* losing the HP race vs target.
+  // Ties or slight advantage → continue with finish/kite/trade so the fight does not dead-run to the map edge.
+  const lowHp = ctx.actorHpRatio <= BATTLE_BALANCE.tacticalLowHpRetreatRatio
+  const close = ctx.distance <= BATTLE_BALANCE.tacticalKiteMinDistance
+  const bloodDisadvantage = ctx.actorHpRatio < ctx.targetHpRatio
+  if (lowHp && close && bloodDisadvantage) {
     return 'retreat'
   }
 

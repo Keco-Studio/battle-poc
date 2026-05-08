@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createServerSupabase } from '@/src/lib/supabase/server'
+import { callOpenClawHooks } from '@/src/server/openclawHooks'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -22,9 +23,15 @@ type ChatRequestBody = {
   agentId?: string
   context?: ChatContext
   messages?: ChatMessage[]
+  /** When true, returns `text/event-stream` (SSE) instead of JSON */
+  stream?: boolean
 }
 
+type ChatBackendMode = 'deepseek' | 'openclaw' | 'openclaw_hooks' | 'openclaw_service' | 'supabase_openclaw'
+
 const DEFAULT_DEEPSEEK_BASE = 'http://127.0.0.1:8787'
+const DEFAULT_OPENCLAW_HOOKS_BASE = 'http://127.0.0.1:18789'
+const DEFAULT_OPENCLAW_SERVICE_BASE = 'http://127.0.0.1:32123'
 const execFileAsync = promisify(execFile)
 export const runtime = 'nodejs'
 
@@ -59,13 +66,15 @@ function gatewayHelpText(): string {
   return 'OpenClaw gateway is not reachable. Start it in another terminal: `openclaw gateway --port 18789`'
 }
 
-function resolveMode(): 'deepseek' | 'openclaw' | 'supabase_openclaw' {
+function resolveMode(): ChatBackendMode {
   const raw =
     process.env.CHAT_BACKEND_MODE ??
     process.env.NEXT_PUBLIC_CHAT_BACKEND_MODE ??
     'deepseek'
   const v = raw.trim().toLowerCase()
   if (v === 'openclaw') return 'openclaw'
+  if (v === 'openclaw_hooks') return 'openclaw_hooks'
+  if (v === 'openclaw_service') return 'openclaw_service'
   if (v === 'supabase_openclaw') return 'supabase_openclaw'
   return 'deepseek'
 }
@@ -76,6 +85,38 @@ function deepseekBase() {
       process.env.NEXT_PUBLIC_BATTLE_AI_SERVER_URL ??
       DEFAULT_DEEPSEEK_BASE,
   ).replace(/\/$/, '')
+}
+
+function openClawHooksBase() {
+  return String(process.env.OPENCLAW_BASE_URL ?? DEFAULT_OPENCLAW_HOOKS_BASE).replace(/\/$/, '')
+}
+
+function openClawHooksToken() {
+  return String(process.env.OPENCLAW_HOOKS_TOKEN ?? process.env.TOKEN_SECRET ?? '').trim()
+}
+
+function openClawHooksTimeoutSeconds() {
+  const raw = Number(process.env.OPENCLAW_HOOKS_TIMEOUT_SECONDS || '')
+  if (Number.isFinite(raw) && raw > 0) return raw
+  return Math.max(Math.ceil(Number(process.env.OPENCLAW_AGENT_TIMEOUT_MS || 120000) / 1000), 1)
+}
+
+function openClawServiceBase() {
+  return String(
+    process.env.OPENCLAW_SERVICE_URL ??
+      process.env.BATTLE_AI_SERVER_URL ??
+      process.env.NEXT_PUBLIC_BATTLE_AI_SERVER_URL ??
+      DEFAULT_OPENCLAW_SERVICE_BASE,
+  ).replace(/\/$/, '')
+}
+
+function openClawServiceToken() {
+  return String(
+    process.env.OPENCLAW_SERVICE_TOKEN ??
+      process.env.OPENCLAW_HOOKS_TOKEN ??
+      process.env.TOKEN_SECRET ??
+      '',
+  ).trim()
 }
 
 function defaultOpenClawAgentId() {
@@ -211,6 +252,38 @@ async function proxyToDeepSeek(body: Required<Pick<ChatRequestBody, 'target' | '
   return reply
 }
 
+async function proxyToOpenClawService(body: Required<Pick<ChatRequestBody, 'target' | 'agentId' | 'context' | 'messages'>>) {
+  const endpoint = `${openClawServiceBase()}/api/ai/chat`
+  const token = openClawServiceToken()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const resp = await fetchWithTimeout(
+    endpoint,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    },
+    20000,
+  )
+  const payload = (await resp.json()) as { reply?: string; error?: string }
+  if (!resp.ok) {
+    throw new Error(payload.error || `openclaw_service_http_${resp.status}`)
+  }
+  const reply = String(payload.reply || '').trim()
+  if (!reply) throw new Error('openclaw_service_empty_reply')
+  return reply
+}
+
+async function proxyToOpenClawHooks(body: Required<Pick<ChatRequestBody, 'target' | 'agentId' | 'context' | 'messages'>>) {
+  return await callOpenClawHooks(body, {
+    baseUrl: openClawHooksBase(),
+    token: openClawHooksToken(),
+    defaultAgentId: defaultOpenClawAgentId(),
+    timeoutSeconds: openClawHooksTimeoutSeconds(),
+  })
+}
+
 async function proxyToOpenClaw(body: Required<Pick<ChatRequestBody, 'target' | 'agentId' | 'context' | 'messages'>>) {
   const lastUserText = extractLastUserText(body.messages)
   const contextText = body.context ? `\n\nRuntime context: ${JSON.stringify(body.context)}` : ''
@@ -340,6 +413,25 @@ export async function GET() {
         ok: Boolean(payload?.ok && payload?.hasKey),
       })
     }
+    if (mode === 'openclaw_hooks') {
+      const token = openClawHooksToken()
+      return NextResponse.json({
+        mode,
+        ok: Boolean(openClawHooksBase() && token),
+        error: token ? undefined : 'openclaw_hooks_token_required',
+      })
+    }
+    if (mode === 'openclaw_service') {
+      const token = openClawServiceToken()
+      const headers: Record<string, string> = {}
+      if (token) headers.Authorization = `Bearer ${token}`
+      const resp = await fetchWithTimeout(`${openClawServiceBase()}/health`, { method: 'GET', headers }, 2500)
+      const payload = resp.ok ? ((await resp.json()) as { ok?: boolean; hasKey?: boolean }) : null
+      return NextResponse.json({
+        mode,
+        ok: Boolean(payload?.ok && payload?.hasKey),
+      })
+    }
     if (mode === 'supabase_openclaw') {
       try {
         const accessToken = await getUserAccessToken()
@@ -394,8 +486,50 @@ export async function POST(request: Request) {
     }
 
     const mode = resolveMode()
+    const wantsStream = Boolean(raw.stream)
+
+    if (wantsStream && mode === 'deepseek') {
+      const endpoint = `${deepseekBase()}/api/ai/chat`
+      const resp = await fetchWithTimeout(
+        endpoint,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, stream: true }),
+        },
+        120000,
+      )
+      if (!resp.ok) {
+        let errMsg = `deepseek_http_${resp.status}`
+        try {
+          const t = await resp.text()
+          try {
+            const j = JSON.parse(t) as { error?: string }
+            if (j?.error) errMsg = j.error
+          } catch {
+            if (t.trim()) errMsg = t.slice(0, 500)
+          }
+        } catch {
+          /* keep */
+        }
+        return NextResponse.json(
+          { error: errMsg, mode },
+          { status: resp.status >= 400 && resp.status < 600 ? resp.status : 502 },
+        )
+      }
+      return new Response(resp.body, {
+        status: 200,
+        headers: {
+          'Content-Type': resp.headers.get('content-type') || 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+        },
+      })
+    }
+
     const reply = await (async () => {
       if (mode === 'supabase_openclaw') return await proxyToSupabaseOpenClaw(body)
+      if (mode === 'openclaw_hooks') return await proxyToOpenClawHooks(body)
+      if (mode === 'openclaw_service') return await proxyToOpenClawService(body)
       if (mode === 'openclaw') return await proxyToOpenClaw(body)
       return await proxyToDeepSeek(body)
     })()

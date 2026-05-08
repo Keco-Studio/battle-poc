@@ -2,11 +2,12 @@ import type { BattleSession } from '../../domain/entities/battle-session'
 import { enqueueBattleCommand } from '../../engine/command-processor'
 import {
   AutoDecisionEngine,
+  type LlmDecisionContext,
   type LlmProviderConfig,
   type RawBattleDecision
 } from './auto-decision-engine'
 import { buildShortTermMemory } from './short-term-memory'
-import { normalizeDecisionToCommand } from './dynamic-strategy-validator'
+import { expandIntentStyleDecision, normalizeDecisionToCommand } from './dynamic-strategy-validator'
 
 type ActorState = {
   pending: boolean
@@ -16,6 +17,19 @@ type ActorState = {
 
 type OrchestratorOptions = {
   llmConfig?: LlmProviderConfig
+  augmentLlmContext?: (input: {
+    session: BattleSession
+    actorId: string
+    actor: BattleSession['left']
+    target: BattleSession['left']
+    memory: ReturnType<typeof buildShortTermMemory>
+  }) => Partial<
+    Pick<LlmDecisionContext, 'mapGrid' | 'battleId' | 'recentEventsSummary' | 'decisionRefreshReason' | 'currentIntent'>
+  >
+  /** New LLM round committed a single command (not a multi-step sequence) — drop any prior sequence for this actor. */
+  onLlmSingleActionCommitted?: (actorId: string) => void
+  /** While a multi-step LLM `sequence` is still playing, do not start another prefetch (avoids 8s stall every tick). */
+  shouldDeferPrefetch?: (actorId: string) => boolean
 }
 
 export type RawSequenceData = {
@@ -32,14 +46,19 @@ export type PrepareDecisionResult = {
 export class BattleCoreOrchestrator {
   private readonly decisionEngine: AutoDecisionEngine
   private readonly llmConfig?: LlmProviderConfig
+  private readonly augmentLlmContext?: OrchestratorOptions['augmentLlmContext']
+  private readonly onLlmSingleActionCommitted?: OrchestratorOptions['onLlmSingleActionCommitted']
+  private readonly shouldDeferPrefetch?: OrchestratorOptions['shouldDeferPrefetch']
   private readonly useProxyMode: boolean
   private readonly actorStates = new Map<string, ActorState>()
   private llmAvailability: 'unknown' | 'available' | 'unavailable'
   private availabilityCheckPending = false
-  private llmDisabledForCurrentBattle = false
 
   constructor(options?: OrchestratorOptions) {
     this.llmConfig = options?.llmConfig
+    this.augmentLlmContext = options?.augmentLlmContext
+    this.onLlmSingleActionCommitted = options?.onLlmSingleActionCommitted
+    this.shouldDeferPrefetch = options?.shouldDeferPrefetch
     this.decisionEngine = new AutoDecisionEngine(this.llmConfig)
     this.useProxyMode = Boolean(this.llmConfig?.proxyUrl)
     this.llmAvailability = this.useProxyMode ? 'unknown' : 'available'
@@ -86,7 +105,6 @@ export class BattleCoreOrchestrator {
 
   public ensureLlmAvailability(): void {
     if (!this.useProxyMode) return
-    if (this.llmDisabledForCurrentBattle) return
     if (this.llmAvailability !== 'unknown') return
     if (this.availabilityCheckPending) return
     this.availabilityCheckPending = true
@@ -112,7 +130,16 @@ export class BattleCoreOrchestrator {
   }
 
   public shouldUseLlm(): boolean {
-    return !this.llmDisabledForCurrentBattle && this.llmAvailability === 'available'
+    return this.llmAvailability === 'available'
+  }
+
+  /** True while an HTTP decision request is in flight for this actor (do not local-fallback the same tick). */
+  public isPrefetchPending(actorId: string): boolean {
+    return Boolean(this.actorStates.get(actorId)?.pending)
+  }
+
+  public getLlmRuntimeStatus(): 'available' | 'unavailable' | 'unknown' {
+    return this.llmAvailability
   }
 
   private maybeEnqueueDecision(
@@ -131,7 +158,7 @@ export class BattleCoreOrchestrator {
       if (state.lastError) {
         state.lastError = null
       }
-      return { session, failed: true }
+      return { session, failed: state.pending ? false : true }
     }
 
     if (Array.isArray(state.cachedDecision.sequence) && state.cachedDecision.sequence.length > 0) {
@@ -163,6 +190,7 @@ export class BattleCoreOrchestrator {
         validationReason: normalized.reason || 'ok'
       }
     }
+    this.onLlmSingleActionCommitted?.(actorId)
     return {
       session: enqueueBattleCommand(session, command),
       failed: false
@@ -177,22 +205,28 @@ export class BattleCoreOrchestrator {
     if (!actor.alive || !target.alive) return
     const state = this.getActorState(actorId)
     if (state.pending || state.cachedDecision) return
+    if (this.shouldDeferPrefetch?.(actorId)) return
     const memory = buildShortTermMemory(session, actorId)
     state.pending = true
+    const augment = this.augmentLlmContext?.({
+      session,
+      actorId,
+      actor,
+      target,
+      memory,
+    })
     void this.decisionEngine
       .requestDecision({
         session,
         actor,
         target,
-        memory
+        memory,
+        ...augment,
       })
       .then((result) => {
-        state.cachedDecision = result.decision
+        state.cachedDecision =
+          expandIntentStyleDecision((result.decision || null) as RawBattleDecision) ?? result.decision
         state.lastError = result.error || null
-        if (this.useProxyMode && result.error) {
-          this.llmDisabledForCurrentBattle = true
-          this.llmAvailability = 'unavailable'
-        }
       })
       .finally(() => {
         state.pending = false

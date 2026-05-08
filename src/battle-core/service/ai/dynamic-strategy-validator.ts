@@ -4,6 +4,101 @@ import type { BattleCommand } from '../../domain/types/command-types'
 import { getBattleSkillDefinition } from '../../content/skills/basic-skill-catalog'
 import type { RawBattleDecision } from './auto-decision-engine'
 
+/**
+ * Expands spec-style `{ intent, move, action, priority }` into legacy `action` or `sequence`
+ * so existing enqueue + sequence parsing keep working.
+ */
+export function expandIntentStyleDecision(
+  raw: RawBattleDecision | Record<string, unknown> | null | undefined,
+): RawBattleDecision | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+
+  if (Array.isArray(r.sequence) && r.sequence.length > 0) {
+    return raw as RawBattleDecision
+  }
+
+  if (typeof r.action === 'string' && r.action.length > 0 && typeof r.intent !== 'string') {
+    return raw as RawBattleDecision
+  }
+
+  const intent = typeof r.intent === 'string' ? r.intent.trim().toLowerCase() : ''
+  const ttlTicks = typeof r.ttlTicks === 'number' && Number.isFinite(r.ttlTicks) ? r.ttlTicks : 6
+  const comboName = typeof r.name === 'string' ? r.name : 'intent_combo'
+  const priority = r.priority === 'act_first' ? 'act_first' : 'move_first'
+
+  const move = r.move && typeof r.move === 'object' ? (r.move as Record<string, unknown>) : null
+  const moveTx = move && typeof move.targetX === 'number' && Number.isFinite(move.targetX) ? move.targetX : null
+  const moveTy = move && typeof move.targetY === 'number' && Number.isFinite(move.targetY) ? move.targetY : null
+
+  const actionObj = r.action && typeof r.action === 'object' ? (r.action as Record<string, unknown>) : null
+  let actType = actionObj && typeof actionObj.type === 'string' ? actionObj.type.trim().toLowerCase() : ''
+  if (actType === '' || actType === 'none') actType = 'none'
+  const skillId = actionObj && typeof actionObj.skillId === 'string' ? actionObj.skillId : ''
+
+  const dashStep =
+    moveTx != null
+      ? { action: 'dash', moveTargetX: moveTx, moveTargetY: moveTy ?? 0 }
+      : null
+
+  if (intent === 'defend' || actType === 'defend') {
+    return { action: 'defend', ttlTicks }
+  }
+  if (intent === 'dodge' || actType === 'dodge') {
+    return { action: 'dodge', ttlTicks }
+  }
+
+  if (intent === 'move_only') {
+    if (moveTx != null) {
+      return { action: 'dash', ttlTicks, metadata: { moveTargetX: moveTx, moveTargetY: moveTy ?? 0 } }
+    }
+    return raw as RawBattleDecision
+  }
+
+  if (intent === 'cast_only') {
+    if (actType === 'cast_skill' && skillId) return { action: 'cast_skill', skillId, ttlTicks }
+    if (actType === 'basic_attack') return { action: 'basic_attack', ttlTicks }
+    return raw as RawBattleDecision
+  }
+
+  if (dashStep && (actType === 'cast_skill' || actType === 'basic_attack')) {
+    if (actType === 'cast_skill' && skillId) {
+      if (priority === 'act_first') {
+        return {
+          name: comboName,
+          sequence: [{ action: 'cast_skill', skillId }, dashStep],
+          ttlTicks,
+        } as RawBattleDecision
+      }
+      return {
+        name: comboName,
+        sequence: [dashStep, { action: 'cast_skill', skillId }],
+        ttlTicks,
+      } as RawBattleDecision
+    }
+    if (actType === 'basic_attack') {
+      if (priority === 'act_first') {
+        return {
+          name: comboName,
+          sequence: [{ action: 'basic_attack' }, dashStep],
+          ttlTicks,
+        } as RawBattleDecision
+      }
+      return {
+        name: comboName,
+        sequence: [dashStep, { action: 'basic_attack' }],
+        ttlTicks,
+      } as RawBattleDecision
+    }
+  }
+
+  if (dashStep && actType === 'none') {
+    return { action: 'dash', ttlTicks, metadata: { moveTargetX: moveTx!, moveTargetY: moveTy ?? 0 } }
+  }
+
+  return raw as RawBattleDecision
+}
+
 export type ValidationResult = {
   ok: boolean
   command?: BattleCommand
@@ -25,14 +120,16 @@ export function normalizeDecisionToCommand(input: {
     }
   }
 
-  if (!input.rawDecision?.action) {
+  const expanded = expandIntentStyleDecision(input.rawDecision)
+
+  if (!expanded?.action) {
     return {
       ok: false,
       reason: 'empty_decision'
     }
   }
 
-  const action = String(input.rawDecision.action)
+  const action = String(expanded.action)
   if (!isAllowedAction(action)) {
     return {
       ok: false,
@@ -41,7 +138,7 @@ export function normalizeDecisionToCommand(input: {
   }
 
   if (action === 'cast_skill') {
-    const skillId = String(input.rawDecision.skillId || '')
+    const skillId = String(expanded.skillId || '')
     if (!skillId) {
       return {
         ok: false,
@@ -72,7 +169,7 @@ export function normalizeDecisionToCommand(input: {
         'cast_skill',
         target.id,
         skill.id,
-        sanitizeMetadata(input.rawDecision.metadata)
+        sanitizeMetadata(expanded.metadata)
       )
     }
   }
@@ -94,13 +191,13 @@ export function normalizeDecisionToCommand(input: {
         'basic_attack',
         target.id,
         undefined,
-        sanitizeMetadata(input.rawDecision.metadata)
+        sanitizeMetadata(expanded.metadata)
       )
     }
   }
 
   if (action === 'dash' || action === 'flee') {
-    const metadata = sanitizeMetadata(input.rawDecision.metadata)
+    const metadata = sanitizeMetadata(expanded.metadata)
     return {
       ok: true,
       command: buildCommand(input.session.id, actor.id, input.executeAtTick, action, target.id, undefined, metadata)

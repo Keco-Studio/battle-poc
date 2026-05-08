@@ -4,8 +4,8 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 
-const PORT = Number(process.env.BRIDGE_PORT || 32123)
-const TOKEN = String(process.env.BRIDGE_TOKEN || '').trim()
+const PORT = Number(process.env.PORT || process.env.BRIDGE_PORT || 32123)
+const TOKEN = String(process.env.TOKEN_SECRET || process.env.BRIDGE_TOKEN || '').trim()
 const DEFAULT_AGENT = String(process.env.OPENCLAW_AGENT_ID || 'main').trim() || 'main'
 const TIMEOUT_MS = Number(process.env.OPENCLAW_AGENT_TIMEOUT_MS || 30000)
 
@@ -93,6 +93,23 @@ function normalizeOpenClawReply(payload) {
   return ''
 }
 
+function extractLastUserText(messages) {
+  const list = Array.isArray(messages) ? messages : []
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const m = list[i]
+    if (m?.role === 'user') return String(m.content || '').trim()
+  }
+  return ''
+}
+
+function resolveChatText(body) {
+  const direct = String(body?.text || '').trim()
+  if (direct) return direct
+  const lastUserText = extractLastUserText(body?.messages)
+  const contextText = body?.context ? `\n\nRuntime context: ${JSON.stringify(body.context)}` : ''
+  return `${lastUserText}${contextText}`.trim()
+}
+
 async function runOpenClawAgent(agentId, text) {
   const args = ['agent', '--json', '--agent', agentId, '--message', text]
   const r = await execFileAsync('openclaw', args, {
@@ -107,16 +124,16 @@ async function runOpenClawAgent(agentId, text) {
 
 const server = createServer(async (req, res) => {
   const path = normalizePath(req.url || '/')
-  if (req.method === 'GET' && path === '/battle/openclaw/health') {
+  if (req.method === 'GET' && (path === '/health' || path === '/battle/openclaw/health')) {
     if (!isAuthorized(req)) return sendJson(res, 401, { ok: false, error: 'unauthorized' })
-    return sendJson(res, 200, { ok: true })
+    return sendJson(res, 200, { ok: true, hasKey: true, mode: 'openclaw_service' })
   }
 
-  if (req.method === 'POST' && path === '/battle/openclaw/chat') {
+  if (req.method === 'POST' && (path === '/api/ai/chat' || path === '/battle/openclaw/chat')) {
     if (!isAuthorized(req)) return sendJson(res, 401, { error: 'unauthorized', code: 'unauthorized' })
     try {
       const body = await readBody(req)
-      const text = String(body?.text || '').trim()
+      const text = resolveChatText(body)
       if (!text) return sendJson(res, 400, { error: 'text_required', code: 'invalid_payload' })
       const agentId = String(body?.agentId || DEFAULT_AGENT).trim() || DEFAULT_AGENT
       const reply = await runOpenClawAgent(agentId, text)
@@ -132,9 +149,10 @@ const server = createServer(async (req, res) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`[openclaw-bridge] listening on http://0.0.0.0:${PORT}`)
-  console.log(`[openclaw-bridge] health: GET /battle/openclaw/health`)
-  console.log(`[openclaw-bridge] chat:   POST /battle/openclaw/chat`)
-  if (!TOKEN) console.warn('[openclaw-bridge] BRIDGE_TOKEN is empty; auth is disabled (dev only).')
+  console.log(`[openclaw-service] listening on http://0.0.0.0:${PORT}`)
+  console.log(`[openclaw-service] health: GET /health`)
+  console.log(`[openclaw-service] chat:   POST /api/ai/chat`)
+  console.log(`[openclaw-service] compat: GET /battle/openclaw/health, POST /battle/openclaw/chat`)
+  if (!TOKEN) console.warn('[openclaw-service] TOKEN_SECRET is empty; auth is disabled (dev only).')
 })
 

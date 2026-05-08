@@ -147,7 +147,7 @@ describe('MapBattleController enemy cadence', () => {
     expect(cmd).not.toBeNull()
   })
 
-  it('stalemate timeout ends battle by remaining HP', () => {
+  it('does not force-end battle at 300 ticks (stalemate timeout disabled)', () => {
     const controller = new MapBattleController({
       mapWidth: 24,
       mapHeight: 16,
@@ -207,7 +207,7 @@ describe('MapBattleController enemy cadence', () => {
       pendingFlee: false,
     })
 
-    expect(out.uiOutcome).toBe('lose')
-    expect(out.session.result).toBe('right_win')
+    expect(out.session.result).toBe('ongoing')
+    expect(out.uiOutcome).toBe('ongoing')
   })
 })
