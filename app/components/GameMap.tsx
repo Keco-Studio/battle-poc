@@ -1440,7 +1440,7 @@ export default function GameMap({ game }: Props) {
         battleResult={battleResult}
         nearbyEnemyName={nearbyEnemy?.name ?? 'Enemy'}
         gainedExp={gainedExp}
-        gainedGold={gainedGold}
+        gainedGold={game.gainedGold}
         battleLootDrop={battleLootDrop}
         battleAiDebugStats={battleAiDebugStats}
         battleEvents={mapBattleControllerRef.current?.session?.events ?? []}
