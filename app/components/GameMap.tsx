@@ -39,6 +39,7 @@ import { useMapUiMetrics } from './map-ui/hooks/useMapUiMetrics'
 import { useNearbyEnemyDetection } from './map-ui/hooks/useNearbyEnemyDetection'
 import { usePixellabSync } from './map-ui/hooks/usePixellabSync'
 import { ensureDeepClawAgentEnemy } from './map-ui/utils/gameMapBattleUtils'
+import { classifyBattleCommandMetadata } from '@/app/lib/battle-ai-command-stats'
 // disengageGridPositions moved to resolveMapBattleOutcome helper.
 import {
   ROTATION_KEYS,
@@ -90,6 +91,7 @@ type ReceivedCommandMeta = {
 type BattleAiDebugStats = {
   totalCommands: number
   llmCommands: number
+  macroOrSeqCommands: number
   llmSeqCommands: number
   fallbackCommands: number
   totalRejects: number
@@ -99,6 +101,7 @@ type BattleAiDebugStats = {
 const EMPTY_BATTLE_AI_DEBUG_STATS: BattleAiDebugStats = {
   totalCommands: 0,
   llmCommands: 0,
+  macroOrSeqCommands: 0,
   llmSeqCommands: 0,
   fallbackCommands: 0,
   totalRejects: 0,
@@ -905,6 +908,7 @@ export default function GameMap({ game }: Props) {
       const aiStatsDelta = {
         totalCommands: 0,
         llmCommands: 0,
+        macroOrSeqCommands: 0,
         llmSeqCommands: 0,
         fallbackCommands: 0,
         totalRejects: 0,
@@ -918,12 +922,10 @@ export default function GameMap({ game }: Props) {
             ev.payload && typeof ev.payload.metadata === 'object' && ev.payload.metadata !== null
               ? (ev.payload.metadata as Record<string, unknown>)
               : {}
-          const decisionSource = typeof meta.decisionSource === 'string' ? meta.decisionSource : ''
-          const decisionPath = typeof meta.decisionPath === 'string' ? meta.decisionPath : ''
-          const isLlmSeq = decisionPath.includes('llm_seq:')
-          const isLlm = decisionSource === 'llm' || isLlmSeq
-          if (isLlm) {
+          const { pipeline, macroOrSeq, isLlmSeq } = classifyBattleCommandMetadata(meta)
+          if (pipeline) {
             aiStatsDelta.llmCommands += 1
+            if (macroOrSeq) aiStatsDelta.macroOrSeqCommands += 1
             if (isLlmSeq) aiStatsDelta.llmSeqCommands += 1
           } else {
             aiStatsDelta.fallbackCommands += 1
@@ -943,6 +945,7 @@ export default function GameMap({ game }: Props) {
         setBattleAiDebugStats((prev) => ({
           totalCommands: prev.totalCommands + aiStatsDelta.totalCommands,
           llmCommands: prev.llmCommands + aiStatsDelta.llmCommands,
+          macroOrSeqCommands: prev.macroOrSeqCommands + aiStatsDelta.macroOrSeqCommands,
           llmSeqCommands: prev.llmSeqCommands + aiStatsDelta.llmSeqCommands,
           fallbackCommands: prev.fallbackCommands + aiStatsDelta.fallbackCommands,
           totalRejects: prev.totalRejects + aiStatsDelta.totalRejects,

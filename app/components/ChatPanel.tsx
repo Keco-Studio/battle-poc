@@ -255,8 +255,8 @@ export default function ChatPanel({
           context: chatContext as Record<string, unknown>,
           messages: forApi,
         },
-        (chunk) => {
-          setStreamingDraft((prev) => `${prev ?? ''}${chunk}`)
+        (visibleSoFar) => {
+          setStreamingDraft(visibleSoFar)
         }
       )
       appendThreadMessage(activeTargetId, activeTargetKind, finalText, false)

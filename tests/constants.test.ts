@@ -11,6 +11,8 @@ import {
   createEnemyEncounter,
   allSkills,
   equipmentTypes,
+  getDefaultCarriedSkillIds,
+  sanitizeCarriedSkillIds,
 } from '../app/constants'
 
 describe('calcPlayerStats', () => {
@@ -160,9 +162,9 @@ describe('allSkills', () => {
     expect(allSkills.length).toBeGreaterThan(10)
   })
 
-  it('should include defend action plus skill ids', () => {
+  it('should include domain skill ids (carry bar has no defend pseudo-skill)', () => {
     const ids = allSkills.map(s => s.id)
-    expect(ids).toContain('defend')
+    expect(ids).not.toContain('defend')
     expect(ids).toContain('arcane_bolt')
     expect(ids).toContain('fireball')
     expect(ids).toContain('focus_shot')
@@ -173,10 +175,17 @@ describe('allSkills', () => {
     expect(fireball?.action).toBe('cast_skill')
     expect(fireball?.coreSkillId).toBe('fireball')
     expect(typeof fireball?.cooldownTicks).toBe('number')
+  })
+})
 
-    const defend = allSkills.find(s => s.id === 'defend')
-    expect(defend?.action).toBe('defend')
-    expect(defend?.coreSkillId).toBeUndefined()
+describe('getDefaultCarriedSkillIds / sanitizeCarriedSkillIds', () => {
+  it('defaults to six cast skills without defend for archer', () => {
+    expect(getDefaultCarriedSkillIds('archer', 6)).toHaveLength(6)
+    expect(getDefaultCarriedSkillIds('archer', 6)).not.toContain('defend')
+  })
+
+  it('sanitize strips defend and refills when nothing valid remains', () => {
+    expect(sanitizeCarriedSkillIds(['defend'], 'archer')).toEqual(getDefaultCarriedSkillIds('archer', 6))
   })
 })
 

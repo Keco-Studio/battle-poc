@@ -10,7 +10,6 @@ export type DecisionAction =
   | { type: 'basic_attack'; path: string }
   | { type: 'dash'; target: { x: number; y: number }; moveStep?: number; path: string }
   | { type: 'dodge'; path: string }
-  | { type: 'defend'; path: string }
   | { type: 'noop'; path: string }
 
 export type ReadySkill = {

@@ -1,18 +1,30 @@
 import type { BattleSession } from '../../domain/entities/battle-session'
-import { enqueueBattleCommand } from '../../engine/command-processor'
+import { enqueueBattleCommand, type BattleCommandWalkContext } from '../../engine/command-processor'
 import {
   AutoDecisionEngine,
   type LlmDecisionContext,
   type LlmProviderConfig,
   type RawBattleDecision
 } from './auto-decision-engine'
+import { createInitialBehaviorTree } from './behavior-tree/initial-behavior-tree'
+import { evaluateBehaviorTree } from './behavior-tree/runtime'
+import type { BehaviorTreeState } from './behavior-tree/types'
+import { applyBehaviorTreePatch } from './behavior-tree/validation'
 import { buildShortTermMemory } from './short-term-memory'
+import { arbitrateBehaviorTreeVsLlmMacro } from './decision-arbitration'
 import { expandIntentStyleDecision, normalizeDecisionToCommand } from './dynamic-strategy-validator'
 
 type ActorState = {
   pending: boolean
   cachedDecision: RawBattleDecision | null
   lastError: string | null
+  btTree: BehaviorTreeState | null
+  initialTreeRequested: boolean
+  lastPatchTick: number
+  lastMacroPlanTick: number
+  nextActionTick: number
+  /** Last walk context from prefetch; used when macro LLM callback re-evaluates BT. */
+  lastWalk?: BattleCommandWalkContext
 }
 
 type OrchestratorOptions = {
@@ -51,6 +63,8 @@ export class BattleCoreOrchestrator {
   private readonly shouldDeferPrefetch?: OrchestratorOptions['shouldDeferPrefetch']
   private readonly useProxyMode: boolean
   private readonly actorStates = new Map<string, ActorState>()
+  private readonly macroPlanIntervalTicks = 5
+  private readonly behaviorTreePatchIntervalTicks = 8
   private llmAvailability: 'unknown' | 'available' | 'unavailable'
   private availabilityCheckPending = false
 
@@ -64,7 +78,11 @@ export class BattleCoreOrchestrator {
     this.llmAvailability = this.useProxyMode ? 'unknown' : 'available'
   }
 
-  public prepareCommands(session: BattleSession, executeAtTick: number): PrepareDecisionResult {
+  public prepareCommands(
+    session: BattleSession,
+    executeAtTick: number,
+    walk?: BattleCommandWalkContext
+  ): PrepareDecisionResult {
     if (session.result !== 'ongoing') {
       return {
         session,
@@ -80,8 +98,8 @@ export class BattleCoreOrchestrator {
     let nextSession = session
     const failedActorIds: string[] = []
     const sequences: RawSequenceData[] = []
-    this.prefetchDecision(nextSession, nextSession.left.id)
-    this.prefetchDecision(nextSession, nextSession.right.id)
+    this.prefetchDecision(nextSession, nextSession.left.id, walk)
+    this.prefetchDecision(nextSession, nextSession.right.id, walk)
     const leftResult = this.maybeEnqueueDecision(nextSession, nextSession.left.id, executeAtTick)
     nextSession = leftResult.session
     if (leftResult.failed) failedActorIds.push(nextSession.left.id)
@@ -97,10 +115,10 @@ export class BattleCoreOrchestrator {
     }
   }
 
-  public onTickFinished(session: BattleSession): void {
+  public onTickFinished(session: BattleSession, walk?: BattleCommandWalkContext): void {
     if (!this.shouldUseLlm()) return
-    this.prefetchDecision(session, session.left.id)
-    this.prefetchDecision(session, session.right.id)
+    this.prefetchDecision(session, session.left.id, walk)
+    this.prefetchDecision(session, session.right.id, walk)
   }
 
   public ensureLlmAvailability(): void {
@@ -154,6 +172,9 @@ export class BattleCoreOrchestrator {
       (command) => command.actorId === actorId && command.tick >= executeAtTick
     )
     if (hasFutureCommand) return { session, failed: false }
+    if (executeAtTick < state.nextActionTick) {
+      return { session, failed: false }
+    }
     if (!state.cachedDecision) {
       if (state.lastError) {
         state.lastError = null
@@ -180,34 +201,50 @@ export class BattleCoreOrchestrator {
         failed: true
       }
     }
+    const arbitrationMeta =
+      state.cachedDecision?.metadata &&
+      typeof state.cachedDecision.metadata === 'object'
+        ? (state.cachedDecision.metadata as Record<string, unknown>).arbitrationPicked
+        : undefined
+    const decisionSource =
+      arbitrationMeta === 'bt'
+        ? 'bt'
+        : arbitrationMeta === 'llm_macro'
+          ? 'llm_macro'
+          : 'llm'
     state.cachedDecision = null
     let command = normalized.command
     command = {
       ...command,
       metadata: {
         ...(command.metadata || {}),
-        decisionSource: 'llm',
+        decisionSource,
         validationReason: normalized.reason || 'ok'
       }
     }
     this.onLlmSingleActionCommitted?.(actorId)
+    state.nextActionTick = executeAtTick + this.computeActionIntervalTicks(actor.spd)
     return {
       session: enqueueBattleCommand(session, command),
       failed: false
     }
   }
 
-  private prefetchDecision(session: BattleSession, actorId: string): void {
+  private prefetchDecision(
+    session: BattleSession,
+    actorId: string,
+    walk?: BattleCommandWalkContext
+  ): void {
     if (!this.shouldUseLlm()) return
     if (session.result !== 'ongoing') return
     const actor = session.left.id === actorId ? session.left : session.right
     const target = actor.id === session.left.id ? session.right : session.left
     if (!actor.alive || !target.alive) return
     const state = this.getActorState(actorId)
-    if (state.pending || state.cachedDecision) return
+    if (state.cachedDecision) return
     if (this.shouldDeferPrefetch?.(actorId)) return
+    state.lastWalk = walk
     const memory = buildShortTermMemory(session, actorId)
-    state.pending = true
     const augment = this.augmentLlmContext?.({
       session,
       actorId,
@@ -215,34 +252,160 @@ export class BattleCoreOrchestrator {
       target,
       memory,
     })
+    const context: LlmDecisionContext = {
+      session,
+      actor,
+      target,
+      memory,
+      ...augment,
+    }
+
+    if (!state.btTree) {
+      state.btTree = createInitialBehaviorTree({
+        actorId,
+        currentTick: session.tick,
+      })
+    }
+
+    state.cachedDecision = evaluateBehaviorTree({
+      session,
+      actor,
+      target,
+      tree: state.btTree,
+      walk,
+    }) as RawBattleDecision
+
+    if (state.pending) return
+
+    if (!state.initialTreeRequested) {
+      state.pending = true
+      state.initialTreeRequested = true
+      void this.decisionEngine
+        .requestInitialBehaviorTree({
+          context,
+          seedTree: state.btTree,
+        })
+        .then((result) => {
+          if (result.tree) {
+            state.btTree = result.tree
+          }
+          state.lastError = result.error || null
+        })
+        .finally(() => {
+          state.pending = false
+        })
+      return
+    }
+
+    if (session.tick - state.lastMacroPlanTick >= this.macroPlanIntervalTicks) {
+      state.pending = true
+      const macroBaseTick = session.tick
+      void this.decisionEngine
+        .requestDecision(context)
+        .then((result) => {
+          const expanded =
+            expandIntentStyleDecision((result.decision || null) as RawBattleDecision) ?? result.decision
+          const hasSequence = expanded && Array.isArray(expanded.sequence) && expanded.sequence.length > 0
+          const hasSingleAction =
+            expanded && typeof expanded.action === 'string' && expanded.action.length > 0
+          if (!hasSequence && !hasSingleAction) {
+            if (result.error) state.lastError = result.error
+            return
+          }
+          const btEval = evaluateBehaviorTree({
+            session: context.session,
+            actor,
+            target,
+            tree: state.btTree!,
+            walk: state.lastWalk,
+          }) as RawBattleDecision
+          state.cachedDecision = arbitrateBehaviorTreeVsLlmMacro(btEval, expanded, {
+            session: context.session,
+            actorId,
+          })
+          if (result.error) {
+            state.lastError = result.error
+          }
+        })
+        .finally(() => {
+          state.lastMacroPlanTick = macroBaseTick
+          state.pending = false
+        })
+      return
+    }
+
+    if (session.tick - state.lastPatchTick < this.behaviorTreePatchIntervalTicks) return
+    state.pending = true
+    const patchBaseTick = session.tick
+    const currentTree = state.btTree
+    if (!currentTree) {
+      state.pending = false
+      return
+    }
     void this.decisionEngine
-      .requestDecision({
-        session,
-        actor,
-        target,
-        memory,
-        ...augment,
+      .requestBehaviorTreePatch({
+        context,
+        tree: currentTree,
       })
       .then((result) => {
-        state.cachedDecision =
-          expandIntentStyleDecision((result.decision || null) as RawBattleDecision) ?? result.decision
-        state.lastError = result.error || null
+        if (result.patch && state.btTree) {
+          const applied = applyBehaviorTreePatch(state.btTree, result.patch, patchBaseTick)
+          if (applied.applied) {
+            state.btTree = applied.tree
+          } else {
+            state.lastError = applied.reason
+          }
+        }
+        if (result.error) {
+          state.lastError = result.error
+        }
       })
       .finally(() => {
+        state.lastPatchTick = patchBaseTick
         state.pending = false
       })
   }
 
   private getActorState(actorId: string): ActorState {
     const existing = this.actorStates.get(actorId)
-    if (existing) return existing
+    if (existing) {
+      if (!('btTree' in existing)) {
+        ; (existing as ActorState).btTree = null
+      }
+      if (!('initialTreeRequested' in existing)) {
+        ; (existing as ActorState).initialTreeRequested = false
+      }
+      if (!('lastPatchTick' in existing)) {
+        ; (existing as ActorState).lastPatchTick = -9999
+      }
+      if (!('lastMacroPlanTick' in existing)) {
+        ; (existing as ActorState).lastMacroPlanTick = -9999
+      }
+      if (!('nextActionTick' in existing)) {
+        ; (existing as ActorState).nextActionTick = 0
+      }
+      return existing
+    }
     const created: ActorState = {
       pending: false,
       cachedDecision: null,
-      lastError: null
+      lastError: null,
+      btTree: null,
+      initialTreeRequested: false,
+      lastPatchTick: -9999,
+      lastMacroPlanTick: -9999,
+      nextActionTick: 0,
     }
     this.actorStates.set(actorId, created)
     return created
+  }
+
+  private computeActionIntervalTicks(spd: number): number {
+    const battleTickMs = 200
+    const mappedAttackSpeed = Math.max(0.4, 0.8 + (Math.max(1, spd) - 3) * 0.05)
+    const secondsPerAction = Math.max(0.8, 0.8 / mappedAttackSpeed)
+    const ticks = Math.round((secondsPerAction * 1000) / battleTickMs)
+    return Math.max(1, ticks)
   }
 }
 

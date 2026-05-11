@@ -12,7 +12,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 6000
   }
 }
 
-(globalThis as any).Deno.serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return corsPreflight()
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   const authHeader = pickAuthHeader(req)
@@ -27,7 +27,8 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 6000
     .limit(1)
   if (error) return json(500, { ok: false, error: `db_read_failed:${error.message}` })
   const conn = rows?.[0]
-  if (!conn || !conn.enabled) return json(404, { ok: false, error: 'not_bound' })
+  // Use HTTP 200 so supabase.functions.invoke returns `data` (non-2xx becomes invoke error and UI shows ERROR instead of NOT BOUND).
+  if (!conn || !conn.enabled) return json(200, { ok: false, error: 'not_bound' })
 
   try {
     const secret = await decryptText(conn.secret_ciphertext)

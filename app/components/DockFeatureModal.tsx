@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   X,
   Trophy,
@@ -21,15 +22,26 @@ import ChatPanel from './ChatPanel'
 import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { savePlayerSave } from '@/src/lib/db/player-saves'
 import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
-import { getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
+import { formatProfileSessionLabel, getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
 
 const CACHE_TTL_MS = 300 * 1000
 const SESSION_CACHE_KEY = 'battle:profile-session-cache'
 const PVP_CACHE_KEY = 'battle:pvp-users-cache'
 
+/** Refresh / revalidate with Auth server this long before JWT expiry. */
+const SESSION_EXPIRY_SKEW_MS = 60_000
+
+/** Max time to skip `getUser()` after last server-confirmed auth (1h). */
+const LOCAL_AUTH_TRUST_MS = 60 * 60 * 1000
+
 type SessionCachePayload = {
   email: string | null
+  userId: string | null
+  /** JWT `exp` from Supabase session (unix seconds). */
+  expiresAt: number | null
   cachedAt: number
+  /** Last successful GoTrue confirmation (`getUser` or `onAuthStateChange` with user). */
+  serverCheckedAt: number | null
 }
 
 type PvpCachePayload = {
@@ -37,37 +49,145 @@ type PvpCachePayload = {
   cachedAt: number
 }
 
-function readSessionCache(): SessionCachePayload | null {
+function readBrowserCache(key: string): string | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = window.sessionStorage.getItem(SESSION_CACHE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as SessionCachePayload
-    if (typeof parsed?.cachedAt !== 'number') return null
-    if (Date.now() - parsed.cachedAt > CACHE_TTL_MS) return null
-    return {
-      email: typeof parsed.email === 'string' ? parsed.email : null,
-      cachedAt: parsed.cachedAt,
+    let raw = window.localStorage.getItem(key)
+    if (raw) return raw
+    raw = window.sessionStorage.getItem(key)
+    if (raw) {
+      try {
+        window.localStorage.setItem(key, raw)
+        window.sessionStorage.removeItem(key)
+      } catch {
+        /* ignore migration failures */
+      }
     }
+    return raw
   } catch {
     return null
   }
 }
 
-function writeSessionCache(email: string | null) {
+function writeBrowserCache(key: string, value: string): void {
   if (typeof window === 'undefined') return
   try {
-    const payload: SessionCachePayload = { email, cachedAt: Date.now() }
-    window.sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(payload))
+    window.localStorage.setItem(key, value)
+    try {
+      window.sessionStorage.removeItem(key)
+    } catch {
+      /* ignore */
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function removeBrowserCache(key: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(key)
+    window.sessionStorage.removeItem(key)
+  } catch {
+    /* ignore */
+  }
+}
+
+function writeSessionCache(payload: SessionCachePayload | null) {
+  if (typeof window === 'undefined') return
+  try {
+    if (!payload) {
+      removeBrowserCache(SESSION_CACHE_KEY)
+      return
+    }
+    writeBrowserCache(SESSION_CACHE_KEY, JSON.stringify(payload))
   } catch {
     // Ignore cache errors and continue with live auth behavior.
+  }
+}
+
+function readSessionCache(): SessionCachePayload | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = readBrowserCache(SESSION_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SessionCachePayload
+    if (typeof parsed?.cachedAt !== 'number') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+type ResolvedAuthUser = { id: string; email: string | null }
+
+/**
+ * Same rules as Profile `refreshSession`: local JWT + 1h server-trust window when possible;
+ * otherwise `getUser()`. Updates `battle:profile-session-cache`.
+ */
+async function resolveAuthUserWithCache(supabase: SupabaseClient): Promise<ResolvedAuthUser | null> {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+    const expMs = session?.expires_at ? session.expires_at * 1000 : 0
+    const locallyValid =
+      !sessionError &&
+      session?.user &&
+      expMs > Date.now() + SESSION_EXPIRY_SKEW_MS
+
+    if (locallyValid) {
+      const u = session.user
+      const prev = readSessionCache()
+      const sameUser = prev?.userId === u.id
+      const trustFresh =
+        sameUser &&
+        typeof prev?.serverCheckedAt === 'number' &&
+        Date.now() - prev.serverCheckedAt < LOCAL_AUTH_TRUST_MS
+
+      if (trustFresh) {
+        writeSessionCache({
+          email: u.email ?? null,
+          userId: u.id,
+          expiresAt: session.expires_at ?? null,
+          cachedAt: Date.now(),
+          serverCheckedAt: prev.serverCheckedAt,
+        })
+        return { id: u.id, email: u.email ?? null }
+      }
+    }
+
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser()
+    if (error || !user) {
+      writeSessionCache(null)
+      return null
+    }
+    const email = user.email ?? null
+    const {
+      data: { session: after },
+    } = await supabase.auth.getSession()
+    writeSessionCache({
+      email,
+      userId: user.id,
+      expiresAt: after?.expires_at ?? null,
+      cachedAt: Date.now(),
+      serverCheckedAt: Date.now(),
+    })
+    return { id: user.id, email }
+  } catch {
+    writeSessionCache(null)
+    return null
   }
 }
 
 function readPvpUsersCache(): PvpCachePayload | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = window.sessionStorage.getItem(PVP_CACHE_KEY)
+    const raw = readBrowserCache(PVP_CACHE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as PvpCachePayload
     if (typeof parsed?.cachedAt !== 'number' || !Array.isArray(parsed?.users)) return null
@@ -85,7 +205,7 @@ function writePvpUsersCache(users: PVPUser[]) {
   if (typeof window === 'undefined') return
   try {
     const payload: PvpCachePayload = { users, cachedAt: Date.now() }
-    window.sessionStorage.setItem(PVP_CACHE_KEY, JSON.stringify(payload))
+    writeBrowserCache(PVP_CACHE_KEY, JSON.stringify(payload))
   } catch {
     // Ignore cache errors and continue with live data behavior.
   }
@@ -180,7 +300,8 @@ export default function DockFeatureModal({ game }: Props) {
   const [authLoading, setAuthLoading] = useState(false)
   const [authResolved, setAuthResolved] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  /** Supabase user when logged in (email may be null for some OAuth accounts). */
+  const [profileSession, setProfileSession] = useState<{ email: string | null; id: string } | null>(null)
   const [dataFlowTrace, setDataFlowTrace] = useState<DataFlowTraceItem[]>([])
   const [pvpUsers, setPvpUsers] = useState<PVPUser[]>([])
   const [pvpLoading, setPvpLoading] = useState(false)
@@ -225,26 +346,29 @@ export default function DockFeatureModal({ game }: Props) {
 
   const refreshSession = useCallback(async () => {
     if (!supabase) {
-      setSessionEmail(null)
+      setProfileSession(null)
       setAuthResolved(true)
       return
     }
-    const cached = readSessionCache()
-    if (cached) {
-      setSessionEmail(cached.email)
+    try {
+      const resolved = await resolveAuthUserWithCache(supabase)
+      if (!resolved) {
+        setProfileSession(null)
+      } else {
+        setProfileSession({ email: resolved.email, id: resolved.id })
+      }
+    } catch {
+      setProfileSession(null)
+      writeSessionCache(null)
+    } finally {
       setAuthResolved(true)
-      return
     }
-    const { data } = await supabase.auth.getSession()
-    const email = data.session?.user?.email ?? null
-    setSessionEmail(email)
-    writeSessionCache(email)
-    setAuthResolved(true)
   }, [supabase])
 
   useEffect(() => {
     if (dockPanel !== 'character_login') return
-    setAuthResolved(false)
+    // Do not clear authResolved here — avoids flashing "Checking..." on every open while
+    // refreshSession still runs to sync session.
     void refreshSession()
   }, [dockPanel, refreshSession])
 
@@ -253,9 +377,20 @@ export default function DockFeatureModal({ game }: Props) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const email = session?.user?.email ?? null
-      setSessionEmail(email)
-      writeSessionCache(email)
+      const u = session?.user
+      if (u) {
+        setProfileSession({ email: u.email ?? null, id: u.id })
+        writeSessionCache({
+          email: u.email ?? null,
+          userId: u.id,
+          expiresAt: session?.expires_at ?? null,
+          cachedAt: Date.now(),
+          serverCheckedAt: Date.now(),
+        })
+      } else {
+        setProfileSession(null)
+        writeSessionCache(null)
+      }
       setAuthResolved(true)
     })
     return () => subscription.unsubscribe()
@@ -281,9 +416,9 @@ export default function DockFeatureModal({ game }: Props) {
   useEffect(() => {
     if (dockPanel !== 'character_login') return
     if (!supabase) return
-    if (!sessionEmail) return
+    if (!profileSession) return
     void refreshOpenclawHealth()
-  }, [dockPanel, refreshOpenclawHealth, sessionEmail, supabase])
+  }, [dockPanel, refreshOpenclawHealth, profileSession, supabase])
 
   useEffect(() => {
     if (dockPanel !== 'battle_system') return
@@ -307,9 +442,7 @@ export default function DockFeatureModal({ game }: Props) {
       setPvpError(null)
       pushDataFlowTrace('loadPvpUsers', 'start')
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+        const resolved = await resolveAuthUserWithCache(supabase)
 
         let query = supabase
           .from('player_saves')
@@ -317,8 +450,8 @@ export default function DockFeatureModal({ game }: Props) {
           .order('level', { ascending: false })
           .limit(100)
 
-        if (user?.id) {
-          query = query.neq('user_id', user.id)
+        if (resolved?.id) {
+          query = query.neq('user_id', resolved.id)
         }
 
         const { data, error } = await query
@@ -366,9 +499,9 @@ export default function DockFeatureModal({ game }: Props) {
         supabaseConfigured: isBattleSupabaseConfigured(),
         hasSupabaseClient: Boolean(supabase),
         authResolved,
-        sessionEmail,
+        session: profileSession,
       }),
-    [authResolved, sessionEmail, supabase],
+    [authResolved, profileSession, supabase],
   )
   const [pvpSearchQuery, setPvpSearchQuery] = useState('')
 
@@ -583,10 +716,11 @@ export default function DockFeatureModal({ game }: Props) {
                     <div className="space-y-3 text-center text-[13px] text-slate-700">
                       <p>Checking current session...</p>
                     </div>
-                  ) : profileAuthViewState === 'authenticated' && sessionEmail ? (
+                  ) : profileAuthViewState === 'authenticated' && profileSession ? (
                     <div className="space-y-3 text-center text-[13px] text-slate-700">
                       <p>
-                        Current session: <span className="font-semibold text-slate-900">{sessionEmail}</span>
+                        Current session:{' '}
+                        <span className="font-semibold text-slate-900">{formatProfileSessionLabel(profileSession)}</span>
                       </p>
                       <button
                         type="button"
@@ -598,7 +732,7 @@ export default function DockFeatureModal({ game }: Props) {
                             pushDataFlowTrace('auth.signOut', 'start')
                             await supabase!.auth.signOut()
                             logoutAccount()
-                            setSessionEmail(null)
+                            setProfileSession(null)
                             pushDataFlowTrace('auth.signOut', 'success')
                           } catch (e) {
                             pushDataFlowTrace('auth.signOut', 'error', e instanceof Error ? e.message : 'Sign out failed')
@@ -881,9 +1015,10 @@ export default function DockFeatureModal({ game }: Props) {
                               pushDataFlowTrace('auth.signUp', 'success')
 
                               const { data } = await supabase!.auth.getSession()
-                              if (data.session?.user?.email) {
-                                login(data.session.user.email)
-                                setSessionEmail(data.session.user.email)
+                              const signUpUser = data.session?.user
+                              if (signUpUser) {
+                                login(signUpUser.email ?? signUpUser.id)
+                                setProfileSession({ email: signUpUser.email ?? null, id: signUpUser.id })
                                 await savePlayerSave({ character_name: trimmedDisplayName })
                               } else {
                                 // For projects with email-confirm disabled, sign-up may still return no active session.
@@ -897,10 +1032,10 @@ export default function DockFeatureModal({ game }: Props) {
                                 }
                                 pushDataFlowTrace('auth.signInWithPassword', 'success')
                                 const { data: signedInData } = await supabase!.auth.getSession()
-                                const signedInEmail = signedInData.session?.user?.email
-                                if (signedInEmail) {
-                                  login(signedInEmail)
-                                  setSessionEmail(signedInEmail)
+                                const retryUser = signedInData.session?.user
+                                if (retryUser) {
+                                  login(retryUser.email ?? retryUser.id)
+                                  setProfileSession({ email: retryUser.email ?? null, id: retryUser.id })
                                   await savePlayerSave({ character_name: trimmedDisplayName })
                                 }
                               }
@@ -914,10 +1049,10 @@ export default function DockFeatureModal({ game }: Props) {
                               }
                               pushDataFlowTrace('auth.signInWithPassword', 'success')
                               const { data } = await supabase!.auth.getSession()
-                              const em = data.session?.user?.email
-                              if (em) {
-                                login(em)
-                                setSessionEmail(em)
+                              const signedUser = data.session?.user
+                              if (signedUser) {
+                                login(signedUser.email ?? signedUser.id)
+                                setProfileSession({ email: signedUser.email ?? null, id: signedUser.id })
                               }
                             }
                           } catch (e) {

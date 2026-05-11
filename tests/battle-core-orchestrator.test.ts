@@ -95,5 +95,92 @@ describe('battle core orchestrator', () => {
     const prepared = orchestrator.prepareCommands(session, 1)
     expect(prepared.failedActorIds.includes(left.id)).toBe(false)
   })
+
+  it('enqueues bt-driven command metadata when llm runtime is available', () => {
+    const left = makeEntity({ id: 'left-bt', team: 'left', x: 3, y: 2, skills: ['arcane_bolt'] })
+    const right = makeEntity({ id: 'right-bt', team: 'right', x: 6.2, y: 2, skills: ['arcane_bolt'] })
+    const session = createBattleSession({ left, right, preparationTicks: 0 })
+    const orchestrator = new BattleCoreOrchestrator()
+    const internal = orchestrator as unknown as {
+      llmAvailability: 'unknown' | 'available' | 'unavailable'
+    }
+    internal.llmAvailability = 'available'
+
+    const prepared = orchestrator.prepareCommands(session, 1)
+    const leftCommand = prepared.session.commandQueue.find((entry) => entry.actorId === left.id && entry.tick === 1)
+    expect(leftCommand).toBeDefined()
+    expect(leftCommand?.metadata?.decisionSource).toBe('llm')
+    expect(leftCommand?.metadata?.btVersion).toBe(2)
+  })
+
+  it('throttles bt command enqueue instead of issuing every tick', () => {
+    const left = makeEntity({ id: 'left-throttle', team: 'left', x: 3, y: 2, skills: ['arcane_bolt'] })
+    const right = makeEntity({ id: 'right-throttle', team: 'right', x: 6.2, y: 2, skills: ['arcane_bolt'] })
+    const orchestrator = new BattleCoreOrchestrator()
+    const internal = orchestrator as unknown as {
+      llmAvailability: 'unknown' | 'available' | 'unavailable'
+    }
+    internal.llmAvailability = 'available'
+
+    const session1 = createBattleSession({ left, right, preparationTicks: 0 })
+    const prepared1 = orchestrator.prepareCommands(session1, 1)
+    const prepared2 = orchestrator.prepareCommands(prepared1.session, 2)
+
+    const tick1CommandsForLeft = prepared2.session.commandQueue.filter(
+      (entry) => entry.actorId === left.id && entry.tick === 1
+    )
+    const tick2CommandsForLeft = prepared2.session.commandQueue.filter(
+      (entry) => entry.actorId === left.id && entry.tick === 2
+    )
+
+    expect(tick1CommandsForLeft.length).toBe(1)
+    expect(tick2CommandsForLeft.length).toBe(0)
+  })
+
+  it('arbitrates macro LLM vs BT instead of always taking LLM single action', async () => {
+    const left = makeEntity({ id: 'left-macro', team: 'left', x: 3, y: 2, skills: ['arcane_bolt'] })
+    const right = makeEntity({ id: 'right-macro', team: 'right', x: 9, y: 2, skills: ['arcane_bolt'] })
+    const session = createBattleSession({ left, right, preparationTicks: 0 })
+    const orchestrator = new BattleCoreOrchestrator()
+    const internal = orchestrator as unknown as {
+      llmAvailability: 'unknown' | 'available' | 'unavailable'
+      actorStates: Map<string, {
+        pending: boolean
+        cachedDecision: { action?: string; metadata?: Record<string, unknown> } | null
+        lastError: string | null
+        btTree: object | null
+        initialTreeRequested: boolean
+        lastPatchTick: number
+        lastMacroPlanTick: number
+        nextActionTick: number
+      }>
+      decisionEngine: {
+        requestDecision: (context: unknown) => Promise<{ decision: { action: string }; source: 'remote_llm' }>
+      }
+    }
+    internal.llmAvailability = 'available'
+    internal.actorStates.set(left.id, {
+      pending: false,
+      cachedDecision: null,
+      lastError: null,
+      btTree: null,
+      initialTreeRequested: true,
+      lastPatchTick: -9999,
+      lastMacroPlanTick: -9999,
+      nextActionTick: 999
+    })
+    internal.decisionEngine.requestDecision = async () => ({
+      decision: { action: 'defend' },
+      source: 'remote_llm'
+    })
+
+    orchestrator.prepareCommands(session, 1)
+    await Promise.resolve()
+
+    const updated = internal.actorStates.get(left.id)
+    expect(updated?.cachedDecision?.metadata?.arbitrationPicked).toBe('bt')
+    expect(updated?.cachedDecision?.metadata?.arbitrationScores).toBeDefined()
+    expect(updated?.cachedDecision?.action).toBe('cast_skill')
+  })
 })
 

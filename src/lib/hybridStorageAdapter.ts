@@ -1,6 +1,6 @@
 /**
  * Hybrid storage adapter for Supabase Auth (same approach as keco-studio).
- * Persists session in cookies and isolates tabs via sessionStorage.
+ * Persists session in cookies and localStorage (survives tab close; tab id in localStorage).
  */
 
 import type { SupportedStorage } from '@supabase/supabase-js'
@@ -16,22 +16,6 @@ function getTabId(): string {
   let tabId = localStorage.getItem(TAB_ID_KEY)
 
   if (tabId) {
-    try {
-      sessionStorage.setItem(TAB_ID_KEY, tabId)
-    } catch {
-      /* ignore */
-    }
-    return tabId
-  }
-
-  tabId = sessionStorage.getItem(TAB_ID_KEY)
-
-  if (tabId) {
-    try {
-      localStorage.setItem(TAB_ID_KEY, tabId)
-    } catch {
-      /* ignore */
-    }
     return tabId
   }
 
@@ -39,13 +23,8 @@ function getTabId(): string {
 
   try {
     localStorage.setItem(TAB_ID_KEY, tabId)
-    sessionStorage.setItem(TAB_ID_KEY, tabId)
   } catch {
-    try {
-      sessionStorage.setItem(TAB_ID_KEY, tabId)
-    } catch {
-      /* last resort */
-    }
+    /* last resort */
   }
 
   return tabId
@@ -79,13 +58,6 @@ function detectBaseStorageKey(): string {
     return 'sb-auth-token'
   }
 
-  for (let i = 0; i < sessionStorage.length; i++) {
-    const key = sessionStorage.key(i)
-    if (key && /^sb-.*-auth-token/.test(key)) {
-      return key.split('_')[0]
-    }
-  }
-
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
     if (key && /^sb-.*-auth-token/.test(key)) {
@@ -93,7 +65,63 @@ function detectBaseStorageKey(): string {
     }
   }
 
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i)
+    if (key && /^sb-.*-auth-token/.test(key)) {
+      return key.split('_')[0]
+    }
+  }
+
   return 'sb-auth-token'
+}
+
+/** Read auth blob: prefer localStorage, migrate legacy sessionStorage entry. */
+function readPersistedSession(storageKey: string): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    let value = localStorage.getItem(storageKey)
+    if (value) return value
+    value = sessionStorage.getItem(storageKey)
+    if (value) {
+      try {
+        localStorage.setItem(storageKey, value)
+        sessionStorage.removeItem(storageKey)
+      } catch {
+        /* ignore */
+      }
+    }
+    return value
+  } catch {
+    return null
+  }
+}
+
+function writePersistedSession(storageKey: string, value: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(storageKey, value)
+    try {
+      sessionStorage.removeItem(storageKey)
+    } catch {
+      /* ignore */
+    }
+  } catch (error) {
+    console.error('Hybrid storage setItem error:', error)
+  }
+}
+
+function removePersistedSession(storageKey: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.removeItem(storageKey)
+    try {
+      sessionStorage.removeItem(storageKey)
+    } catch {
+      /* ignore */
+    }
+  } catch (error) {
+    console.error('Hybrid storage removeItem error:', error)
+  }
 }
 
 export function createHybridStorageAdapter(): SupportedStorage {
@@ -106,7 +134,7 @@ export function createHybridStorageAdapter(): SupportedStorage {
       const cookieSession = getCookie(SESSION_COOKIE)
       if (cookieSession) {
         try {
-          sessionStorage.setItem(storageKey, cookieSession)
+          writePersistedSession(storageKey, cookieSession)
         } catch {
           /* ignore */
         }
@@ -126,7 +154,15 @@ export function createHybridStorageAdapter(): SupportedStorage {
         const actualKey =
           key === baseKey || (key.startsWith('sb-') && key.includes('auth-token')) ? storageKey : key
 
-        let value = sessionStorage.getItem(actualKey)
+        let value =
+          actualKey === storageKey ? readPersistedSession(actualKey) : localStorage.getItem(actualKey)
+        if (!value && actualKey !== storageKey) {
+          try {
+            value = sessionStorage.getItem(actualKey)
+          } catch {
+            /* ignore */
+          }
+        }
 
         if (value) {
           if (actualKey === storageKey) {
@@ -143,7 +179,7 @@ export function createHybridStorageAdapter(): SupportedStorage {
           const cookieValue = getCookie(SESSION_COOKIE)
           if (cookieValue) {
             try {
-              sessionStorage.setItem(actualKey, cookieValue)
+              writePersistedSession(actualKey, cookieValue)
             } catch {
               /* ignore */
             }
@@ -167,7 +203,11 @@ export function createHybridStorageAdapter(): SupportedStorage {
         const actualKey =
           key === baseKey || (key.startsWith('sb-') && key.includes('auth-token')) ? storageKey : key
 
-        sessionStorage.setItem(actualKey, value)
+        if (actualKey === storageKey) {
+          writePersistedSession(actualKey, value)
+        } else {
+          localStorage.setItem(actualKey, value)
+        }
 
         if (actualKey === storageKey) {
           setCookie(SESSION_COOKIE, value, 7)
@@ -186,7 +226,16 @@ export function createHybridStorageAdapter(): SupportedStorage {
         const actualKey =
           key === baseKey || (key.startsWith('sb-') && key.includes('auth-token')) ? storageKey : key
 
-        sessionStorage.removeItem(actualKey)
+        if (actualKey === storageKey) {
+          removePersistedSession(actualKey)
+        } else {
+          try {
+            localStorage.removeItem(actualKey)
+            sessionStorage.removeItem(actualKey)
+          } catch {
+            /* ignore */
+          }
+        }
 
         if (actualKey === storageKey) {
           removeCookie(SESSION_COOKIE)

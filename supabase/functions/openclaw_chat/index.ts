@@ -29,7 +29,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 1500
   }
 }
 
-(globalThis as any).Deno.serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return corsPreflight()
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   try {

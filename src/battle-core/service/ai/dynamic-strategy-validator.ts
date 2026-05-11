@@ -42,7 +42,7 @@ export function expandIntentStyleDecision(
       : null
 
   if (intent === 'defend' || actType === 'defend') {
-    return { action: 'defend', ttlTicks }
+    return { action: 'dodge', ttlTicks }
   }
   if (intent === 'dodge' || actType === 'dodge') {
     return { action: 'dodge', ttlTicks }
@@ -137,6 +137,16 @@ export function normalizeDecisionToCommand(input: {
     }
   }
 
+  if (action === 'dash') {
+    const downgraded = remapUnsafeDash(input.session, actor.id, expanded)
+    if (downgraded) {
+      return normalizeDecisionToCommand({
+        ...input,
+        rawDecision: downgraded,
+      })
+    }
+  }
+
   if (action === 'cast_skill') {
     const skillId = String(expanded.skillId || '')
     if (!skillId) {
@@ -210,6 +220,35 @@ export function normalizeDecisionToCommand(input: {
   }
 }
 
+function remapUnsafeDash(
+  session: BattleSession,
+  actorId: string,
+  decision: RawBattleDecision
+): RawBattleDecision | null {
+  const movementState = session.movementState[actorId] || {
+    consecutiveDashCount: 0,
+    dashCooldownUntilTick: -1
+  }
+  const recent = session.events.slice(-40)
+  const blockedCount = recent.reduce((acc, event) => {
+    if (event.type !== 'command_rejected') return acc
+    if (String(event.payload.actorId || '') !== actorId) return acc
+    const reason = String(event.payload.reason || '')
+    if (reason === 'dash_blocked' || reason === 'dash_blocked_by_walkability') return acc + 1
+    return acc
+  }, 0)
+  const dashLocked =
+    movementState.consecutiveDashCount >= 3 || movementState.dashCooldownUntilTick >= session.tick || blockedCount >= 2
+  if (!dashLocked) return null
+  return {
+    action: 'dodge',
+    metadata: {
+      ...(decision.metadata || {}),
+      remapReason: 'dash_unavailable'
+    }
+  }
+}
+
 function buildCommand(
   sessionId: string,
   actorId: string,
@@ -245,6 +284,30 @@ function sanitizeMetadata(metadata: unknown): Record<string, unknown> | undefine
   if (typeof source.moveStep === 'number' && Number.isFinite(source.moveStep)) {
     out.moveStep = Math.max(0.4, Math.min(4.2, Number(source.moveStep)))
   }
+  if (typeof source.btNode === 'string' && source.btNode.length > 0) {
+    out.btNode = source.btNode
+  }
+  if (typeof source.btVersion === 'number' && Number.isFinite(source.btVersion)) {
+    out.btVersion = Math.max(1, Math.floor(Number(source.btVersion)))
+  }
+  if (Array.isArray(source.btPlannedPath)) {
+    const path = source.btPlannedPath
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry === 'object' &&
+          typeof (entry as { x?: unknown }).x === 'number' &&
+          typeof (entry as { y?: unknown }).y === 'number'
+      )
+      .slice(0, 12)
+      .map((entry) => ({
+        x: Number(((entry as { x: number }).x).toFixed(2)),
+        y: Number(((entry as { y: number }).y).toFixed(2))
+      }))
+    if (path.length > 0) {
+      out.btPlannedPath = path
+    }
+  }
   return Object.keys(out).length > 0 ? out : undefined
 }
 
@@ -252,7 +315,6 @@ function isAllowedAction(action: string): action is BattleCommand['action'] {
   return (
     action === 'basic_attack' ||
     action === 'cast_skill' ||
-    action === 'defend' ||
     action === 'dash' ||
     action === 'dodge' ||
     action === 'flee'

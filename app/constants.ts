@@ -14,7 +14,7 @@ export type SkillType = 'damage' | 'heal' | 'defense' | 'counter' | 'control' | 
 export interface Skill {
   id: string
   /** Domain action corresponding to frontend skill slot */
-  action: 'cast_skill' | 'defend'
+  action: 'cast_skill'
   /** Maps to battle-core skill id when action=cast_skill */
   coreSkillId?: string
   name: string
@@ -48,7 +48,6 @@ export const BASIC_ATTACK: Skill = {
 }
 
 const MAP_BATTLE_TICK_MS = 115
-const DEFEND_COOLDOWN_TICKS = 20
 
 export function cooldownMsFromTicks(cooldownTicks: number): number {
   return Math.max(0, cooldownTicks) * MAP_BATTLE_TICK_MS
@@ -160,23 +159,8 @@ export const INTERACTION_RANGE = 2.5
 // Collision detection resolution
 export const COLLISION_SCALE = 2
 
-// Skill data
-export const allSkills: Skill[] = [
-  {
-    id: 'defend',
-    action: 'defend',
-    name: 'Defend',
-    icon: '🛡️',
-    unlockLevel: 1,
-    type: 'defense',
-    multiplier: 0,
-    desc: 'Enter defense stance and gain shield (domain action)',
-    mpCost: 0,
-    cooldownTicks: DEFEND_COOLDOWN_TICKS,
-    cooldownMs: cooldownMsFromTicks(DEFEND_COOLDOWN_TICKS),
-  },
-  ...getAllBattleSkillDefinitions().map(buildSkillFromDefinition),
-]
+// Skill data (carry bar: cast-only entries from battle-core catalog)
+export const allSkills: Skill[] = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
 
 export function getSkillById(id: string): Skill | undefined {
   if (id === BASIC_ATTACK.id) return BASIC_ATTACK
@@ -186,9 +170,22 @@ export function getSkillById(id: string): Skill | undefined {
 export function getDefaultCarriedSkillIds(role: string = 'hero', maxCount = 6): string[] {
   const loadout = getRoleSkillLoadout(role)
   const valid = loadout.filter((id) => allSkills.some((s) => s.id === id))
-  const withDefend = valid.includes('defend') ? valid : ['defend', ...valid]
-  const dedup = Array.from(new Set(withDefend))
+  const dedup = Array.from(new Set(valid))
   return dedup.slice(0, Math.max(1, maxCount))
+}
+
+/** Strips unknown ids, dedupes, caps at 6; falls back to role default when empty. */
+export function sanitizeCarriedSkillIds(ids: string[], role: string = 'archer'): string[] {
+  const validIds = new Set(allSkills.map((s) => s.id))
+  const cleaned = Array.from(
+    new Set(
+      ids
+        .map((id) => String(id).trim())
+        .filter((id) => id.length > 0 && validIds.has(id)),
+    ),
+  )
+  if (cleaned.length === 0) return getDefaultCarriedSkillIds(role, 6)
+  return cleaned.slice(0, 6)
 }
 
 // Equipment data

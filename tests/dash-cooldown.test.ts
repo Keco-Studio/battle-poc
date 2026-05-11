@@ -93,7 +93,7 @@ describe('dash cooldown', () => {
       sessionId: session.id,
       actorId: left.id,
       tick: 4,
-      action: 'defend'
+      action: 'dodge'
     })
     session = tickEngine.tick(session).session
 

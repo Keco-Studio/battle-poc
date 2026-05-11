@@ -14,7 +14,7 @@ const DEEPSEEK_API_KEY = String(process.env.DEEPSEEK_API_KEY || '').trim();
 const DEEPSEEK_MODEL = String(process.env.DEEPSEEK_MODEL || 'deepseek-chat').trim();
 const DEEPSEEK_BASE_URL = String(process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '');
 const MINIMAX_API_KEY = String(process.env.MINIMAX_API_KEY || '').trim();
-const MINIMAX_MODEL = String(process.env.MINIMAX_MODEL || 'MiniMax-M2.1').trim();
+const MINIMAX_MODEL = String(process.env.MINIMAX_MODEL || 'MiniMax-M2.7').trim();
 const MINIMAX_BASE_URL = String(process.env.MINIMAX_BASE_URL || 'https://api.minimax.io').replace(/\/$/, '');
 
 const SYSTEM_PROMPT =

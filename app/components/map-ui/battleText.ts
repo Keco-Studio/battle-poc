@@ -32,7 +32,6 @@ export function reasonLabel(reason: unknown): string | null {
     player_dodge_retreat: 'Player dodge retreat',
     player_basic_attack: 'Player basic attack',
     player_basic_attack_fallback: 'Skill unavailable, fallback to basic attack',
-    player_defend: 'Player defend',
     player_cast_skill: 'Player cast skill',
     player_dash_approach_retry: 'Chase compensation step',
     player_noop: 'Player idle',
@@ -77,7 +76,6 @@ export function actionLabel(action: unknown): string {
   if (typeof action !== 'string') return 'Action'
   if (action === 'basic_attack') return 'Basic Attack'
   if (action === 'cast_skill') return 'Cast Skill'
-  if (action === 'defend') return 'Defend'
   if (action === 'dash') return 'Dash'
   if (action === 'dodge') return 'Dodge'
   if (action === 'flee') return 'Flee'

@@ -151,7 +151,7 @@ function retreatEdge(ctx: DecisionContext): DecisionAction {
 
 function safeTrade(ctx: DecisionContext): DecisionAction {
   if (ctx.actorHpRatio < SAFE_TRADE_DEFEND_HP && ctx.actor.resources.stamina >= BATTLE_BALANCE.dodgeStaminaCost) {
-    return { type: 'defend', path: 'tpl:safe_trade>defend' }
+    return { type: 'dodge', path: 'tpl:safe_trade>dodge' }
   }
   const best = pickBestInRange(ctx)
   if (best) return { type: 'cast_skill', skillId: best.definition.id, path: 'tpl:safe_trade>cast' }
@@ -198,13 +198,13 @@ function guerrillaWarfare(ctx: DecisionContext, phaseTick: number): DecisionActi
   }
   const best = pickBestInRange(ctx)
   if (best) return { type: 'cast_skill', skillId: best.definition.id, path: `tpl:guerrilla[${phase}]>poke` }
-  return { type: 'defend', path: `tpl:guerrilla[${phase}]>defend_hold` }
+  return { type: 'noop', path: `tpl:guerrilla[${phase}]>hold_fallback` }
 }
 
 /**
  * Bait and punish: 4-tick phase cycle.
  * Phase 0: retreat / bait
- * Phase 1: defend / absorb
+ * Phase 1: hold / absorb
  * Phase 2-3: counter-attack
  */
 function baitAndPunish(ctx: DecisionContext, phaseTick: number): DecisionAction {
@@ -215,11 +215,11 @@ function baitAndPunish(ctx: DecisionContext, phaseTick: number): DecisionAction 
   if (phase === 0) {
     const retreat = computeKiteRetreat(ctx)
     if (retreat) return { type: 'dash', target: retreat, moveStep: MOVE_STEP.baitRetreat, path: 'tpl:bait[0]>bait_retreat' }
-    return { type: 'defend', path: 'tpl:bait[0]>defend_bait' }
+    return { type: 'noop', path: 'tpl:bait[0]>bait_hold' }
   }
 
   if (phase === 1) {
-    return { type: 'defend', path: 'tpl:bait[1]>absorb' }
+    return { type: 'noop', path: 'tpl:bait[1]>absorb' }
   }
 
   const burst = pickByCategoryInRange(ctx, 'burst')

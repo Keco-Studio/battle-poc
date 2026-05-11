@@ -3,7 +3,7 @@ import { getBattleSkillDefinition } from '../../../content/skills/basic-skill-ca
 import type { DecisionAction, DecisionContext, GuardrailResult } from './decision-context'
 import { GUARDRAIL, MAP_EDGE, MELEE_RANGE, MIN_MOVE_DELTA, MOVE_STEP, APPROACH_MIN_STAY, APPROACH_STAY_OFFSET } from './decision-constants'
 
-const { criticalHpRatio: CRITICAL_HP_RATIO, earlyTickThreshold: EARLY_TICK_THRESHOLD, earlyFleeHpGate: EARLY_FLEE_HP_GATE, highHpFleeGate: HIGH_HP_FLEE_GATE, criticalHpFarDistance: CRITICAL_HP_FAR_DISTANCE, criticalHpHpAdvantageGap: CRITICAL_HP_ADVANTAGE_GAP, defendDistanceGate: DEFEND_DISTANCE_GATE, consecutiveDashLimit: CONSECUTIVE_DASH_LIMIT } = GUARDRAIL
+const { criticalHpRatio: CRITICAL_HP_RATIO, earlyTickThreshold: EARLY_TICK_THRESHOLD, earlyFleeHpGate: EARLY_FLEE_HP_GATE, highHpFleeGate: HIGH_HP_FLEE_GATE, criticalHpFarDistance: CRITICAL_HP_FAR_DISTANCE, criticalHpHpAdvantageGap: CRITICAL_HP_ADVANTAGE_GAP, consecutiveDashLimit: CONSECUTIVE_DASH_LIMIT } = GUARDRAIL
 
 /**
  * Validates a DecisionAction against current battle state and remaps
@@ -24,9 +24,6 @@ export function applyGuardrail(
   const highHpFleeOverride = guardHighHpFlee(ctx, action)
   if (highHpFleeOverride) return highHpFleeOverride
 
-  const defendDistanceOverride = guardDefendAtDistance(ctx, action)
-  if (defendDistanceOverride) return defendDistanceOverride
-
   let result: GuardrailResult
   switch (action.type) {
     case 'basic_attack':
@@ -41,7 +38,6 @@ export function applyGuardrail(
     case 'dash':
       result = guardDash(ctx, action)
       break
-    case 'defend':
     case 'noop':
       result = { action, rewritten: false }
       break
@@ -59,7 +55,7 @@ export function applyGuardrail(
 
 function guardCriticalHp(ctx: DecisionContext, action: DecisionAction): GuardrailResult | null {
   if (ctx.actorHpRatio >= CRITICAL_HP_RATIO) return null
-  if (action.type === 'dodge' || action.type === 'defend') return null
+  if (action.type === 'dodge') return null
   if (action.type === 'dash') return null
 
   if (ctx.distance > CRITICAL_HP_FAR_DISTANCE && ctx.actorHpRatio < ctx.targetHpRatio - CRITICAL_HP_ADVANTAGE_GAP) {
@@ -96,7 +92,7 @@ function guardEarlyFlee(ctx: DecisionContext, action: DecisionAction): Guardrail
   if (ctx.actorHpRatio <= EARLY_FLEE_HP_GATE) return null
 
   return {
-    action: { type: 'defend', path: action.path + '>guardrail:no_early_flee' },
+    action: { type: 'noop', path: action.path + '>guardrail:no_early_flee' },
     rewritten: true,
     rewriteReason: 'early_flee_blocked',
   }
@@ -117,35 +113,10 @@ function guardHighHpFlee(ctx: DecisionContext, action: DecisionAction): Guardrai
     }
   }
   return {
-    action: { type: 'defend', path: action.path + '>guardrail:high_hp_defend' },
+    action: { type: 'noop', path: action.path + '>guardrail:high_hp_no_flee_fallback' },
     rewritten: true,
     rewriteReason: 'high_hp_flee_blocked',
   }
-}
-
-// ── Defend at distance: defending when far away is wasteful ──
-
-function guardDefendAtDistance(ctx: DecisionContext, action: DecisionAction): GuardrailResult | null {
-  if (action.type !== 'defend') return null
-  if (ctx.distance <= DEFEND_DISTANCE_GATE) return null
-
-  const best = ctx.readySkills.filter((s) => s.inRange).sort((a, b) => b.definition.ratio - a.definition.ratio)[0]
-  if (best) {
-    return {
-      action: { type: 'cast_skill', skillId: best.definition.id, path: action.path + '>guardrail:defend_far_cast' },
-      rewritten: true,
-      rewriteReason: 'defend_at_distance_cast',
-    }
-  }
-  const approach = computeFallbackApproach(ctx)
-  if (approach) {
-    return {
-      action: { type: 'dash', target: approach, path: action.path + '>guardrail:defend_far_dash' },
-      rewritten: true,
-      rewriteReason: 'defend_at_distance_dash',
-    }
-  }
-  return null
 }
 
 // ── Loop detection: break repeated/alternating/low-variety action patterns ──
@@ -210,7 +181,6 @@ function breakLoop(
   }
 
   const approach = computeFallbackApproach(ctx)
-  // `current` is narrowed to `'defend'` above, so no need to compare with `'dash'`.
   if (approach) {
     return {
       action: { type: 'dash', target: approach, path: currentAction.path + '>break_loop:dash' },
@@ -219,15 +189,11 @@ function breakLoop(
     }
   }
 
-  if (current !== 'defend') {
-    return {
-      action: { type: 'defend', path: currentAction.path + '>break_loop:defend' },
-      rewritten: true,
-      rewriteReason: reason,
-    }
+  return {
+    action: { type: 'noop', path: currentAction.path + '>break_loop:noop' },
+    rewritten: true,
+    rewriteReason: reason,
   }
-
-  return null
 }
 
 function actionTypeKey(action: DecisionAction): string {
@@ -400,8 +366,7 @@ function remapDashUnavailable(
     }
   }
   return {
-    // Avoid pure idle turns when dash is blocked and no attack is currently legal.
-    action: { type: 'defend', path: action.path + '>remap:defend_dash_unavailable' },
+    action: { type: 'noop', path: action.path + '>remap:noop_dash_unavailable' },
     rewritten: true,
     rewriteReason: reason,
   }
