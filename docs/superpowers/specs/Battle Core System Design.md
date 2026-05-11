@@ -376,6 +376,8 @@ export class BattleTickEngine {
 
 Manages character plan states and short-term memory.
 
+**Dual-LLM battle context:** Per-tick `ShortTermMemory` for the orchestrator is built in `src/battle-core/service/ai/short-term-memory.ts` (`buildShortTermMemory`). It feeds `meta.memorySummary` (recent `action_executed` lines) and, unless overridden by `augmentLlmContext`, `meta.recentEventsSummary` (window HP loss totals plus compact `damage_applied` / `shield_broken` lines). Field semantics and limits are documented in `docs/AI_BATTLE_CONTEXT_AND_IO_SPEC.md` (§2.1.1).
+
 ```typescript
 export class ActorIntentStore {
   // Core Functions

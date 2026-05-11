@@ -87,7 +87,11 @@ describe('behavior tree validation', () => {
     expect(sanitized.treeId).toBe('llm-tree')
     expect(sanitized.version).toBe(9)
     expect(sanitized.root.type).toBe('sequence')
-    const dashNode = sanitized.root.children[1]
+    const root = sanitized.root
+    if (root.type !== 'sequence' && root.type !== 'selector') {
+      throw new Error('expected composite root')
+    }
+    const dashNode = root.children[1]
     if (dashNode.type !== 'action') {
       throw new Error('expected action node')
     }
@@ -115,7 +119,11 @@ describe('behavior tree validation', () => {
     expect(result.reason).toBe('ok')
     expect(result.tree.version).toBe(2)
     expect(result.tree.updatedAtTick).toBe(12)
-    const condNode = result.tree.root.children[0]
+    const patchRoot = result.tree.root
+    if (patchRoot.type !== 'sequence' && patchRoot.type !== 'selector') {
+      throw new Error('expected composite root')
+    }
+    const condNode = patchRoot.children[0]
     if (condNode.type !== 'condition') {
       throw new Error('expected condition node')
     }

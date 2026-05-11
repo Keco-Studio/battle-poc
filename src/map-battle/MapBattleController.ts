@@ -9,6 +9,7 @@ import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '../../app/const
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
 import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
 import { BattleCoreOrchestrator, type RawSequenceData } from '../battle-core/service/ai/battle-core-orchestrator'
+import { pickLongTermBtSeed, updateLongTermBtAfterBattle } from '../battle-core/service/ai/long-term-bt-memory'
 import { ActionSequenceStore, parseSequenceFromLlm } from '../battle-core/service/ai/decision-tree/action-sequence'
 import { clampDashDestination } from './walkability'
 import { resolveBattleDashPosition } from './battleGridMovement'
@@ -141,6 +142,23 @@ export class MapBattleController {
       this.decisionMode === 'dual_llm'
         ? new BattleCoreOrchestrator({
           llmConfig: cfg.llmConfig,
+          resolveSeedBehaviorTree: ({ session, actorId }) => {
+            if (actorId === session.left.id) {
+              return pickLongTermBtSeed({
+                role: 'human',
+                opponentKey: session.right.id,
+                currentActorId: session.left.id,
+              })
+            }
+            if (actorId === session.right.id) {
+              return pickLongTermBtSeed({
+                role: 'enemy',
+                opponentKey: session.right.id,
+                currentActorId: session.right.id,
+              })
+            }
+            return null
+          },
           augmentLlmContext: ({ session, actor, target }) => {
             const dist = Math.hypot(actor.position.x - target.position.x, actor.position.y - target.position.y)
             const readySkills = buildReadySkills(actor, session.tick, dist)
@@ -295,8 +313,9 @@ export class MapBattleController {
     onSkillCooldown?: (skillId: string, cooldownMs: number) => void
   }): MapBattleStepResult {
     const eventsBefore = this.session.events.length
+    const wasOngoingAtEntry = this.session.result === 'ongoing'
 
-    if (this.session.result !== 'ongoing') {
+    if (!wasOngoingAtEntry) {
       return {
         session: this.session,
         uiOutcome: getPocBattleUiOutcome(this.session),
@@ -367,6 +386,23 @@ export class MapBattleController {
     // this.applyStalemateTimeoutIfNeeded()
 
     const uiOutcome = getPocBattleUiOutcome(this.session)
+
+    if (
+      wasOngoingAtEntry &&
+      this.session.result !== 'ongoing' &&
+      this.decisionMode === 'dual_llm' &&
+      this.llmOrchestrator
+    ) {
+      updateLongTermBtAfterBattle({
+        result: this.session.result,
+        opponentKey: this.session.right.id,
+        leftActorId: this.session.left.id,
+        rightActorId: this.session.right.id,
+        leftTree: this.llmOrchestrator.getBehaviorTreeSnapshot(this.session.left.id),
+        rightTree: this.llmOrchestrator.getBehaviorTreeSnapshot(this.session.right.id),
+      })
+    }
+
     return {
       session: this.session,
       uiOutcome,

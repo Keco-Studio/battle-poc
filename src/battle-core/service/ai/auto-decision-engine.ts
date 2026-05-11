@@ -1,7 +1,7 @@
 import type { BattleEntity } from '../../domain/entities/battle-entity'
 import type { BattleSession } from '../../domain/entities/battle-session'
 import { getBattleSkillDefinition } from '../../content/skills/basic-skill-catalog'
-import type { ShortTermMemory } from './short-term-memory'
+import { memoryDerivedRecentEventsSummary, type ShortTermMemory } from './short-term-memory'
 import {
   buildStructuredPayload,
   buildSystemPrompt,
@@ -58,7 +58,8 @@ function structuredPayloadArgs(context: LlmDecisionContext): Parameters<typeof b
     currentIntent: context.currentIntent ?? 'trade',
     memorySummary: context.memory.recentActionSummary.join(', ') || 'No recent actions.',
     battleId: context.battleId,
-    recentEventsSummary: context.recentEventsSummary,
+    recentEventsSummary:
+      context.recentEventsSummary ?? memoryDerivedRecentEventsSummary(context.memory),
     mapGrid: context.mapGrid,
   }
 }
@@ -272,6 +273,8 @@ function buildPrompt(context: LlmDecisionContext): string {
     `distance=${distance.toFixed(2)}`,
     `skills=${skillSummary}`,
     `recentActions=${memory.recentActionSummary.join('|') || 'none'}`,
+    `windowHpLost: actor=${memory.actorHpLostInWindow}, target=${memory.targetHpLostInWindow}`,
+    `outcomeLines=${memory.recentCombatOutcomeSummary.join('|') || 'none'}`,
     `recentRejects=${JSON.stringify(memory.recentRejectReasons)}`,
     'allowedActions=basic_attack,cast_skill,dash,dodge,flee'
   ].join('\n')
@@ -336,7 +339,7 @@ function buildInitialBehaviorTreeSystemPrompt(): string {
     '- selector/sequence: {id,type,name,children[]}',
     '- condition: {id,type:"condition",name,metric,operator?,value?}',
     '- action: {id,type:"action",name,action,target?,skillId?,moveStep?}',
-    'Allowed metrics: hp_ratio,target_hp_ratio,distance,hp_disadvantage,hp_advantage,battle_phase_numeric,consecutive_losing_trade,near_edge,has_any_ready_skill,ready_skill_out_of_range,no_ready_skill_in_range,has_ready_skill,basic_in_range,recent_dash_rejects,recent_blocked_rejects,dash_cooldown_active,dash_streak_locked',
+    'Allowed metrics: hp_ratio,target_hp_ratio,distance,hp_disadvantage,hp_advantage,battle_phase_numeric,consecutive_losing_trade,near_edge,has_any_ready_skill,ready_skill_out_of_range,no_ready_skill_in_range,basic_in_range,recent_dash_rejects,recent_blocked_rejects,dash_cooldown_active,dash_streak_locked',
     'Allowed actions: basic_attack,cast_skill,dash,dodge,flee',
     'Allowed targets: approach,retreat,hold,center',
     'Guidelines:',

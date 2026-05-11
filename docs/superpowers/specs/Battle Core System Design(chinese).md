@@ -381,6 +381,8 @@ export class BattleTickEngine {
 
 管理角色的计划状态和短期记忆。
 
+**双 LLM 战局上下文：**编排器使用的每视角 `ShortTermMemory` 由 `src/battle-core/service/ai/short-term-memory.ts` 的 `buildShortTermMemory` 构建；写入 `meta.memorySummary`（最近 `action_executed` 摘要）以及在未由 `augmentLlmContext` 覆盖时的 `meta.recentEventsSummary`（事件窗口内双方 HP 损失合计 + 压缩的 `damage_applied` / `shield_broken` 行）。字段含义与条数上限见 `docs/AI_BATTLE_CONTEXT_AND_IO_SPEC.md` §2.1.1。
+
 ```typescript
 export class ActorIntentStore {
   // 核心功能

@@ -24,8 +24,8 @@
 | `phase` | string | 如 `preparation` / `battle` |
 | `battleId` | string | 可选，对局标识 |
 | `randomSeedHint` | string \| null | 可选，仅说明用，不替代服务端随机 |
-| `recentEventsSummary` | string | 可选，最近若干条关键事件的自然语言或结构化摘要 |
-| `memorySummary` | string | 短期记忆：己方最近行为、被拒原因等 |
+| `recentEventsSummary` | string | 可选；未由集成方覆盖时，由 `buildShortTermMemory` + `memoryDerivedRecentEventsSummary` 默认写入：当前事件窗口内双方 **HP 实际损失合计**（`damage_applied.damage` 按受害者汇总），以及最多 20 条压缩的 `damage_applied` / `shield_broken` 行（`dmg:src->tgt:hp=…,raw=…,sh=…@tick` 等）。整段约 ≤900 字符时原样发送，超出则截断尾部 900 字符。 |
+| `memorySummary` | string | 短期记忆：最近窗口内 `action_executed` 摘要（最多 20 条，逗号拼接）；不含伤害数值——伤害与破盾见 `recentEventsSummary`。 |
 | `decisionRefreshReason` | string | 为何本次重新要决策（interval / hp_spike / controlled / …） |
 | `outputContract` | object | 实现侧写入：`sequenceSteps` 20–24、`ttlTicksSuggest` 128（引擎 TTL 默认 128、上限 192）及「新响应会替换旧 sequence」说明 |
 
@@ -100,6 +100,21 @@
 | `distance` | 欧式或曼哈顿距离（与引擎判定一致） |
 | `actorHpRatio` / `targetHpRatio` | 便于斩杀/撤退阈值 |
 
+### 2.1.1 短期记忆对象 `ShortTermMemory`（`src/battle-core/service/ai/short-term-memory.ts`）
+
+由 `buildShortTermMemory(session, actorId, windowSize?)` 构建，供 orchestrator 注入 `LlmDecisionContext.memory`。与 LLM `meta` 的对应关系：
+
+| 内存字段 | 含义 |
+|----------|------|
+| `recentActionSummary` | 最近 `windowSize` 条原始事件里扫描到的 `action_executed`，格式 `actorId:action@tick`，仅保留末尾最多 **20** 条。 |
+| `recentCombatOutcomeSummary` | 同上窗口内的 `damage_applied` / `shield_broken` 压缩行，末尾最多 **20** 条。 |
+| `recentRejectReasons` | 窗口内 `command_rejected` 的 `reason` 计数。 |
+| `actorMissingHpFromMax` / `targetMissingHpFromMax` | 决策时刻的 **`maxHp - hp`**（相对满血缺口，≥0）；**不是**事件窗口内的掉血。 |
+| `actorHpLostInWindow` / `targetHpLostInWindow` | 仅在该窗口的 `recentEvents` 上，对 `damage_applied.payload.damage` 按 **受害者 `targetId`** 汇总得到的真实 HP 损失。 |
+| `recentEvents` | 原始事件切片，供调试或后续扩展；默认 LLM 请求体不整包发送。 |
+
+`windowSize` 默认 **200**（原始事件条数上限），与 `recentActionSummary` 的条数上限 **20** 分工不同：前者保证在大量非动作事件后仍能扫到出手与伤害，后者控制写入 `memorySummary` 的 token。
+
 ---
 
 ## 3. 模型输出结构（期望）
@@ -164,6 +179,7 @@
 | 输出位移语义 | 多用 `dash` 序列内坐标 | 显式 `move.targetX/Y` 或文档化等价字段 |
 | 敌我信息 | 已有双方 entity + skills | 保持并强化与地图对齐 |
 | meta 上下文 | 部分（tick、memory） | 扩展 `decisionRefreshReason`、可选事件摘要 |
+| 短期记忆 | 仅有动作摘要 | 已补充窗口内 HP 损失汇总、`damage_applied` / `shield_broken` 摘要进默认 `recentEventsSummary`；快照血量用 `missingHpFromMax` 语义（见 2.1.1） |
 
 ---
 
@@ -171,6 +187,7 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| 0.2 | 2026-05-11 | 短期记忆：默认战斗结果摘要、`windowHpLost` 汇总；文档 2.1.1 与 `memorySummary` / `recentEventsSummary` 分工说明 |
 | 0.1 | 2026-05-07 | 初稿：输入/输出字段与实现差距 |
 
 后续实现步骤建议：**先补地图栅格同源数据管道**，再统一输出 schema（单 tick vs sequence），最后改 `llm-prompt-builder` 与 proxy 路由。
