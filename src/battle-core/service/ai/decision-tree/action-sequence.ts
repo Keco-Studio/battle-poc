@@ -207,8 +207,6 @@ function parseOneStep(raw: Record<string, unknown>, pathPrefix: string): Sequenc
     }
     case 'dodge':
       return { action: { type: 'dodge', path: pathPrefix + '>dodge' } }
-    case 'defend':
-      return { action: { type: 'defend', path: pathPrefix + '>defend' } }
     default:
       return null
   }
@@ -225,9 +223,9 @@ const ACTION_ALIASES: Record<string, string> = {
   move: 'dash',
   dodge: 'dodge',
   evade: 'dodge',
-  defend: 'defend',
-  block: 'defend',
-  shield: 'defend',
+  defend: 'dodge',
+  block: 'dodge',
+  shield: 'dodge',
 }
 
 function normalizeActionString(raw: unknown): string | null {

@@ -74,5 +74,45 @@ it('illegal action falls back to fallback command', () => {
     expect(command.action).toBe('cast_skill')
     expect(command.skillId).toBe('arcane_bolt')
   })
+
+  it('downgrades dash to dodge when dash is recently blocked repeatedly', () => {
+    const left = makeEntity({ id: 'left-c', team: 'left', x: 3, y: 2 })
+    const right = makeEntity({ id: 'right-c', team: 'right', x: 8, y: 2 })
+    const base = createBattleSession({ left, right, preparationTicks: 0 })
+    const session = {
+      ...base,
+      tick: 10,
+      events: [
+        ...base.events,
+        {
+          eventId: 'e-1',
+          sessionId: base.id,
+          tick: 8,
+          type: 'command_rejected' as const,
+          payload: { actorId: left.id, reason: 'dash_blocked' },
+          createdAt: Date.now(),
+        },
+        {
+          eventId: 'e-2',
+          sessionId: base.id,
+          tick: 9,
+          type: 'command_rejected' as const,
+          payload: { actorId: left.id, reason: 'dash_blocked_by_walkability' },
+          createdAt: Date.now(),
+        },
+      ],
+    }
+    const out = normalizeDecisionToCommand({
+      session,
+      actorId: left.id,
+      executeAtTick: 11,
+      rawDecision: {
+        action: 'dash',
+        metadata: { moveTargetX: 6.4, moveTargetY: 2 }
+      }
+    })
+    expect(out.ok).toBe(true)
+    expect(out.command?.action).toBe('dodge')
+  })
 })
 

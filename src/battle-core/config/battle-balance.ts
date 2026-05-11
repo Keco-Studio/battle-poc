@@ -7,7 +7,6 @@ export const BATTLE_BALANCE = {
   basicDamageMultiplier: 0.72,
   skillDamageMultiplier: 0.82,
   // A2: introduce simple shield/rage economy.
-  defendShieldGain: 4,
   dodgeStaminaCost: 20,
   dodgeEvadeChance: 0.7,
   rageGainOnDealScale: 0.7,

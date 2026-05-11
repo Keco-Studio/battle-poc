@@ -8,8 +8,8 @@ const isConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
 /**
  * Browser Supabase client.
- * Uses the hybrid storage adapter (cookie + sessionStorage) so each tab
- * maintains an independent auth session.
+ * Uses the hybrid storage adapter (cookie + localStorage) so auth persists
+ * across tab close; legacy sessionStorage entries are migrated on read.
  */
 export const supabase = isConfigured
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {

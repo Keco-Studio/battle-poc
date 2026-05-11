@@ -192,6 +192,6 @@ describe('decision guardrail', () => {
 
     expect(guarded.rewritten).toBe(true)
     expect(guarded.rewriteReason).toBe('dash_on_cooldown')
-    expect(guarded.action.type).toBe('defend')
+    expect(guarded.action.type).toBe('noop')
   })
 })

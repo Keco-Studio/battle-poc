@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { classifyBattleCommandMetadata } from '@/app/lib/battle-ai-command-stats'
 
 type BattleEventLike = {
   type: string
@@ -19,6 +20,7 @@ export default function BattleLlmDebugPanel({ events, decisionMode, llmRuntime, 
     const out = {
       totalCommands: 0,
       llmCommands: 0,
+      macroOrSeqCommands: 0,
       llmSeqCommands: 0,
       fallbackCommands: 0,
       totalRejects: 0,
@@ -31,12 +33,10 @@ export default function BattleLlmDebugPanel({ events, decisionMode, llmRuntime, 
           ev.payload && typeof ev.payload.metadata === 'object' && ev.payload.metadata !== null
             ? (ev.payload.metadata as Record<string, unknown>)
             : {}
-        const decisionSource = typeof meta.decisionSource === 'string' ? meta.decisionSource : ''
-        const decisionPath = typeof meta.decisionPath === 'string' ? meta.decisionPath : ''
-        const isLlmSeq = decisionPath.includes('llm_seq:')
-        const isLlm = decisionSource === 'llm' || isLlmSeq
-        if (isLlm) {
+        const { pipeline, macroOrSeq, isLlmSeq } = classifyBattleCommandMetadata(meta)
+        if (pipeline) {
           out.llmCommands += 1
+          if (macroOrSeq) out.macroOrSeqCommands += 1
           if (isLlmSeq) out.llmSeqCommands += 1
         } else {
           out.fallbackCommands += 1
@@ -55,7 +55,9 @@ export default function BattleLlmDebugPanel({ events, decisionMode, llmRuntime, 
   const llmHitRate =
     stats.totalCommands > 0 ? Math.round((stats.llmCommands / stats.totalCommands) * 100) : 0
   const seqShare =
-    stats.llmCommands > 0 ? Math.round((stats.llmSeqCommands / stats.llmCommands) * 100) : 0
+    stats.macroOrSeqCommands > 0
+      ? Math.round((stats.llmSeqCommands / stats.macroOrSeqCommands) * 100)
+      : 0
   const fallbackRate =
     stats.totalCommands > 0 ? Math.round((stats.fallbackCommands / stats.totalCommands) * 100) : 0
   const dashBlockedRate =
@@ -69,9 +71,15 @@ export default function BattleLlmDebugPanel({ events, decisionMode, llmRuntime, 
       }
     >
       <div>Decision Mode: {decisionMode ?? 'unknown'}</div>
-      <div>LLM Runtime: {llmRuntime ?? 'unknown'} (local trees only when unavailable)</div>
-      <div>LLM hit: {llmHitRate}% ({stats.llmCommands}/{stats.totalCommands})</div>
-      <div>LLM seq share: {seqShare}% ({stats.llmSeqCommands}/{stats.llmCommands})</div>
+      <div>
+        LLM Runtime: {llmRuntime ?? 'unknown'} (local BT + intent templates when unavailable)
+      </div>
+      <div title="dual_llm pipeline (bt | llm_macro | llm | llm_seq) vs all commands">
+        LLM hit: {llmHitRate}% ({stats.llmCommands}/{stats.totalCommands})
+      </div>
+      <div title="sequence steps / macro + sequence commands (excludes pure bt singles)">
+        LLM seq share: {seqShare}% ({stats.llmSeqCommands}/{stats.macroOrSeqCommands})
+      </div>
       <div>Fallback: {fallbackRate}% ({stats.fallbackCommands}/{stats.totalCommands})</div>
       <div>dash_blocked: {dashBlockedRate}% ({stats.dashBlockedRejects}/{stats.totalRejects})</div>
     </div>

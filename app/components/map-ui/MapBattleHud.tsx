@@ -33,6 +33,7 @@ type Props = {
   battleAiDebugStats: {
     totalCommands: number
     llmCommands: number
+    macroOrSeqCommands: number
     llmSeqCommands: number
     fallbackCommands: number
     totalRejects: number
@@ -84,8 +85,10 @@ export default function MapBattleHud(props: Props) {
       ? Math.round((battleAiDebugStats.llmCommands / battleAiDebugStats.totalCommands) * 100)
       : 0
   const seqShare =
-    battleAiDebugStats.llmCommands > 0
-      ? Math.round((battleAiDebugStats.llmSeqCommands / battleAiDebugStats.llmCommands) * 100)
+    battleAiDebugStats.macroOrSeqCommands > 0
+      ? Math.round(
+          (battleAiDebugStats.llmSeqCommands / battleAiDebugStats.macroOrSeqCommands) * 100,
+        )
       : 0
   const fallbackRate =
     battleAiDebugStats.totalCommands > 0
@@ -126,8 +129,12 @@ export default function MapBattleHud(props: Props) {
           />
         ) : (
           <div className="mb-1 grid grid-cols-2 gap-x-2 gap-y-1 rounded border border-cyan-500/35 bg-slate-950/55 px-2 py-1 text-[10px] text-cyan-100">
-            <div>LLM hit: {llmHitRate}% ({battleAiDebugStats.llmCommands}/{battleAiDebugStats.totalCommands})</div>
-            <div>LLM seq share: {seqShare}% ({battleAiDebugStats.llmSeqCommands}/{battleAiDebugStats.llmCommands})</div>
+            <div title="dual_llm pipeline (bt | llm_macro | llm | llm_seq)">
+              LLM hit: {llmHitRate}% ({battleAiDebugStats.llmCommands}/{battleAiDebugStats.totalCommands})
+            </div>
+            <div title="sequence steps / macro + seq commands (excludes pure bt singles)">
+              LLM seq share: {seqShare}% ({battleAiDebugStats.llmSeqCommands}/{battleAiDebugStats.macroOrSeqCommands})
+            </div>
             <div>Fallback: {fallbackRate}% ({battleAiDebugStats.fallbackCommands}/{battleAiDebugStats.totalCommands})</div>
             <div>dash_blocked: {dashBlockedRate}% ({battleAiDebugStats.dashBlockedRejects}/{battleAiDebugStats.totalRejects})</div>
           </div>

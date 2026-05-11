@@ -7,6 +7,8 @@ import {
   buildSystemPrompt,
   type LlmMapGridSnapshot,
 } from './decision-tree/llm-prompt-builder'
+import { sanitizeBehaviorTreeState } from './behavior-tree/validation'
+import type { BehaviorTreePatch, BehaviorTreeState } from './behavior-tree/types'
 
 export type RawBattleDecision = {
   action?: string
@@ -63,6 +65,18 @@ function structuredPayloadArgs(context: LlmDecisionContext): Parameters<typeof b
 
 export type DecisionResult = {
   decision: RawBattleDecision | null
+  source: 'remote_llm' | 'heuristic_fallback'
+  error?: string
+}
+
+export type BehaviorTreePatchResult = {
+  patch: BehaviorTreePatch | null
+  source: 'remote_llm' | 'heuristic_fallback'
+  error?: string
+}
+
+export type InitialBehaviorTreeResult = {
+  tree: BehaviorTreeState | null
   source: 'remote_llm' | 'heuristic_fallback'
   error?: string
 }
@@ -144,7 +158,7 @@ abstract class BaseHttpLlmProvider implements DecisionProvider {
   protected getDefaultModel(): string {
     if (this.config.provider === 'deepseek') return 'deepseek-chat'
     if (this.config.provider === 'zhipu') return 'glm-4.5'
-    if (this.config.provider === 'minimax') return 'MiniMax-M2.1'
+    if (this.config.provider === 'minimax') return 'MiniMax-M2.7'
     return 'gpt-4o-mini'
   }
 
@@ -259,7 +273,7 @@ function buildPrompt(context: LlmDecisionContext): string {
     `skills=${skillSummary}`,
     `recentActions=${memory.recentActionSummary.join('|') || 'none'}`,
     `recentRejects=${JSON.stringify(memory.recentRejectReasons)}`,
-    'allowedActions=basic_attack,cast_skill,defend,dash,dodge,flee'
+    'allowedActions=basic_attack,cast_skill,dash,dodge,flee'
   ].join('\n')
 }
 
@@ -279,6 +293,176 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
       return null
     }
   }
+}
+
+function buildBehaviorTreePatchSystemPrompt(): string {
+  return [
+    'You are a battle behavior-tree optimizer.',
+    'Return JSON only. No markdown.',
+    'Goal: update the existing behavior tree with minimal safe changes.',
+    'Output schema:',
+    '{',
+    '  "patch": {',
+    '    "baseVersion": number,',
+    '    "reason": string,',
+    '    "ops": [',
+    '      {"op":"set_condition_value","nodeId":string,"value":number}',
+    '      | {"op":"replace_action","nodeId":string,"action":"basic_attack|cast_skill|dash|dodge|flee","target":"approach|retreat|hold|center","moveStep":number}',
+    '      | {"op":"reorder_children","nodeId":string,"orderedChildIds":string[]}',
+    '    ]',
+    '  }',
+    '}',
+    'Rules:',
+    '- Keep ops short (<=3 ops).',
+    '- Prefer threshold and priority tweaks over large rewrites.',
+    '- Keep actions legal and executable.',
+  ].join('\n')
+}
+
+function buildInitialBehaviorTreeSystemPrompt(): string {
+  return [
+    'You are designing an initial battle behavior tree.',
+    'Return JSON only. No markdown.',
+    'Output schema:',
+    '{',
+    '  "tree": {',
+    '    "treeId": string,',
+    '    "version": number,',
+    '    "updatedAtTick": number,',
+    '    "root": BehaviorNode',
+    '  }',
+    '}',
+    'BehaviorNode:',
+    '- selector/sequence: {id,type,name,children[]}',
+    '- condition: {id,type:"condition",name,metric,operator?,value?}',
+    '- action: {id,type:"action",name,action,target?,skillId?,moveStep?}',
+    'Allowed metrics: hp_ratio,target_hp_ratio,distance,hp_disadvantage,hp_advantage,battle_phase_numeric,consecutive_losing_trade,near_edge,has_any_ready_skill,ready_skill_out_of_range,no_ready_skill_in_range,has_ready_skill,basic_in_range,recent_dash_rejects,recent_blocked_rejects,dash_cooldown_active,dash_streak_locked',
+    'Allowed actions: basic_attack,cast_skill,dash,dodge,flee',
+    'Allowed targets: approach,retreat,hold,center',
+    'Guidelines:',
+    '- Avoid mirror full-retreat behavior.',
+    '- Keep combat pressure and avoid corner-lock loops.',
+    '- Keep tree depth <= 6 and branches focused.',
+  ].join('\n')
+}
+
+function buildBehaviorTreePatchPayload(input: {
+  context: LlmDecisionContext
+  tree: BehaviorTreeState
+}): Record<string, unknown> {
+  return {
+    situation: buildStructuredPayload(structuredPayloadArgs(input.context)),
+    behaviorTree: input.tree,
+    outputContract: {
+      patchOnly: true,
+      maxOps: 3
+    }
+  }
+}
+
+function buildInitialBehaviorTreePayload(input: {
+  context: LlmDecisionContext
+  seedTree: BehaviorTreeState
+}): Record<string, unknown> {
+  return {
+    situation: buildStructuredPayload(structuredPayloadArgs(input.context)),
+    seedTree: input.seedTree,
+    outputContract: {
+      fullTree: true
+    }
+  }
+}
+
+function parseBehaviorTreePatch(raw: unknown): BehaviorTreePatch | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const candidate = obj.patch && typeof obj.patch === 'object'
+    ? (obj.patch as Record<string, unknown>)
+    : obj
+
+  const opsRaw = candidate.ops
+  if (!Array.isArray(opsRaw) || opsRaw.length === 0) return null
+  const ops = opsRaw
+    .map((entry) => sanitizePatchOperation(entry))
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+
+  if (ops.length === 0) return null
+  const baseVersion =
+    typeof candidate.baseVersion === 'number' && Number.isFinite(candidate.baseVersion)
+      ? Math.max(1, Math.floor(candidate.baseVersion))
+      : undefined
+  const reason = typeof candidate.reason === 'string' ? candidate.reason : undefined
+  return {
+    baseVersion,
+    reason,
+    ops
+  }
+}
+
+function sanitizePatchOperation(
+  raw: unknown
+): BehaviorTreePatch['ops'][number] | null {
+  if (!raw || typeof raw !== 'object') return null
+  const item = raw as Record<string, unknown>
+  const op = typeof item.op === 'string' ? item.op : ''
+  if (op === 'set_condition_value') {
+    if (
+      typeof item.nodeId === 'string' &&
+      typeof item.value === 'number' &&
+      Number.isFinite(item.value)
+    ) {
+      return {
+        op: 'set_condition_value',
+        nodeId: item.nodeId,
+        value: Number(item.value)
+      }
+    }
+    return null
+  }
+  if (op === 'replace_action') {
+    if (typeof item.nodeId !== 'string' || typeof item.action !== 'string') return null
+    const action = item.action
+    if (
+      action !== 'basic_attack' &&
+      action !== 'cast_skill' &&
+      action !== 'dash' &&
+      action !== 'dodge' &&
+      action !== 'flee'
+    ) {
+      return null
+    }
+    const targetRaw = typeof item.target === 'string' ? item.target : undefined
+    const target =
+      targetRaw === 'approach' || targetRaw === 'retreat' || targetRaw === 'hold' || targetRaw === 'center'
+        ? targetRaw
+        : undefined
+    const moveStep =
+      typeof item.moveStep === 'number' && Number.isFinite(item.moveStep)
+        ? Math.max(0.4, Math.min(4.2, Number(item.moveStep)))
+        : undefined
+    const skillId = typeof item.skillId === 'string' ? item.skillId : undefined
+    return {
+      op: 'replace_action',
+      nodeId: item.nodeId,
+      action,
+      target,
+      moveStep,
+      skillId
+    }
+  }
+  if (op === 'reorder_children') {
+    if (typeof item.nodeId !== 'string' || !Array.isArray(item.orderedChildIds)) return null
+    const orderedChildIds = item.orderedChildIds
+      .filter((entry) => typeof entry === 'string')
+      .map((entry) => String(entry))
+    if (orderedChildIds.length === 0) return null
+    return {
+      op: 'reorder_children',
+      nodeId: item.nodeId,
+      orderedChildIds
+    }
+  }
+  return null
 }
 
 function sleep(ms: number): Promise<void> {
@@ -304,6 +488,72 @@ export class AutoDecisionEngine {
     this.usesRemoteProvider = false
   }
 
+  async requestInitialBehaviorTree(input: {
+    context: LlmDecisionContext
+    seedTree: BehaviorTreeState
+  }): Promise<InitialBehaviorTreeResult> {
+    if (!this.usesRemoteProvider || !this.config) {
+      return {
+        tree: null,
+        source: 'heuristic_fallback'
+      }
+    }
+    const attempts = 2
+    let lastError: string | undefined
+    for (let a = 0; a < attempts; a += 1) {
+      try {
+        const tree = await this.requestInitialBehaviorTreeOnce(input)
+        return {
+          tree,
+          source: 'remote_llm'
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error)
+        if (a + 1 < attempts) {
+          await sleep(240)
+        }
+      }
+    }
+    return {
+      tree: null,
+      source: 'remote_llm',
+      error: lastError
+    }
+  }
+
+  async requestBehaviorTreePatch(input: {
+    context: LlmDecisionContext
+    tree: BehaviorTreeState
+  }): Promise<BehaviorTreePatchResult> {
+    if (!this.usesRemoteProvider || !this.config) {
+      return {
+        patch: null,
+        source: 'heuristic_fallback'
+      }
+    }
+    const attempts = 2
+    let lastError: string | undefined
+    for (let a = 0; a < attempts; a += 1) {
+      try {
+        const patch = await this.requestBehaviorTreePatchOnce(input)
+        return {
+          patch,
+          source: 'remote_llm'
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error)
+        if (a + 1 < attempts) {
+          await sleep(220)
+        }
+      }
+    }
+    return {
+      patch: null,
+      source: 'remote_llm',
+      error: lastError
+    }
+  }
+
   async requestDecision(context: LlmDecisionContext): Promise<DecisionResult> {
     const attempts = this.usesRemoteProvider ? 2 : 1
     let lastError: string | undefined
@@ -325,6 +575,162 @@ export class AutoDecisionEngine {
       decision: null,
       source: 'heuristic_fallback',
       error: lastError
+    }
+  }
+
+  private async requestBehaviorTreePatchOnce(input: {
+    context: LlmDecisionContext
+    tree: BehaviorTreeState
+  }): Promise<BehaviorTreePatch | null> {
+    const timeoutMs = Math.max(MIN_TIMEOUT_MS, Number(this.config?.timeoutMs || DEFAULT_TIMEOUT_MS))
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const payload = buildBehaviorTreePatchPayload(input)
+    try {
+      if (this.config?.proxyUrl) {
+        const proxyBase = String(this.config.proxyUrl).replace(/\/$/, '')
+        const resp = await fetch(`${proxyBase}/api/ai/battle-decision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: this.config.provider,
+            model: this.config.model || 'deepseek-chat',
+            systemPrompt: buildBehaviorTreePatchSystemPrompt(),
+            prompt: JSON.stringify(payload),
+            timeoutMs
+          }),
+          signal: controller.signal
+        })
+        if (!resp.ok) {
+          const bodyText = await resp.text().catch(() => '')
+          throw new Error(`proxy_http_${resp.status}:${bodyText.slice(0, ERROR_BODY_SNIPPET_LIMIT)}`)
+        }
+        const text = await resp.text()
+        const outer = parseJsonObject(text)
+        if (!outer) throw new Error(`proxy_response_not_json:${text.slice(0, 140)}`)
+        if (typeof outer.error === 'string' && outer.error.length > 0) {
+          throw new Error(outer.error)
+        }
+        return parseBehaviorTreePatch(outer.decision ?? outer)
+      }
+
+      const endpoint = this.config?.baseUrl
+        || (this.config?.provider === 'deepseek'
+          ? 'https://api.deepseek.com/chat/completions'
+          : this.config?.provider === 'zhipu'
+            ? 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+            : '')
+      if (!endpoint) throw new Error('missing_llm_base_url')
+
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.config?.apiKey || ''}`,
+        },
+        body: JSON.stringify({
+          model: this.config?.model || 'gpt-4o-mini',
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          max_tokens: 300,
+          messages: [
+            { role: 'system', content: buildBehaviorTreePatchSystemPrompt() },
+            { role: 'user', content: JSON.stringify(payload) },
+          ],
+        }),
+        signal: controller.signal
+      })
+      if (!resp.ok) {
+        const bodyText = await resp.text().catch(() => '')
+        throw new Error(`llm_http_${resp.status}:${bodyText.slice(0, ERROR_BODY_SNIPPET_LIMIT)}`)
+      }
+      const body = (await resp.json()) as {
+        choices?: Array<{ message?: { content?: string } }>
+      }
+      const content = String(body.choices?.[0]?.message?.content || '')
+      const parsed = parseJsonObject(content)
+      if (!parsed) throw new Error('llm_patch_parse_error')
+      return parseBehaviorTreePatch(parsed)
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  private async requestInitialBehaviorTreeOnce(input: {
+    context: LlmDecisionContext
+    seedTree: BehaviorTreeState
+  }): Promise<BehaviorTreeState | null> {
+    const timeoutMs = Math.max(MIN_TIMEOUT_MS, Number(this.config?.timeoutMs || DEFAULT_TIMEOUT_MS))
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const payload = buildInitialBehaviorTreePayload(input)
+    try {
+      if (this.config?.proxyUrl) {
+        const proxyBase = String(this.config.proxyUrl).replace(/\/$/, '')
+        const resp = await fetch(`${proxyBase}/api/ai/battle-decision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: this.config.provider,
+            model: this.config.model || 'deepseek-chat',
+            systemPrompt: buildInitialBehaviorTreeSystemPrompt(),
+            prompt: JSON.stringify(payload),
+            timeoutMs
+          }),
+          signal: controller.signal
+        })
+        if (!resp.ok) {
+          const bodyText = await resp.text().catch(() => '')
+          throw new Error(`proxy_http_${resp.status}:${bodyText.slice(0, ERROR_BODY_SNIPPET_LIMIT)}`)
+        }
+        const text = await resp.text()
+        const outer = parseJsonObject(text)
+        if (!outer) throw new Error(`proxy_response_not_json:${text.slice(0, 140)}`)
+        if (typeof outer.error === 'string' && outer.error.length > 0) {
+          throw new Error(outer.error)
+        }
+        return sanitizeBehaviorTreeState(outer.decision ?? outer, input.seedTree)
+      }
+
+      const endpoint = this.config?.baseUrl
+        || (this.config?.provider === 'deepseek'
+          ? 'https://api.deepseek.com/chat/completions'
+          : this.config?.provider === 'zhipu'
+            ? 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+            : '')
+      if (!endpoint) throw new Error('missing_llm_base_url')
+
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.config?.apiKey || ''}`,
+        },
+        body: JSON.stringify({
+          model: this.config?.model || 'gpt-4o-mini',
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+          max_tokens: 1200,
+          messages: [
+            { role: 'system', content: buildInitialBehaviorTreeSystemPrompt() },
+            { role: 'user', content: JSON.stringify(payload) },
+          ],
+        }),
+        signal: controller.signal
+      })
+      if (!resp.ok) {
+        const bodyText = await resp.text().catch(() => '')
+        throw new Error(`llm_http_${resp.status}:${bodyText.slice(0, ERROR_BODY_SNIPPET_LIMIT)}`)
+      }
+      const body = (await resp.json()) as {
+        choices?: Array<{ message?: { content?: string } }>
+      }
+      const content = String(body.choices?.[0]?.message?.content || '')
+      const parsed = parseJsonObject(content)
+      if (!parsed) throw new Error('llm_initial_tree_parse_error')
+      return sanitizeBehaviorTreeState(parsed, input.seedTree)
+    } finally {
+      clearTimeout(timer)
     }
   }
 }

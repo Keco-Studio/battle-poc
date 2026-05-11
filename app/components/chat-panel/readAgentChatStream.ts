@@ -1,4 +1,4 @@
-import { extractDeltaFromSseLine, stripThinkingTags } from './parseOpenAiSse'
+import { extractDeltaFromSseLine, stripThinkingStreaming, stripThinkingTags } from './parseOpenAiSse'
 
 type ChatApiBody = {
   target: 'system' | 'enemy'
@@ -8,7 +8,8 @@ type ChatApiBody = {
 }
 
 /**
- * POST /api/agent-chat with stream; invokes onDelta for each token chunk.
+ * POST /api/agent-chat with stream; invokes onDelta with the visible assistant
+ * text so far (thinking tags stripped incrementally).
  * Falls back to JSON `{ reply }` if server returns non-SSE (e.g. OpenClaw backends).
  */
 export async function readAgentChatStream(
@@ -76,14 +77,14 @@ async function consumeOpenAiSse(
       if (piece === '') continue
       if (piece === null) continue
       acc += piece
-      onDelta(piece)
+      onDelta(stripThinkingStreaming(acc))
     }
   }
   if (buffer.trim()) {
     const piece = extractDeltaFromSseLine(buffer)
     if (piece && piece !== '') {
       acc += piece
-      onDelta(piece)
+      onDelta(stripThinkingStreaming(acc))
     }
   }
   return acc

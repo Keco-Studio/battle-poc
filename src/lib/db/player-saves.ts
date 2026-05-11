@@ -1,4 +1,5 @@
 import { requireSupabaseClient } from '../supabase/client'
+import { getAuthUserId } from '../supabase/auth-user-id'
 import type { PlayerSaveRow, PlayerSaveUpdate } from './types'
 import { pushDataFlowTrace } from '../debug/data-flow-trace'
 
@@ -8,10 +9,8 @@ import { pushDataFlowTrace } from '../debug/data-flow-trace'
 export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
   const supabase = requireSupabaseClient()
   pushDataFlowTrace('loadPlayerSave', 'start')
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
+  const userId = await getAuthUserId(supabase)
+  if (!userId) {
     pushDataFlowTrace('loadPlayerSave', 'success', 'Not authenticated')
     return null
   }
@@ -19,7 +18,7 @@ export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
   const { data, error } = await supabase
     .from('player_saves')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .maybeSingle()
 
   if (error) {
@@ -41,18 +40,16 @@ export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
 export async function savePlayerSave(update: PlayerSaveUpdate): Promise<void> {
   const supabase = requireSupabaseClient()
   pushDataFlowTrace('savePlayerSave', 'start')
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const userId = await getAuthUserId(supabase)
 
-  if (!user) {
+  if (!userId) {
     pushDataFlowTrace('savePlayerSave', 'error', 'Not authenticated')
     throw new Error('Not authenticated')
   }
 
   const { error } = await supabase
     .from('player_saves')
-    .upsert({ user_id: user.id, ...update }, { onConflict: 'user_id' })
+    .upsert({ user_id: userId, ...update }, { onConflict: 'user_id' })
 
   if (error) {
     pushDataFlowTrace('savePlayerSave', 'error', error.message)

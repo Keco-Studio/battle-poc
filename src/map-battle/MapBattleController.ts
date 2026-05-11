@@ -149,10 +149,10 @@ export class MapBattleController {
             return {
               mapGrid: isWalkable
                 ? {
-                    width: mapW,
-                    height: mapH,
-                    walkableRows: buildWalkableRowsForLlm(mapW, mapH, isWalkable),
-                  }
+                  width: mapW,
+                  height: mapH,
+                  walkableRows: buildWalkableRowsForLlm(mapW, mapH, isWalkable),
+                }
                 : undefined,
               battleId: session.id,
               currentIntent: tacticalMode,
@@ -327,7 +327,11 @@ export class MapBattleController {
         const out = this.engine.tick(this.session, this.buildCommandWalkContext())
         this.session = out.session
       } else {
-        const prepared = this.llmOrchestrator.prepareCommands(this.session, input.executeAtTick)
+        const prepared = this.llmOrchestrator.prepareCommands(
+          this.session,
+          input.executeAtTick,
+          this.buildCommandWalkContext(),
+        )
         this.session = prepared.session
         this.registerLlmSequences(prepared.sequences, input.executeAtTick)
         const dist = distBetween(this.session)
@@ -349,7 +353,7 @@ export class MapBattleController {
         }
         const out = this.engine.tick(this.session, this.buildCommandWalkContext())
         this.session = out.session
-        this.llmOrchestrator.onTickFinished(this.session)
+        this.llmOrchestrator.onTickFinished(this.session, this.buildCommandWalkContext())
       }
     } else {
       const dist = distBetween(this.session)
@@ -542,9 +546,6 @@ export class MapBattleController {
           this.intentStore.recordAction(actor.id, executeAtTick, finalAction)
           this.enqueueIntentCommand(resolved.command, mode, reason, finalAction.path)
 
-          if (finalAction.type === 'defend' && selectedSkill.cooldownTicks > 0) {
-            input.onSkillCooldown?.(selectedSkill.id, cooldownMsFromTicks(selectedSkill.cooldownTicks))
-          }
           if (finalAction.type !== 'dash') {
             input.onClearQueuedSkill?.()
           }
@@ -570,7 +571,7 @@ export class MapBattleController {
       ?? this.reasonForAction(finalAction, 'player')
     this.intentStore.recordAction(actor.id, executeAtTick, finalAction)
     this.enqueueIntentCommand(resolved.command, mode, reason, finalAction.path)
-    if (finalAction.type === 'basic_attack' || finalAction.type === 'defend') {
+    if (finalAction.type === 'basic_attack') {
       input.onClearQueuedSkill?.()
     }
   }
@@ -582,10 +583,6 @@ export class MapBattleController {
     dist: number,
   ): DecisionAction | null {
     if (!selectedSkill) return null
-
-    if (selectedSkill.action === 'defend') {
-      return { type: 'defend', path: 'root>player>manual>defend' }
-    }
 
     if (selectedSkill.action === 'cast_skill' && selectedSkill.coreSkillId) {
       return {
@@ -644,8 +641,6 @@ export class MapBattleController {
         return { ...base, action: 'cast_skill', targetId: target.id, skillId: action.skillId }
       case 'dodge':
         return { ...base, action: 'dodge' }
-      case 'defend':
-        return { ...base, action: 'defend' }
       case 'dash': {
         const goal = this.clampDashGoal(action.target.x, action.target.y)
         if (!this.canDashReachGoal(actor, target, goal.x, goal.y, action)) return null
@@ -671,7 +666,6 @@ export class MapBattleController {
       case 'basic_attack': return `${prefix}_basic_attack`
       case 'cast_skill': return `${prefix}_cast_${action.skillId}`
       case 'dodge': return `${prefix}_dodge`
-      case 'defend': return `${prefix}_defend`
       case 'dash': return `${prefix}_dash`
       case 'noop': return `${prefix}_noop`
     }

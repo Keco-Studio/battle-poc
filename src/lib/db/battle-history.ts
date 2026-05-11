@@ -1,4 +1,5 @@
 import { requireSupabaseClient } from '../supabase/client'
+import { getAuthUserId } from '../supabase/auth-user-id'
 import type { BattleHistoryInsert, BattleHistoryRow } from './types'
 
 /**
@@ -21,15 +22,13 @@ export async function fetchBattleHistory(limit = 50): Promise<BattleHistoryRow[]
  */
 export async function recordBattle(entry: Omit<BattleHistoryInsert, 'user_id'>): Promise<void> {
   const supabase = requireSupabaseClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const userId = await getAuthUserId(supabase)
 
-  if (!user) throw new Error('Not authenticated')
+  if (!userId) throw new Error('Not authenticated')
 
   // Supabase 的泛型在当前类型定义下会把 insert 入参推断成 `never`。
   // 这里做类型擦除以保证构建通过，同时不影响运行时行为。
-  const { error } = await (supabase as any).from('battle_history').insert({ user_id: user.id, ...entry })
+  const { error } = await (supabase as any).from('battle_history').insert({ user_id: userId, ...entry })
 
   if (error) throw error
 }

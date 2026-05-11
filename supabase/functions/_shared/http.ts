@@ -16,7 +16,8 @@ export function json(status: number, body: unknown) {
 }
 
 export function corsPreflight(): Response {
-  return new Response('ok', { status: 204, headers: { ...corsHeaders } })
+  // RFC 9110: 204 responses must not include a body; a non-empty body can fail Edge Runtime serialization.
+  return new Response(null, { status: 204, headers: { ...corsHeaders } })
 }
 
 export async function readJson(req: Request): Promise<any> {

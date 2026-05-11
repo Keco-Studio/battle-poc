@@ -206,45 +206,6 @@ function applySingleCommand(
     return { session: applyDashCooldownIfNeeded(withResult, actor.id), applied: true }
   }
 
-  if (command.action === 'defend') {
-    const gainedShield = Math.max(
-      0,
-      Math.min(
-        BATTLE_BALANCE.defendShieldGain,
-        Math.max(0, actor.resources.maxShield - actor.resources.shield)
-      )
-    )
-    const nextActor: BattleEntity = {
-      ...actor,
-      defending: true,
-      resources: {
-        ...actor.resources,
-        shield: actor.resources.shield + gainedShield
-      }
-    }
-    const withDefend = updateEntity(session, nextActor)
-    const withShieldEvent =
-      gainedShield > 0
-        ? appendEvent(withDefend, 'shield_gained', {
-          actorId: actor.id,
-          amount: gainedShield,
-          shield: nextActor.resources.shield,
-          maxShield: nextActor.resources.maxShield
-        })
-        : withDefend
-    const nextSession = resolveChaseByPosition(
-      appendEvent(withShieldEvent, 'action_executed', {
-        commandId: command.commandId,
-        actorId: actor.id,
-        action: command.action
-      })
-    )
-    return {
-      session: applyDashCooldownIfNeeded(nextSession, actor.id),
-      applied: true
-    }
-  }
-
   if (command.action === 'dash') {
     if (movementState.dashCooldownUntilTick >= session.tick) {
       return {
@@ -439,18 +400,44 @@ function applySingleCommand(
   }
 
   if (command.action === 'flee') {
-    const edgeTargetX = actor.team === 'left' ? session.mapBounds.minX + 0.5 : session.mapBounds.maxX - 0.5
+    const bounds = session.mapBounds
+    const centerX = (bounds.minX + bounds.maxX) * 0.5
+    const centerY = (bounds.minY + bounds.maxY) * 0.5
+    const edgeTargetX = actor.team === 'left' ? bounds.minX + 0.5 : bounds.maxX - 0.5
+    const nearHorizontalEdge =
+      actor.position.x <= bounds.minX + 1.2 || actor.position.x >= bounds.maxX - 1.2
+    const preferOpenField = nearHorizontalEdge || command.metadata?.fleeMode === 'open_field'
+    const targetX = preferOpenField ? centerX : edgeTargetX
     const rawTargetY =
       typeof command.metadata?.moveTargetY === 'number'
         ? Number(command.metadata.moveTargetY)
-        : actor.position.y
-    const delta = edgeTargetX - actor.position.x
+        : preferOpenField
+          ? centerY
+          : actor.position.y
+    const clampedTargetY = clamp(rawTargetY, bounds.minY + 0.5, bounds.maxY - 0.5)
+    const delta = targetX - actor.position.x
     const step = Math.min(3.4, Math.max(1.6, Math.abs(delta)))
-    const toX =
-      actor.position.x + (delta === 0 ? 0 : delta > 0 ? Math.min(step, delta) : -Math.min(step, Math.abs(delta)))
-    const toY =
-      actor.position.y +
-      Math.sign(rawTargetY - actor.position.y) * Math.min(Math.abs(rawTargetY - actor.position.y), 1.8)
+    let toX: number
+    let toY: number
+    if (walk) {
+      const resolved = resolveBattleDashPosition({
+        session,
+        actor,
+        opponent: getOpponent(session, actor.id),
+        clampedTargetX: targetX,
+        clampedTargetY,
+        moveStep: step,
+        walk,
+      })
+      toX = resolved.x
+      toY = resolved.y
+    } else {
+      toX =
+        actor.position.x + (delta === 0 ? 0 : delta > 0 ? Math.min(step, delta) : -Math.min(step, Math.abs(delta)))
+      toY =
+        actor.position.y +
+        Math.sign(clampedTargetY - actor.position.y) * Math.min(Math.abs(clampedTargetY - actor.position.y), 1.8)
+    }
     const nextActor: BattleEntity = {
       ...actor,
       position: {

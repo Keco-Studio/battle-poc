@@ -544,7 +544,7 @@ const SKILL_MAP = new Map(SKILLS.map((skill) => {
   return [scaled.id, scaled] as const
 }))
 const ROLE_SKILL_LOADOUTS: Record<string, string[]> = {
-  hero: ['rally_call', 'command_aura', 'shield_wall'],
+  hero: ['rally_call', 'command_aura', 'shield_wall', 'arcane_bolt', 'frost_lock', 'focus_shot'],
   tank: ['shield_wall', 'taunt', 'barrier', 'iron_bastion', 'shield_retaliation', 'warpull', 'aegis_blessing', 'unstoppable_charge'],
   archer: ['focus_shot', 'volley', 'arcane_bolt', 'piercing_arrow', 'aimed_snipe', 'frost_trap', 'rain_of_arrows', 'keen_eye'],
   mage: ['fireball', 'ice_nova', 'arcane_bolt', 'frost_lock', 'chilling_touch', 'arctic_storm', 'frostslow_field', 'void_chain', 'glacial_pierce', 'burning_ground', 'infernal_orb', 'scorching_aura', 'icefire_collision'],

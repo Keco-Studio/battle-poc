@@ -1,0 +1,50 @@
+---
+description: 代码注释与 UI 文案默认英语；功能用小组件模块化实现
+alwaysApply: true
+---
+
+# 语言与模块化约定
+
+## 注释与文档字符串
+
+- **默认使用英语**：单行/块注释、JSDoc、`TODO`/`FIXME`、类型旁注等。
+- 若产品或任务**明确要求**中文（例如面向国内用户的定稿文案、已存在的本地化规范），再按该要求切换。
+
+```typescript
+// ❌ BAD — 默认不要用中文写技术注释
+// 处理战斗结束后的结算
+
+// ✅ GOOD
+// Resolve rewards and UI state after battle ends.
+```
+
+## UI 与设计相关文案
+
+- **默认使用英语**：可见文案、`aria-label`、`title`、`placeholder`、Toast/错误信息、调试面板标签等。
+- 样式与布局说明（设计 token 命名、组件 prop 名、Story 标题）倾向英语，与代码库一致。
+- 正式多语言（i18n）由任务单独约定；未约定时仍以英语为默认实现语言。
+
+```tsx
+// ❌ BAD
+<button>确定</button>
+
+// ✅ GOOD
+<button>Confirm</button>
+```
+
+## 模块化与小组件
+
+- **用小组件拼功能**：每个文件聚焦单一职责；复杂界面由容器组件组合若干子组件，而非单文件堆叠所有 JSX 与逻辑。
+- **何时拆分**：重复 UI、可独立测试的块、超过约一两屏的 JSX、或逻辑与展示混杂时，抽到 `components/` 子目录或同 feature 下的 `*.tsx` 小组件。
+- **组合优于巨型组件**：页面/Feature 入口负责编排；展示与交互细节下沉到子组件；可复用逻辑优先抽成 hook，再被小组件消费。
+
+```text
+// ✅ GOOD — 结构示意
+FeatureBattleResult/
+  BattleResultOverlay.tsx   // 编排布局与数据
+  ResultHeader.tsx
+  ResultStats.tsx
+  ResultActions.tsx
+```
+
+- 新增功能时优先**新增小组件文件**扩展现有目录结构，避免在已有大组件中无限追加。

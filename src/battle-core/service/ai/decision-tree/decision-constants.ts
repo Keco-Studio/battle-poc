@@ -55,6 +55,5 @@ export const GUARDRAIL = {
   earlyTickThreshold: 8,
   earlyFleeHpGate: 0.35,
   highHpFleeGate: 0.42,
-  defendDistanceGate: 4.0,
   consecutiveDashLimit: 3,
 } as const

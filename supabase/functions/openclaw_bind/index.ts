@@ -19,7 +19,7 @@ function normalizePath(p: string, fallback: string) {
   return v
 }
 
-(globalThis as any).Deno.serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return corsPreflight()
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   try {

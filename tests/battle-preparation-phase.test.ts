@@ -73,7 +73,7 @@ describe('battle preparation phase', () => {
     expect(out.right.position).toEqual({ x: 4.2, y: 5 })
   })
 
-  it('preparation phase allows defend and dodge', () => {
+  it('preparation phase allows dodge', () => {
     const left = makeEntity({ id: 'left-2', team: 'left', x: 2, y: 2 })
     const right = makeEntity({ id: 'right-2', team: 'right', x: 3, y: 2 })
     let session = createBattleSession({ left, right })
@@ -84,13 +84,6 @@ describe('battle preparation phase', () => {
     } as typeof session
 
     session = enqueueBattleCommand(session, {
-      commandId: 'c-def',
-      sessionId: session.id,
-      actorId: left.id,
-      tick: 1,
-      action: 'defend'
-    })
-    session = enqueueBattleCommand(session, {
       commandId: 'c-dodge',
       sessionId: session.id,
       actorId: right.id,
@@ -99,7 +92,6 @@ describe('battle preparation phase', () => {
     })
 
     const out = new BattleTickEngine().tick(session).session
-    expect(out.left.defending).toBe(true)
     expect(out.right.resources.stamina).toBeLessThan(40)
     expect(
       out.events.some(

@@ -115,7 +115,7 @@ export default function CharacterPanel({ game }: Props) {
                 : 'bg-emerald-500 text-white hover:bg-emerald-400'
               }`}
             >
-              {!canHeal ? '满血状态' : '回复满血'}
+              {!canHeal ? 'Already at full HP' : 'Heal to full HP'}
             </button>
           </div>
 

@@ -9,7 +9,6 @@ export type BattlePhase = 'preparation' | 'battle'
 export type BattleActionType =
   | 'basic_attack'
   | 'cast_skill'
-  | 'defend'
   | 'dash'
   | 'dodge'
   | 'flee'

@@ -14,6 +14,7 @@ import {
   EnemyCombatStats,
   getBattleRewards,
   getDefaultCarriedSkillIds,
+  sanitizeCarriedSkillIds,
 } from '../constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { loadPlayerSave, savePlayerSave, recordBattle, fetchBattleHistory } from '@/src/lib/db'
@@ -325,8 +326,10 @@ export function useGameState() {
       const maxMp = Math.floor(maxHp / 2)
       setPlayerMaxMp(maxMp)
       setPlayerMP(maxMp)
-      const savedCarry = Array.isArray(saved.carriedSkillIds) ? saved.carriedSkillIds : getDefaultCarriedSkillIds('archer', 6)
-      setCarriedSkillIds(savedCarry.slice(0, 6))
+      const savedCarry = Array.isArray(saved.carriedSkillIds)
+        ? sanitizeCarriedSkillIds(saved.carriedSkillIds, 'archer')
+        : getDefaultCarriedSkillIds('archer', 6)
+      setCarriedSkillIds(savedCarry)
     }
     setStorageHydrated(true)
   }, [])
@@ -356,10 +359,11 @@ export function useGameState() {
     const maxMp = Math.floor(maxHp / 2)
     setPlayerMaxMp(maxMp)
     setPlayerMP(maxMp)
-    const carried = Array.isArray(save.carried_skill_ids) && save.carried_skill_ids.length > 0
-      ? save.carried_skill_ids
-      : getDefaultCarriedSkillIds('archer', 6)
-    setCarriedSkillIds(carried.slice(0, 6))
+    const carried =
+      Array.isArray(save.carried_skill_ids) && save.carried_skill_ids.length > 0
+        ? sanitizeCarriedSkillIds(save.carried_skill_ids as string[], 'archer')
+        : getDefaultCarriedSkillIds('archer', 6)
+    setCarriedSkillIds(carried)
   }, [])
 
   // Supabase auth: detect session, load from DB on login, set authedUserId
@@ -514,8 +518,7 @@ export function useGameState() {
   }, [playerLevel, carriedSkillIds])
 
   const updateCarriedSkillIds = useCallback((ids: string[]) => {
-    const dedup = Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)))
-    setCarriedSkillIds(dedup.slice(0, 6))
+    setCarriedSkillIds(sanitizeCarriedSkillIds(ids, 'archer'))
   }, [])
 
   // Level up handling
