@@ -1,3 +1,7 @@
+/**
+ * Behavior tree runtime: depth-first evaluation of selector/sequence/condition/action nodes,
+ * metric sampling from the live session, and mapping of matched action leaves to battle commands.
+ */
 import { getBattleSkillDefinition } from '../../../content/skills/basic-skill-catalog'
 import type { BattleEntity } from '../../../domain/entities/battle-entity'
 import type { BattleSession } from '../../../domain/entities/battle-session'
@@ -34,8 +38,10 @@ type EvalResult = {
   actionNode: BehaviorActionNode | null
 }
 
+/** Euclidean distance threshold treated as “in basic attack range” for metrics and fallback. */
 const BASIC_ATTACK_RANGE = 1.6
 
+/** Walk the tree once and return the first executable decision, or a heuristic fallback. */
 export function evaluateBehaviorTree(input: RuntimeContext): RuntimeDecision {
   const evaluated = evaluateNode(input.tree.root, input)
   const actionNode = evaluated.matched ? evaluated.actionNode : null
@@ -55,6 +61,7 @@ function evaluateNode(node: BehaviorTreeNode, ctx: RuntimeContext): EvalResult {
     return { matched: true, actionNode: node }
   }
 
+  // Sequence: every child must match in order; first propagated action wins.
   if (node.type === 'sequence') {
     for (const child of node.children) {
       const result = evaluateNode(child, ctx)
@@ -64,6 +71,7 @@ function evaluateNode(node: BehaviorTreeNode, ctx: RuntimeContext): EvalResult {
     return { matched: true, actionNode: null }
   }
 
+  // Selector (and any other composite with children): first successful subtree wins.
   for (const child of node.children) {
     const result = evaluateNode(child, ctx)
     if (result.matched) return result
@@ -71,6 +79,7 @@ function evaluateNode(node: BehaviorTreeNode, ctx: RuntimeContext): EvalResult {
   return { matched: false, actionNode: null }
 }
 
+/** Turn a matched action leaf into engine-facing metadata; returns null if the action is unusable. */
 function mapActionNodeToDecision(node: BehaviorActionNode, ctx: RuntimeContext): RuntimeDecision | null {
   const metadataBase: Record<string, unknown> = {
     btNode: node.id,
@@ -122,6 +131,7 @@ function mapActionNodeToDecision(node: BehaviorActionNode, ctx: RuntimeContext):
   return null
 }
 
+/** Used when the tree yields no valid mapped action (e.g. cast_skill with no eligible skill). */
 function heuristicFallbackDecision(ctx: RuntimeContext): RuntimeDecision {
   const skillId = pickBestReadySkillInRange(ctx.actor, ctx.target, ctx.session.tick)
   if (skillId) {
@@ -193,6 +203,7 @@ function clampDashGoalWithWalkContext(
   })
 }
 
+/** Compare `readMetric` output to `value` (default 0) with `operator` (default >=). */
 function evalCondition(
   metric: string,
   operator: string | undefined,
@@ -211,6 +222,7 @@ function evalCondition(
   return actual >= expected
 }
 
+/** Numeric features exposed to condition nodes; unknown names fall back to 0. */
 function readMetric(metric: string, ctx: RuntimeContext): number {
   const actor = ctx.actor
   const target = ctx.target
@@ -233,8 +245,9 @@ function readMetric(metric: string, ctx: RuntimeContext): number {
   if (metric === 'battle_phase_numeric') return readBattlePhaseNumeric(hpRatio, targetHpRatio)
   if (metric === 'consecutive_losing_trade') return readConsecutiveLosingTrade(ctx.session, actor.id)
   if (metric === 'near_edge') return nearEdge
-  if (metric === 'has_any_ready_skill') return readySkillSummary.hasAnyReady ? 1 : 0
-  if (metric === 'has_ready_skill') return readySkillSummary.hasAnyReady ? 1 : 0
+  // Legacy alias `has_ready_skill` (removed from BehaviorMetric) still resolves here.
+  if (metric === 'has_any_ready_skill' || metric === 'has_ready_skill')
+    return readySkillSummary.hasAnyReady ? 1 : 0
   if (metric === 'ready_skill_out_of_range') return readySkillSummary.hasReadyOutOfRange ? 1 : 0
   if (metric === 'no_ready_skill_in_range') return readySkillSummary.hasReadyInRange ? 0 : 1
   if (metric === 'basic_in_range') return distance <= BASIC_ATTACK_RANGE ? 1 : 0
@@ -294,6 +307,7 @@ function readDashRejectSignals(
   return { recentDashRejects, recentBlockedRejects }
 }
 
+/** Honor `node.skillId` when legal; otherwise fall back to the best ready skill in range. */
 function resolveCastSkillId(node: BehaviorActionNode, ctx: RuntimeContext): string | undefined {
   const requested = node.skillId?.trim()
   if (requested) {
@@ -312,6 +326,7 @@ function resolveCastSkillId(node: BehaviorActionNode, ctx: RuntimeContext): stri
   return pickBestReadySkillInRange(ctx.actor, ctx.target, ctx.session.tick)
 }
 
+/** Highest `ratio` skill that is off cooldown, affordable, and in range. */
 function pickBestReadySkillInRange(
   actor: BattleEntity,
   target: BattleEntity,
@@ -337,6 +352,7 @@ function pickBestReadySkillInRange(
   return ready[0]?.def?.id
 }
 
+/** Aggregates ready-skill flags for condition metrics without picking a single id. */
 function readReadySkillSummary(
   actor: BattleEntity,
   target: BattleEntity,
@@ -362,6 +378,7 @@ function readReadySkillSummary(
   }
 }
 
+/** Resolves dash goal from `target` mode and optional `moveStep`, before walkability clamp. */
 function computeDashTarget(node: BehaviorActionNode, ctx: RuntimeContext): {
   targetX: number
   targetY: number
@@ -408,6 +425,7 @@ function computeDashTarget(node: BehaviorActionNode, ctx: RuntimeContext): {
   }
 }
 
+/** True if the actor is within a small margin of any map edge (for escape heuristics). */
 function isNearEdge(actor: BattleEntity, session: BattleSession): boolean {
   const gapLeft = Math.abs(actor.position.x - session.mapBounds.minX)
   const gapRight = Math.abs(session.mapBounds.maxX - actor.position.x)

@@ -29,11 +29,15 @@ type ActorState = {
 
 type OrchestratorOptions = {
   llmConfig?: LlmProviderConfig
+  /**
+   * Optional seed from long-term BT store. If null/undefined, `createInitialBehaviorTree` is used.
+   */
+  resolveSeedBehaviorTree?: (input: { session: BattleSession; actorId: string }) => BehaviorTreeState | null
   augmentLlmContext?: (input: {
     session: BattleSession
     actorId: string
     actor: BattleSession['left']
-    target: BattleSession['left']
+    target: BattleSession['left'] //BattleEntity, to reduce imports
     memory: ReturnType<typeof buildShortTermMemory>
   }) => Partial<
     Pick<LlmDecisionContext, 'mapGrid' | 'battleId' | 'recentEventsSummary' | 'decisionRefreshReason' | 'currentIntent'>
@@ -59,6 +63,7 @@ export class BattleCoreOrchestrator {
   private readonly decisionEngine: AutoDecisionEngine
   private readonly llmConfig?: LlmProviderConfig
   private readonly augmentLlmContext?: OrchestratorOptions['augmentLlmContext']
+  private readonly resolveSeedBehaviorTree?: OrchestratorOptions['resolveSeedBehaviorTree']
   private readonly onLlmSingleActionCommitted?: OrchestratorOptions['onLlmSingleActionCommitted']
   private readonly shouldDeferPrefetch?: OrchestratorOptions['shouldDeferPrefetch']
   private readonly useProxyMode: boolean
@@ -71,6 +76,7 @@ export class BattleCoreOrchestrator {
   constructor(options?: OrchestratorOptions) {
     this.llmConfig = options?.llmConfig
     this.augmentLlmContext = options?.augmentLlmContext
+    this.resolveSeedBehaviorTree = options?.resolveSeedBehaviorTree
     this.onLlmSingleActionCommitted = options?.onLlmSingleActionCommitted
     this.shouldDeferPrefetch = options?.shouldDeferPrefetch
     this.decisionEngine = new AutoDecisionEngine(this.llmConfig)
@@ -160,6 +166,13 @@ export class BattleCoreOrchestrator {
     return this.llmAvailability
   }
 
+  /** Deep clone of the actor's current BT for persistence (null if never built). */
+  public getBehaviorTreeSnapshot(actorId: string): BehaviorTreeState | null {
+    const st = this.actorStates.get(actorId)
+    if (!st?.btTree) return null
+    return JSON.parse(JSON.stringify(st.btTree)) as BehaviorTreeState
+  }
+
   private maybeEnqueueDecision(
     session: BattleSession,
     actorId: string,
@@ -203,7 +216,7 @@ export class BattleCoreOrchestrator {
     }
     const arbitrationMeta =
       state.cachedDecision?.metadata &&
-      typeof state.cachedDecision.metadata === 'object'
+        typeof state.cachedDecision.metadata === 'object'
         ? (state.cachedDecision.metadata as Record<string, unknown>).arbitrationPicked
         : undefined
     const decisionSource =
@@ -261,10 +274,13 @@ export class BattleCoreOrchestrator {
     }
 
     if (!state.btTree) {
-      state.btTree = createInitialBehaviorTree({
-        actorId,
-        currentTick: session.tick,
-      })
+      const seed = this.resolveSeedBehaviorTree?.({ session, actorId }) ?? null
+      state.btTree =
+        seed ??
+        createInitialBehaviorTree({
+          actorId,
+          currentTick: session.tick,
+        })
     }
 
     state.cachedDecision = evaluateBehaviorTree({

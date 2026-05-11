@@ -215,7 +215,7 @@ export function buildSystemPrompt(): string {
     'LATENCY / PLANNING: Each HTTP call to you may take many seconds. meta.outputContract explains it: one response must amortize that cost — prefer style (A) with 20–24 steps so the battle can consume many ticks from one JSON.',
     '',
     'INPUT you receive includes:',
-    '- meta: tick, phase, battleId?, decisionRefreshReason, currentIntent (engine tactical mode: retreat | finish | kite | trade — retreat only when low HP, close, and lower HP% than target to avoid both sides fleeing), memorySummary, meta.outputContract (sequence length + ttlTicks guidance), optional recentEventsSummary',
+    '- meta: tick, phase, battleId?, decisionRefreshReason, currentIntent (engine tactical mode: retreat | finish | kite | trade — retreat only when low HP, close, and lower HP% than target to avoid both sides fleeing), memorySummary, meta.outputContract (sequence length + ttlTicks guidance), optional recentEventsSummary (when present: recent windowHpLost totals plus compact damage_applied / shield_broken lines)',
     '- map.bounds and optional map.grid.walkableRows[rowY][colX] (true = walkable); use it to avoid suggesting paths through blocked cells',
     '- actor / target: position, resources, attributes, effects, roleProfile, skills (with canCast, inRange, cooldowns)',
     '- relative.distance and HP ratios',

@@ -33,7 +33,7 @@
 - Create: `src/battle-core/service/battle-core-orchestrator.ts`
 - Create: `src/battle-core/service/auto-decision-engine.ts`
 - Create: `src/battle-core/service/dynamic-strategy-validator.ts`
-- Create: `src/battle-core/service/short-term-memory.ts`
+- Create: `src/battle-core/service/ai/short-term-memory.ts`
 - Modify: `src/map-battle/MapBattleController.ts`
 - Test: `tests/integration/dual-llm-battle-decision.spec.ts`
 - Test: `src/battle-core/service/__tests__/*.test.ts`
@@ -122,7 +122,7 @@
 ### Task 4: Build short-term-memory module
 
 **Files:**
-- Create: `src/battle-core/service/short-term-memory.ts`
+- Create: `src/battle-core/service/ai/short-term-memory.ts`
 
 - [ ] **Step 1: Implement event window extraction**
   - Extract recent N events from `session.events` (suggest 8-12).

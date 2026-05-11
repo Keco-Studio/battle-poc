@@ -1,8 +1,9 @@
 import type { BehaviorTreeState } from './types'
 
 /**
- * Initial BT v2: survival / phase-aware skill use / guarded melee / poke / approach.
- * Phase (battle_phase_numeric): 0 = both >70% HP, 1 = mid, 2 = late (either ≤30%).
+ * Factory for the default combat behavior tree (v2).
+ * Root is a selector: children are tried top-to-bottom; first fully matching branch wins.
+ * Phase metric `battle_phase_numeric`: 0 = both >70% HP, 1 = mid, 2 = late (either ≤30%).
  */
 export function createInitialBehaviorTree(input: {
   actorId: string
@@ -18,6 +19,7 @@ export function createInitialBehaviorTree(input: {
       type: 'selector',
       name: 'root',
       children: [
+        // Burst skill when target is low and self is healthy enough.
         {
           id: `${prefix}_seq_finish_kill`,
           type: 'sequence',
@@ -47,6 +49,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Same low-target window but self is also low: trade with skill if one is ready in range.
         {
           id: `${prefix}_seq_finish_desperate_skill`,
           type: 'sequence',
@@ -84,6 +87,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Low self + low target: disengage dash if skill path above did not fire.
         {
           id: `${prefix}_seq_finish_desperate_run`,
           type: 'sequence',
@@ -115,6 +119,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Critical self HP while hugging map edge: dash toward center.
         {
           id: `${prefix}_seq_low_hp_corner_escape`,
           type: 'sequence',
@@ -146,6 +151,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Behind on HP and enemy close: retreat dash.
         {
           id: `${prefix}_seq_retreat_low_hp`,
           type: 'sequence',
@@ -185,6 +191,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Too many dash rejects: dodge instead of spamming movement.
         {
           id: `${prefix}_seq_dash_guard`,
           type: 'sequence',
@@ -206,6 +213,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Mid-game pressure: cast when a skill is ready, HP ok, and not late phase.
         {
           id: `${prefix}_seq_skill_pressure`,
           type: 'sequence',
@@ -243,6 +251,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Safe melee basic attack when in range and not on a losing streak.
         {
           id: `${prefix}_seq_melee_trade`,
           type: 'sequence',
@@ -280,6 +289,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Mid phase poke with skill from outside basic range.
         {
           id: `${prefix}_seq_poke_mid`,
           type: 'sequence',
@@ -317,6 +327,7 @@ export function createInitialBehaviorTree(input: {
             },
           ],
         },
+        // Default: close distance with approach dash.
         {
           id: `${prefix}_act_approach`,
           type: 'action',
@@ -330,7 +341,8 @@ export function createInitialBehaviorTree(input: {
   }
 }
 
-function sanitizeActorId(raw: string): string {
+/** Stable token for ids: non-alphanumeric characters become underscores. */
+export function sanitizeActorId(raw: string): string {
   const trimmed = String(raw || '').trim()
   if (!trimmed) return 'actor'
   return trimmed.replace(/[^a-zA-Z0-9_]/g, '_')

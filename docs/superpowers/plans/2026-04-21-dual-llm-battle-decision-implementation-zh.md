@@ -33,7 +33,7 @@
 - Create: `src/battle-core/service/battle-core-orchestrator.ts`
 - Create: `src/battle-core/service/auto-decision-engine.ts`
 - Create: `src/battle-core/service/dynamic-strategy-validator.ts`
-- Create: `src/battle-core/service/short-term-memory.ts`
+- Create: `src/battle-core/service/ai/short-term-memory.ts`
 - Modify: `src/map-battle/MapBattleController.ts`
 - Test: `tests/integration/dual-llm-battle-decision.spec.ts`
 - Test: `src/battle-core/service/__tests__/*.test.ts`
@@ -122,7 +122,7 @@
 ### Task 4: 实现短期记忆模块
 
 **Files:**
-- Create: `src/battle-core/service/short-term-memory.ts`
+- Create: `src/battle-core/service/ai/short-term-memory.ts`
 
 - [ ] **Step 1: 实现事件滑窗提取**
   - 从 `session.events` 提取最近 N 条（建议 8-12）。

@@ -1,3 +1,7 @@
+/**
+ * Behavior tree validation and mutation: whitelist metrics/actions, cap depth, clone/patch safely,
+ * and reject malformed payloads so runtime always sees a consistent tree shape.
+ */
 import type {
   BehaviorActionNode,
   BehaviorActionTarget,
@@ -10,6 +14,7 @@ import type {
   BehaviorTreeState,
 } from './types'
 
+/** Maximum nesting depth when ingesting external tree JSON (defense in depth). */
 const MAX_TREE_DEPTH = 6
 const MIN_MOVE_STEP = 0.4
 const MAX_MOVE_STEP = 4.2
@@ -26,7 +31,6 @@ const ALLOWED_METRICS = new Set<BehaviorMetric>([
   'has_any_ready_skill',
   'ready_skill_out_of_range',
   'no_ready_skill_in_range',
-  'has_ready_skill',
   'basic_in_range',
   'recent_dash_rejects',
   'recent_blocked_rejects',
@@ -44,12 +48,14 @@ const ALLOWED_ACTIONS = new Set<BehaviorActionType>([
 ])
 const ALLOWED_TARGETS = new Set<BehaviorActionTarget>(['approach', 'retreat', 'hold', 'center'])
 
+/** Result of applying a patch: possibly unchanged tree plus human-readable reason code. */
 export type ApplyBehaviorTreePatchResult = {
   tree: BehaviorTreeState
   applied: boolean
   reason: string
 }
 
+/** Parse untrusted tree JSON; on failure return a deep clone of `seedTree`. */
 export function sanitizeBehaviorTreeState(raw: unknown, seedTree: BehaviorTreeState): BehaviorTreeState {
   const seedClone = cloneTreeState(seedTree)
   const payload = unwrapTreePayload(raw)
@@ -74,6 +80,10 @@ export function sanitizeBehaviorTreeState(raw: unknown, seedTree: BehaviorTreeSt
   }
 }
 
+/**
+ * Apply patch ops in order on a clone, bump version, then re-sanitize.
+ * Any invalid op aborts and returns the original tree unchanged.
+ */
 export function applyBehaviorTreePatch(
   currentTree: BehaviorTreeState,
   patch: BehaviorTreePatch | null | undefined,
@@ -127,12 +137,14 @@ export function applyBehaviorTreePatch(
   return { tree: sanitized, applied: true, reason: 'ok' }
 }
 
+/** Accept either `{ tree: ... }` or a bare tree object from external payloads. */
 function unwrapTreePayload(raw: unknown): Record<string, unknown> | null {
   if (!isRecord(raw)) return null
   if (isRecord(raw.tree)) return raw.tree
   return raw
 }
 
+/** Recursively coerce one node; enforces unique ids and allowed enum values per node type. */
 function sanitizeNode(
   raw: unknown,
   depth: number,
@@ -189,6 +201,7 @@ function sanitizeNode(
   return null
 }
 
+/** Replace action fields and strip fields that do not apply to the new action kind. */
 function applyActionReplacement(
   node: BehaviorActionNode,
   action: BehaviorActionType,
@@ -213,6 +226,7 @@ function applyActionReplacement(
   }
 }
 
+/** Reorder composite children: listed ids first, then any remaining children in original order. */
 function reorderNodeChildren(
   node: Extract<BehaviorTreeNode, { type: 'selector' | 'sequence' }>,
   orderedChildIds: string[],
@@ -241,6 +255,7 @@ function reorderNodeChildren(
   }
 }
 
+/** Flat id → node map for O(1) patch target lookup (DFS stack order is irrelevant for lookups). */
 function buildNodeIndex(root: BehaviorTreeNode): Map<string, BehaviorTreeNode> {
   const out = new Map<string, BehaviorTreeNode>()
   const stack: BehaviorTreeNode[] = [root]
@@ -257,6 +272,7 @@ function buildNodeIndex(root: BehaviorTreeNode): Map<string, BehaviorTreeNode> {
   return out
 }
 
+/** Deep copy of tree state for immutable patch application. */
 function cloneTreeState(input: BehaviorTreeState): BehaviorTreeState {
   return {
     treeId: input.treeId,
@@ -266,6 +282,7 @@ function cloneTreeState(input: BehaviorTreeState): BehaviorTreeState {
   }
 }
 
+/** Deep copy of a single subtree (used by cloneTreeState and sanitize paths). */
 function cloneNode(node: BehaviorTreeNode): BehaviorTreeNode {
   if (node.type === 'selector' || node.type === 'sequence') {
     return {
