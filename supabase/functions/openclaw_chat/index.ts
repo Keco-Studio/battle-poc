@@ -1,3 +1,4 @@
+/// <reference path="../../edge-runtime-globals.d.ts" />
 import { corsPreflight, json, readJson, pickAuthHeader } from '../_shared/http.ts'
 import { createSupabaseAuthed } from '../_shared/supabase.ts'
 import { decryptText } from '../_shared/crypto.ts'

@@ -142,6 +142,7 @@ export class MapBattleController {
       this.decisionMode === 'dual_llm'
         ? new BattleCoreOrchestrator({
           llmConfig: cfg.llmConfig,
+          behaviorTreeLog: process.env.NODE_ENV === 'development',
           resolveSeedBehaviorTree: ({ session, actorId }) => {
             if (actorId === session.left.id) {
               return pickLongTermBtSeed({
@@ -400,6 +401,7 @@ export class MapBattleController {
         rightActorId: this.session.right.id,
         leftTree: this.llmOrchestrator.getBehaviorTreeSnapshot(this.session.left.id),
         rightTree: this.llmOrchestrator.getBehaviorTreeSnapshot(this.session.right.id),
+        behaviorTreeLog: process.env.NODE_ENV === 'development',
       })
     }
 

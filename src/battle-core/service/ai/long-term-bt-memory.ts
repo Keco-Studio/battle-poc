@@ -92,13 +92,42 @@ function readStore(): LongTermBtPersistedV1 {
  * Persist current snapshot to `localStorage`. Called automatically by `updateLongTermBtAfterBattle`;
  * exposed for tests or explicit flush.
  */
-export function saveLongTermBtToLocalStorage(store: LongTermBtPersistedV1): void {
+export function saveLongTermBtToLocalStorage(
+  store: LongTermBtPersistedV1,
+  options?: {
+    behaviorTreeLog?: boolean
+    battleResult?: BattleResult
+    opponentKey?: string
+  }
+): void {
   const ls = getLocalStorage()
   if (!ls) return
   try {
     ls.setItem(STORAGE_KEY, JSON.stringify(store))
+    if (options?.behaviorTreeLog) {
+      console.info('[battle-core][BT] long_term_persisted', {
+        storageKey: STORAGE_KEY,
+        globalOrdinal: store.globalOrdinal,
+        battleResult: options.battleResult,
+        opponentKey: options.opponentKey,
+        resultHumanTrees: Object.keys(store.humanByOpponent),
+        enemyTreeId: store.enemy?.tree.treeId ?? null,
+        enemyVersion: store.enemy?.tree.version ?? null,
+      })
+    }
   } catch {
     // Quota or privacy mode: ignore.
+  }
+}
+
+/** Remove persisted long-term BT (e.g. on account sign-out so the next user does not inherit AI memory). */
+export function clearLongTermBtPersisted(): void {
+  const ls = getLocalStorage()
+  if (!ls) return
+  try {
+    ls.removeItem(STORAGE_KEY)
+  } catch {
+    // Ignore.
   }
 }
 
@@ -142,10 +171,12 @@ function remapBehaviorTreeByPrefix(tree: BehaviorTreeState, oldPrefix: string, n
   }
 }
 
+/*avoid to be confused with the escapeRegex function*/
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/*calculate the weight of the ordinal*/
 function ordinalWeight(globalOrdinal: number, ordinalAtSave: number): number {
   const d = Math.max(0, globalOrdinal - ordinalAtSave)
   const w = 1 / (1 + WEIGHT_LOG_COEFF * Math.log(1 + d))
@@ -219,11 +250,13 @@ export function pickLongTermBtSeed(input: PickLongTermBtSeedInput): BehaviorTree
 export type UpdateLongTermBtAfterBattleInput = {
   result: BattleResult
   /** Right-side opponent key for indexing human wins (e.g. `session.right.id`). */
-  opponentKey: string
+  opponentKey: string //human use, enemy jump
   leftActorId: string
   rightActorId: string
   leftTree: BehaviorTreeState | null
   rightTree: BehaviorTreeState | null
+  /** When true, logs one line to `console.info` after a successful `localStorage` write. */
+  behaviorTreeLog?: boolean
 }
 
 /**
@@ -251,7 +284,11 @@ export function updateLongTermBtAfterBattle(input: UpdateLongTermBtAfterBattleIn
     }
   }
 
-  saveLongTermBtToLocalStorage(store)
+  saveLongTermBtToLocalStorage(store, {
+    behaviorTreeLog: input.behaviorTreeLog,
+    battleResult: input.result,
+    opponentKey: opp,
+  })
 }
 
 /** Read-only snapshot (e.g. tests, debug UI). */

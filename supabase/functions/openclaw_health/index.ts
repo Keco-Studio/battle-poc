@@ -1,3 +1,4 @@
+/// <reference path="../../edge-runtime-globals.d.ts" />
 import { corsPreflight, json, pickAuthHeader } from '../_shared/http.ts'
 import { createSupabaseAuthed } from '../_shared/supabase.ts'
 import { decryptText } from '../_shared/crypto.ts'
@@ -18,7 +19,7 @@ Deno.serve(async (req: Request) => {
   const authHeader = pickAuthHeader(req)
   const supabase = createSupabaseAuthed(authHeader)
   const { data: userData, error: userErr } = await supabase.auth.getUser()
-  if (userErr || !userData?.user) return json(401, { ok: false, error: 'unauthorized' })
+  if (userErr || !userData?.user) return json(200, { ok: false, error: 'unauthorized' })
 
   const { data: rows, error } = await supabase
     .from('openclaw_connections')

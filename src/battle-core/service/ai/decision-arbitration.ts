@@ -56,11 +56,31 @@ function hpRatioForActor(session: BattleSession, actorId: string): number {
   return actor.resources.hp / maxHp
 }
 
+function opponentHpRatioForActor(session: BattleSession, actorId: string): number {
+  const opponent = session.left.id === actorId ? session.right : session.left
+  const maxHp = Math.max(1, opponent.resources.maxHp)
+  return opponent.resources.hp / maxHp
+}
+
+/** Self HP in the same band as the legacy "critical" row in `scoreRawDecision`. */
+const SELF_CRITICAL_HP = 0.3
+/** Opponent also low: mutual finish / trade window; do not treat `flee` as the automatic best pick. */
+const OPP_CRITICAL_HP = 0.3
+
 function scoreRawDecision(raw: RawBattleDecision, ctx: ArbitrationContext): number {
   const hpRatio = hpRatioForActor(ctx.session, ctx.actorId)
+  const oppHpRatio = opponentHpRatioForActor(ctx.session, ctx.actorId)
   const action = typeof raw.action === 'string' ? raw.action : ''
 
-  if (hpRatio <= 0.3) {
+  if (hpRatio <= SELF_CRITICAL_HP) {
+    const bothCritical = oppHpRatio <= OPP_CRITICAL_HP
+    if (bothCritical) {
+      if (action === 'cast_skill') return 92
+      if (action === 'basic_attack') return 86
+      if (action === 'dash' || action === 'dodge') return 78
+      if (action === 'flee') return 58
+      return 52
+    }
     if (action === 'flee') return 95
     if (action === 'dash' || action === 'dodge') return 88
     if (action === 'cast_skill') return 48
@@ -88,7 +108,7 @@ function scoreLlmSequencePlan(llm: RawBattleDecision, ctx: ArbitrationContext): 
   const first = seq[0]
   const firstScore = scoreSequenceStepLoose(first, ctx)
   const depth = Math.min(seq.length, 24)
-  const depthBonus = depth * 0.75
+  const depthBonus = depth * 0.3
   return firstScore + depthBonus
 }
 

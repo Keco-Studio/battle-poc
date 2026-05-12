@@ -1,3 +1,5 @@
+/// <reference path="../../edge-runtime-globals.d.ts" />
+
 export function requireEnv(name: string): string {
   const v = Deno.env.get(name)
   if (!v) throw new Error(`missing_env:${name}`)

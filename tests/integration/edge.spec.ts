@@ -67,30 +67,18 @@ async function cleanupCreatedAuthUsersByEmail(email: string) {
 }
 
 test.describe('边界测试 - Auth', () => {
-  test('空 display name 时注册失败', async ({ page }) => {
-    await page.goto('/')
-    await openDockPanel(page, 'Profile')
-    await page.getByRole('button', { name: 'Sign up' }).click()
-    await page.getByPlaceholder('you@example.com').fill(`edge-${Date.now()}@example.com`)
-    const passwordInputs = page.locator('.auth-password-input')
-    await passwordInputs.nth(0).fill('Password123!')
-    await passwordInputs.nth(1).fill('Password123!')
-    await page.getByRole('button', { name: 'Sign up and enter' }).click()
-    await expect(page.getByText('Please choose a display name')).toBeVisible()
-  })
-
-  test('邮箱格式非法时，应有明确错误提示', async ({ page }) => {
+  test('非法邮箱格式应提示客户端校验错误', async ({ page }) => {
     await page.goto('/')
     await openDockPanel(page, 'Profile')
     await page.getByRole('button', { name: 'Sign up' }).click()
     await page.getByPlaceholder('you@example.com').fill('invalid-email-format')
-    await page.getByPlaceholder('Adventurer').fill(`Edge-${Date.now().toString().slice(-4)}`)
     const passwordInputs = page.locator('.auth-password-input')
     await passwordInputs.nth(0).fill('Password123!')
     await passwordInputs.nth(1).fill('Password123!')
     await page.getByRole('button', { name: 'Sign up and enter' }).click()
-    await expect(page.locator('p.text-rose-700').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Please enter a valid email address')).toBeVisible({ timeout: 15000 })
   })
+
   test('重复点击注册按钮时，不应创建多个用户', async ({ page }) => {
     ensureAdminCleanupReadyOrSkip()
     const email = `edge-multi-${Date.now()}@example.com`
@@ -99,7 +87,6 @@ test.describe('边界测试 - Auth', () => {
       await openDockPanel(page, 'Profile')
       await page.getByRole('button', { name: 'Sign up' }).click()
       await page.getByPlaceholder('you@example.com').fill(email)
-      await page.getByPlaceholder('Adventurer').fill(`Edge-${Date.now().toString().slice(-4)}`)
       const passwordInputs = page.locator('.auth-password-input')
       await passwordInputs.nth(0).fill('Password123!')
       await passwordInputs.nth(1).fill('Password123!')

@@ -12,7 +12,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "generate:demo-tileset": "node scripts/generate-dungeon-tileset-from-sprite.mjs"
+    "generate:demo-tileset": "node scripts/generate-dungeon-tileset-from-sprite.mjs",
+    "generate:bt-eval-docx": "node scripts/generate-behavior-tree-llm-eval-docx.mjs",
+    "eval:bt-online": "vitest run tests/behavior-tree-llm-online-eval.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -33,6 +35,7 @@
     "@types/uuid": "^9.0.8",
     "@vitest/ui": "2.1.9",
     "autoprefixer": "^10.4.19",
+    "docx": "^9.6.1",
     "dotenv": "^17.4.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.1.9",
