@@ -1,7 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   X,
   Trophy,
@@ -23,25 +22,28 @@ import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/Supab
 import { savePlayerSave } from '@/src/lib/db/player-saves'
 import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
 import { formatProfileSessionLabel, getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
+import { defaultDisplayNameFromEmail, isValidEmailFormat } from '@/src/lib/auth/email-format'
+import { formatPasswordGrantAuthError } from '@/src/lib/auth/format-password-auth-error'
 
 const CACHE_TTL_MS = 300 * 1000
-const SESSION_CACHE_KEY = 'battle:profile-session-cache'
 const PVP_CACHE_KEY = 'battle:pvp-users-cache'
 
-/** Refresh / revalidate with Auth server this long before JWT expiry. */
-const SESSION_EXPIRY_SKEW_MS = 60_000
+/** Cap sign-in / sign-up / first save so the CTA cannot stay on "Please wait…" forever if the network stalls. */
+const AUTH_SUBMIT_TIMEOUT_MS = 75_000
 
-/** Max time to skip `getUser()` after last server-confirmed auth (1h). */
-const LOCAL_AUTH_TRUST_MS = 60 * 60 * 1000
+/** Sign-out should not block the UI indefinitely if the auth endpoint hangs. */
+const AUTH_SIGNOUT_TIMEOUT_MS = 45_000
 
-type SessionCachePayload = {
-  email: string | null
-  userId: string | null
-  /** JWT `exp` from Supabase session (unix seconds). */
-  expiresAt: number | null
-  cachedAt: number
-  /** Last successful GoTrue confirmation (`getUser` or `onAuthStateChange` with user). */
-  serverCheckedAt: number | null
+async function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutMessage)), ms)
+  })
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 type PvpCachePayload = {
@@ -52,18 +54,7 @@ type PvpCachePayload = {
 function readBrowserCache(key: string): string | null {
   if (typeof window === 'undefined') return null
   try {
-    let raw = window.localStorage.getItem(key)
-    if (raw) return raw
-    raw = window.sessionStorage.getItem(key)
-    if (raw) {
-      try {
-        window.localStorage.setItem(key, raw)
-        window.sessionStorage.removeItem(key)
-      } catch {
-        /* ignore migration failures */
-      }
-    }
-    return raw
+    return window.localStorage.getItem(key)
   } catch {
     return null
   }
@@ -73,114 +64,8 @@ function writeBrowserCache(key: string, value: string): void {
   if (typeof window === 'undefined') return
   try {
     window.localStorage.setItem(key, value)
-    try {
-      window.sessionStorage.removeItem(key)
-    } catch {
-      /* ignore */
-    }
   } catch {
     /* ignore */
-  }
-}
-
-function removeBrowserCache(key: string): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.removeItem(key)
-    window.sessionStorage.removeItem(key)
-  } catch {
-    /* ignore */
-  }
-}
-
-function writeSessionCache(payload: SessionCachePayload | null) {
-  if (typeof window === 'undefined') return
-  try {
-    if (!payload) {
-      removeBrowserCache(SESSION_CACHE_KEY)
-      return
-    }
-    writeBrowserCache(SESSION_CACHE_KEY, JSON.stringify(payload))
-  } catch {
-    // Ignore cache errors and continue with live auth behavior.
-  }
-}
-
-function readSessionCache(): SessionCachePayload | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = readBrowserCache(SESSION_CACHE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as SessionCachePayload
-    if (typeof parsed?.cachedAt !== 'number') return null
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-type ResolvedAuthUser = { id: string; email: string | null }
-
-/**
- * Same rules as Profile `refreshSession`: local JWT + 1h server-trust window when possible;
- * otherwise `getUser()`. Updates `battle:profile-session-cache`.
- */
-async function resolveAuthUserWithCache(supabase: SupabaseClient): Promise<ResolvedAuthUser | null> {
-  try {
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-    const expMs = session?.expires_at ? session.expires_at * 1000 : 0
-    const locallyValid =
-      !sessionError &&
-      session?.user &&
-      expMs > Date.now() + SESSION_EXPIRY_SKEW_MS
-
-    if (locallyValid) {
-      const u = session.user
-      const prev = readSessionCache()
-      const sameUser = prev?.userId === u.id
-      const trustFresh =
-        sameUser &&
-        typeof prev?.serverCheckedAt === 'number' &&
-        Date.now() - prev.serverCheckedAt < LOCAL_AUTH_TRUST_MS
-
-      if (trustFresh) {
-        writeSessionCache({
-          email: u.email ?? null,
-          userId: u.id,
-          expiresAt: session.expires_at ?? null,
-          cachedAt: Date.now(),
-          serverCheckedAt: prev.serverCheckedAt,
-        })
-        return { id: u.id, email: u.email ?? null }
-      }
-    }
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-    if (error || !user) {
-      writeSessionCache(null)
-      return null
-    }
-    const email = user.email ?? null
-    const {
-      data: { session: after },
-    } = await supabase.auth.getSession()
-    writeSessionCache({
-      email,
-      userId: user.id,
-      expiresAt: after?.expires_at ?? null,
-      cachedAt: Date.now(),
-      serverCheckedAt: Date.now(),
-    })
-    return { id: user.id, email }
-  } catch {
-    writeSessionCache(null)
-    return null
   }
 }
 
@@ -266,7 +151,7 @@ function getFriendlyAuthErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : 'Authentication failed'
   const dbError = error as { code?: string; message?: string } | null
   if (dbError?.code === '23505' && /character_name/i.test(dbError.message ?? '')) {
-    return 'Display name is already taken. Please choose another one.'
+    return 'That character name is already taken. Try a different email prefix or contact support.'
   }
   return message
 }
@@ -288,10 +173,9 @@ function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
 }
 
 export default function DockFeatureModal({ game }: Props) {
-  const { dockPanel, closeDockPanel, playerLevel, battleLog, login, logoutAccount } = game
+  const { dockPanel, closeDockPanel, playerLevel, battleLog, login, logoutAccount, authUserId, accountLabel } = game
   const supabase = useSupabaseOptional()
   const [loginAccount, setLoginAccount] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -300,6 +184,8 @@ export default function DockFeatureModal({ game }: Props) {
   const [authLoading, setAuthLoading] = useState(false)
   const [authResolved, setAuthResolved] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  /** Incremented on submit timeout / outer failure so in-flight awaits cannot apply `login()` after abort. */
+  const authSubmitGenerationRef = useRef(0)
   /** Supabase user when logged in (email may be null for some OAuth accounts). */
   const [profileSession, setProfileSession] = useState<{ email: string | null; id: string } | null>(null)
   const [dataFlowTrace, setDataFlowTrace] = useState<DataFlowTraceItem[]>([])
@@ -331,18 +217,38 @@ export default function DockFeatureModal({ game }: Props) {
   const refreshOpenclawHealth = useCallback(async () => {
     if (!supabase) return
     try {
-      const r = await invokeSupabaseFn<{ ok?: boolean; error?: string }>('openclaw_health', {})
+      const {
+        data: { session },
+        error: sessionErr,
+      } = await supabase.auth.getSession()
+      if (sessionErr || !session?.access_token) {
+        setOpenclawStatus({ kind: 'idle' })
+        return
+      }
+      const { data, error } = await supabase.functions.invoke<{ ok?: boolean; error?: string }>('openclaw_health', {
+        body: {},
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (error) {
+        setOpenclawStatus({ kind: 'error', message: error.message })
+        return
+      }
+      const r = data
       if (r?.ok) {
         setOpenclawStatus({ kind: 'ok' })
         return
       }
       const msg = String(r?.error || '').trim()
+      if (msg === 'unauthorized') {
+        setOpenclawStatus({ kind: 'idle' })
+        return
+      }
       setOpenclawStatus(msg === 'not_bound' ? { kind: 'not_bound' } : { kind: 'error', message: msg || 'unhealthy' })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'health_check_failed'
       setOpenclawStatus({ kind: 'error', message: msg })
     }
-  }, [invokeSupabaseFn, supabase])
+  }, [supabase])
 
   const refreshSession = useCallback(async () => {
     if (!supabase) {
@@ -351,50 +257,61 @@ export default function DockFeatureModal({ game }: Props) {
       return
     }
     try {
-      const resolved = await resolveAuthUserWithCache(supabase)
-      if (!resolved) {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession()
+      if (error || !session?.user) {
         setProfileSession(null)
       } else {
-        setProfileSession({ email: resolved.email, id: resolved.id })
+        const u = session.user
+        setProfileSession({ email: u.email ?? null, id: u.id })
       }
     } catch {
       setProfileSession(null)
-      writeSessionCache(null)
     } finally {
       setAuthResolved(true)
     }
   }, [supabase])
 
   useEffect(() => {
-    if (dockPanel !== 'character_login') return
-    // Do not clear authResolved here — avoids flashing "Checking..." on every open while
-    // refreshSession still runs to sync session.
+    if (supabase && authUserId) {
+      const label = (accountLabel ?? '').trim()
+      const looksLikeEmail = /@/.test(label)
+      setProfileSession({
+        id: authUserId,
+        email: looksLikeEmail ? label : null,
+      })
+      setAuthResolved(true)
+    } else if (!authUserId) {
+      setProfileSession(null)
+      setAuthResolved(true)
+    }
     void refreshSession()
-  }, [dockPanel, refreshSession])
+  }, [supabase, authUserId, accountLabel, refreshSession])
+
+  // Leaving profile while a request is in flight would otherwise leave authLoading stuck true until remount.
+  useEffect(() => {
+    if (dockPanel !== 'character_login') {
+      setAuthLoading(false)
+    }
+  }, [dockPanel])
 
   useEffect(() => {
-    if (!supabase || dockPanel !== 'character_login') return
+    if (!supabase) return
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user
       if (u) {
         setProfileSession({ email: u.email ?? null, id: u.id })
-        writeSessionCache({
-          email: u.email ?? null,
-          userId: u.id,
-          expiresAt: session?.expires_at ?? null,
-          cachedAt: Date.now(),
-          serverCheckedAt: Date.now(),
-        })
       } else {
         setProfileSession(null)
-        writeSessionCache(null)
       }
       setAuthResolved(true)
     })
     return () => subscription.unsubscribe()
-  }, [supabase, dockPanel])
+  }, [supabase])
 
   useEffect(() => {
     if (!dockPanel) return
@@ -442,7 +359,10 @@ export default function DockFeatureModal({ game }: Props) {
       setPvpError(null)
       pushDataFlowTrace('loadPvpUsers', 'start')
       try {
-        const resolved = await resolveAuthUserWithCache(supabase)
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        const selfId = session?.user?.id
 
         let query = supabase
           .from('player_saves')
@@ -450,8 +370,8 @@ export default function DockFeatureModal({ game }: Props) {
           .order('level', { ascending: false })
           .limit(100)
 
-        if (resolved?.id) {
-          query = query.neq('user_id', resolved.id)
+        if (selfId) {
+          query = query.neq('user_id', selfId)
         }
 
         const { data, error } = await query
@@ -694,7 +614,7 @@ export default function DockFeatureModal({ game }: Props) {
                     </div>
                     <div className="text-[11px] text-slate-500">
                       {isBattleSupabaseConfigured()
-                        ? 'Supabase account · configure env vars the same way as keco-studio'
+                        ? 'Email + password (keco-studio style). Turn off “Confirm email” in Supabase Auth for instant sign-up sessions.'
                         : 'Supabase is not configured: local guest mode only. Set NEXT_PUBLIC_SUPABASE_URL / ANON_KEY in .env'}
                     </div>
                   </div>
@@ -730,14 +650,21 @@ export default function DockFeatureModal({ game }: Props) {
                           setAuthLoading(true)
                           try {
                             pushDataFlowTrace('auth.signOut', 'start')
-                            await supabase!.auth.signOut()
-                            logoutAccount()
-                            setProfileSession(null)
+                            // Default `signOut()` uses global scope (revokes refresh token on the Auth server) and can
+                            // hang on slow/unreachable networks. Local scope clears the browser session immediately.
+                            await withTimeout(
+                              supabase!.auth.signOut({ scope: 'local' }),
+                              AUTH_SIGNOUT_TIMEOUT_MS,
+                              'Sign out timed out. Close the panel and try again, or refresh the page.',
+                            )
                             pushDataFlowTrace('auth.signOut', 'success')
                           } catch (e) {
                             pushDataFlowTrace('auth.signOut', 'error', e instanceof Error ? e.message : 'Sign out failed')
                             setAuthError(e instanceof Error ? e.message : 'Sign out failed')
                           } finally {
+                            // Always clear local game + auth id, even if `signOut` hangs or throws — otherwise the UI stays "logged in".
+                            logoutAccount()
+                            setProfileSession(null)
                             setAuthLoading(false)
                           }
                         }}
@@ -908,21 +835,7 @@ export default function DockFeatureModal({ game }: Props) {
                           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
                         />
                       </label>
-                      {authMode === 'signup' && (
-                        <label className="mb-3 block">
-                          <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-                            <User size={12} /> Display name
-                          </span>
-                          <input
-                            type="text"
-                            autoComplete="nickname"
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
-                            placeholder="Adventurer"
-                            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                          />
-                        </label>
-                      )}
+
                       <label className="mb-4 block">
                         <span className="mb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-700">
                           <span>Password</span>
@@ -989,9 +902,8 @@ export default function DockFeatureModal({ game }: Props) {
                             setAuthError('Please enter email')
                             return
                           }
-                          const trimmedDisplayName = displayName.trim()
-                          if (authMode === 'signup' && !trimmedDisplayName) {
-                            setAuthError('Please choose a display name')
+                          if (!isValidEmailFormat(email)) {
+                            setAuthError('Please enter a valid email address')
                             return
                           }
                           if (password.length < 6) {
@@ -1003,59 +915,81 @@ export default function DockFeatureModal({ game }: Props) {
                             return
                           }
                           setAuthLoading(true)
+                          authSubmitGenerationRef.current += 1
+                          const submitGen = authSubmitGenerationRef.current
+                          const alive = () => authSubmitGenerationRef.current === submitGen
                           try {
-                            if (authMode === 'signup') {
-                              pushDataFlowTrace('auth.signUp', 'start')
-                              const { error: signUpError } = await supabase!.auth.signUp({ email, password })
-                              if (signUpError) {
-                                pushDataFlowTrace('auth.signUp', 'error', signUpError.message)
-                                setAuthError(signUpError.message)
-                                return
-                              }
-                              pushDataFlowTrace('auth.signUp', 'success')
+                            await withTimeout(
+                              (async () => {
+                                if (authMode === 'signup') {
+                                  const characterName = defaultDisplayNameFromEmail(email)
+                                  pushDataFlowTrace('auth.signUp', 'start')
+                                  const { error: signUpError } = await supabase!.auth.signUp({
+                                    email,
+                                    password,
+                                    options: {
+                                      data: { display_name: characterName },
+                                    },
+                                  })
+                                  if (!alive()) return
+                                  if (signUpError) {
+                                    pushDataFlowTrace('auth.signUp', 'error', signUpError.message)
+                                    setAuthError(formatPasswordGrantAuthError(signUpError))
+                                    return
+                                  }
+                                  pushDataFlowTrace('auth.signUp', 'success')
 
-                              const { data } = await supabase!.auth.getSession()
-                              const signUpUser = data.session?.user
-                              if (signUpUser) {
-                                login(signUpUser.email ?? signUpUser.id)
-                                setProfileSession({ email: signUpUser.email ?? null, id: signUpUser.id })
-                                await savePlayerSave({ character_name: trimmedDisplayName })
-                              } else {
-                                // For projects with email-confirm disabled, sign-up may still return no active session.
-                                // Retry password sign-in so users can enter the game immediately.
-                                pushDataFlowTrace('auth.signInWithPassword', 'start', 'Retry after sign-up')
-                                const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password })
-                                if (signInError) {
-                                  pushDataFlowTrace('auth.signInWithPassword', 'error', signInError.message)
-                                  setAuthError('Sign-up succeeded. Please sign in with the same email and password.')
-                                  return
+                                  const { data } = await supabase!.auth.getSession()
+                                  if (!alive()) return
+                                  const signUpUser = data.session?.user
+                                  if (signUpUser) {
+                                    login(signUpUser.email ?? signUpUser.id)
+                                    setProfileSession({ email: signUpUser.email ?? null, id: signUpUser.id })
+                                    await savePlayerSave({ character_name: characterName })
+                                  } else {
+                                    // Same as keco-studio: if the project returns no session after signUp, sign in with password.
+                                    pushDataFlowTrace('auth.signInWithPassword', 'start', 'Retry after sign-up')
+                                    const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password })
+                                    if (!alive()) return
+                                    if (signInError) {
+                                      pushDataFlowTrace('auth.signInWithPassword', 'error', signInError.message)
+                                      setAuthError(formatPasswordGrantAuthError(signInError))
+                                      return
+                                    }
+                                    pushDataFlowTrace('auth.signInWithPassword', 'success')
+                                    const { data: signedInData } = await supabase!.auth.getSession()
+                                    if (!alive()) return
+                                    const retryUser = signedInData.session?.user
+                                    if (retryUser) {
+                                      login(retryUser.email ?? retryUser.id)
+                                      setProfileSession({ email: retryUser.email ?? null, id: retryUser.id })
+                                      await savePlayerSave({ character_name: characterName })
+                                    }
+                                  }
+                                } else {
+                                  pushDataFlowTrace('auth.signInWithPassword', 'start')
+                                  const { error } = await supabase!.auth.signInWithPassword({ email, password })
+                                  if (!alive()) return
+                                  if (error) {
+                                    pushDataFlowTrace('auth.signInWithPassword', 'error', error.message)
+                                    setAuthError(formatPasswordGrantAuthError(error))
+                                    return
+                                  }
+                                  pushDataFlowTrace('auth.signInWithPassword', 'success')
+                                  const { data } = await supabase!.auth.getSession()
+                                  if (!alive()) return
+                                  const signedUser = data.session?.user
+                                  if (signedUser) {
+                                    login(signedUser.email ?? signedUser.id)
+                                    setProfileSession({ email: signedUser.email ?? null, id: signedUser.id })
+                                  }
                                 }
-                                pushDataFlowTrace('auth.signInWithPassword', 'success')
-                                const { data: signedInData } = await supabase!.auth.getSession()
-                                const retryUser = signedInData.session?.user
-                                if (retryUser) {
-                                  login(retryUser.email ?? retryUser.id)
-                                  setProfileSession({ email: retryUser.email ?? null, id: retryUser.id })
-                                  await savePlayerSave({ character_name: trimmedDisplayName })
-                                }
-                              }
-                            } else {
-                              pushDataFlowTrace('auth.signInWithPassword', 'start')
-                              const { error } = await supabase!.auth.signInWithPassword({ email, password })
-                              if (error) {
-                                pushDataFlowTrace('auth.signInWithPassword', 'error', error.message)
-                                setAuthError(error.message)
-                                return
-                              }
-                              pushDataFlowTrace('auth.signInWithPassword', 'success')
-                              const { data } = await supabase!.auth.getSession()
-                              const signedUser = data.session?.user
-                              if (signedUser) {
-                                login(signedUser.email ?? signedUser.id)
-                                setProfileSession({ email: signedUser.email ?? null, id: signedUser.id })
-                              }
-                            }
+                              })(),
+                              AUTH_SUBMIT_TIMEOUT_MS,
+                              'Request timed out. Check your network and try again.',
+                            )
                           } catch (e) {
+                            authSubmitGenerationRef.current += 1
                             const friendlyMessage = getFriendlyAuthErrorMessage(e)
                             setAuthError(friendlyMessage)
                             pushDataFlowTrace(

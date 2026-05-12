@@ -17,8 +17,11 @@ function randomEmail() {
   return `battle-e2e-${ts}-${rand}@example.com`
 }
 
-function randomDisplayName() {
-  return `E2E-${Date.now().toString().slice(-5)}`
+async function fillSignUpForm(page: Page, email: string, password: string, confirm: string) {
+  await page.getByPlaceholder('you@example.com').fill(email)
+  const passwordInputs = page.locator('.auth-password-input')
+  await passwordInputs.nth(0).fill(password)
+  await passwordInputs.nth(1).fill(confirm)
 }
 
 async function openProfilePanel(page: Page) {
@@ -28,14 +31,6 @@ async function openProfilePanel(page: Page) {
 
 async function switchToSignUp(page: Page) {
   await page.getByRole('button', { name: 'Sign up' }).click()
-}
-
-async function fillSignUpForm(page: Page, email: string, displayName: string, password: string, confirm: string) {
-  await page.getByPlaceholder('you@example.com').fill(email)
-  await page.getByPlaceholder('Adventurer').fill(displayName)
-  const passwordInputs = page.locator('.auth-password-input')
-  await passwordInputs.nth(0).fill(password)
-  await passwordInputs.nth(1).fill(confirm)
 }
 
 async function signOutFromProfile(page: Page) {
@@ -118,13 +113,12 @@ test.describe('Auth flow', () => {
     ensureAdminCleanupReadyOrSkip()
     const email = randomEmail()
     const password = 'Password123!'
-    const displayName = randomDisplayName()
 
     try {
       await page.goto('/')
       await openProfilePanel(page)
       await switchToSignUp(page)
-      await fillSignUpForm(page, email, displayName, password, password)
+      await fillSignUpForm(page, email, password, password)
       await page.getByRole('button', { name: 'Sign up and enter' }).click()
       await expect(page.getByText('Current session:')).toBeVisible({ timeout: 30000 })
       await expect(page.getByText(email)).toBeVisible()
@@ -138,7 +132,7 @@ test.describe('Auth flow', () => {
     await openProfilePanel(page)
     await switchToSignUp(page)
 
-    await fillSignUpForm(page, randomEmail(), randomDisplayName(), 'Password123!', 'Password123?')
+    await fillSignUpForm(page, randomEmail(), 'Password123!', 'Password123?')
     await page.getByRole('button', { name: 'Sign up and enter' }).click()
     await expect(page.getByText('Passwords do not match')).toBeVisible()
   })
@@ -148,7 +142,7 @@ test.describe('Auth flow', () => {
     await openProfilePanel(page)
     await switchToSignUp(page)
 
-    await fillSignUpForm(page, randomEmail(), randomDisplayName(), '12345', '12345')
+    await fillSignUpForm(page, randomEmail(), '12345', '12345')
     await page.getByRole('button', { name: 'Sign up and enter' }).click()
     await expect(
       page.getByText('Password must be at least 6 characters (Supabase default policy)')
@@ -212,7 +206,7 @@ test.describe('Auth flow', () => {
     await page.goto('/')
     await openProfilePanel(page)
     await switchToSignUp(page)
-    await fillSignUpForm(page, existingAuthEmail!, randomDisplayName(), 'Password123!', 'Password123!')
+    await fillSignUpForm(page, existingAuthEmail!, 'Password123!', 'Password123!')
     await page.getByRole('button', { name: 'Sign up and enter' }).click()
     await expect(page.locator('p.text-rose-700').first()).toBeVisible({ timeout: 30000 })
   })

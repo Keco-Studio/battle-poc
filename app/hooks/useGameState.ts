@@ -18,7 +18,12 @@ import {
 } from '../constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { loadPlayerSave, savePlayerSave, recordBattle, fetchBattleHistory } from '@/src/lib/db'
-import type { PlayerSaveRow } from '@/src/lib/db'
+import type { BattleHistoryRow, PlayerSaveRow } from '@/src/lib/db'
+import { clearLongTermBtPersisted } from '@/src/battle-core/service/ai/long-term-bt-memory'
+import {
+  ENEMY_CHAT_THREADS_STORAGE_KEY,
+  SYSTEM_CHAT_THREADS_STORAGE_KEY,
+} from '@/app/components/chat-panel/chatPanelConstants'
 
 export interface EquippedItem {
   name: string
@@ -117,6 +122,8 @@ interface SavedState {
 
 const STORAGE_KEY = 'battle-game-save'
 const CHAT_STORAGE_KEY = 'battle-chat-messages'
+/** Dock PVP list cache (must clear on sign-out so guests do not see the previous account’s roster). */
+const PVP_PLAYERS_CACHE_KEY = 'battle:pvp-users-cache'
 
 function loadSavedState(): SavedState | null {
   if (typeof window === 'undefined') return null
@@ -161,11 +168,75 @@ function loadChatMessages(): ChatMessage[] {
   }
 }
 
+/** Clear shared browser keys so the next session/account does not read the previous user's data. */
+function clearSharedBrowserGamePersistence(): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(STORAGE_KEY)
+    window.localStorage.removeItem(CHAT_STORAGE_KEY)
+    window.localStorage.removeItem(SYSTEM_CHAT_THREADS_STORAGE_KEY)
+    window.localStorage.removeItem(ENEMY_CHAT_THREADS_STORAGE_KEY)
+    window.localStorage.removeItem(PVP_PLAYERS_CACHE_KEY)
+    clearLongTermBtPersisted()
+  } catch (e) {
+    console.warn('Failed to clear browser game persistence:', e)
+  }
+}
+
+/** Strip GoTrue session keys from localStorage so sign-out cannot be undone by a stale in-memory read. */
+function wipeSupabaseAuthLocalStorageKeys(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const toRemove: string[] = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (k && (k.includes('-auth-token') || k.includes('code-verifier'))) toRemove.push(k)
+    }
+    for (const k of toRemove) {
+      try {
+        window.localStorage.removeItem(k)
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function mapBattleHistoryRows(rows: BattleHistoryRow[]): BattleHistoryLogItem[] {
+  return rows.map((r) => ({
+    id: r.id,
+    result: r.result,
+    timestamp: new Date(r.created_at).getTime(),
+    rounds: r.rounds ?? 0,
+    expGained: r.exp_gained,
+    goldGained: r.gold_gained,
+    battleType: r.battle_type,
+    opponentName: r.opponent_name ?? undefined,
+  }))
+}
+
 const DEFAULT_GEAR: Record<EquipmentType, EquippedItem | null> = {
   weapon: null,
   ring: null,
   armor: null,
   shoes: null,
+}
+
+/** Guest snapshot written to `localStorage` immediately on sign-out to avoid a race with the auto-save effect. */
+function guestSavedStatePayload(): SavedState {
+  const maxHp = calcPlayerStats(1).maxHp
+  return {
+    playerLevel: 1,
+    playerExp: 0,
+    playerGold: 0,
+    playerHP: maxHp,
+    equippedGear: { ...DEFAULT_GEAR },
+    inventory: [],
+    playerPos: { ...PLAYER_START },
+    carriedSkillIds: getDefaultCarriedSkillIds('archer', 6),
+  }
 }
 
 export function useGameState() {
@@ -294,22 +365,11 @@ export function useGameState() {
 
   const totalStats = getTotalStats()
 
-  useEffect(() => {
-    const nextMaxMp = Math.floor(totalStats.maxHp / 2)
-    setPlayerMaxMp(nextMaxMp)
-    setPlayerMP((prev) => Math.min(prev, nextMaxMp))
-  }, [totalStats.maxHp])
-
-  useEffect(() => {
-    if (!nearbyEnemy) {
-      setEnemyPreview({ level: 1, stats: calcEnemyStats(1) })
-      return
-    }
-    setEnemyPreview(createEnemyEncounter(playerLevel, nearbyEnemy.profile))
-  }, [nearbyEnemy, playerLevel])
-
-  useLayoutEffect(() => {
-    const saved = loadSavedState()
+  /**
+   * Apply `SavedState` from localStorage, or new-game defaults when `saved` is null.
+   * Used on first paint, after sign-out (cleared storage), and on sign-in when there is no cloud row (guest → account migration reads storage before this runs).
+   */
+  const applyLocalPlayerSaveOrDefaults = useCallback((saved: SavedState | null) => {
     if (saved) {
       const lv = saved.playerLevel ?? 1
       setPlayerLevel(lv)
@@ -330,9 +390,41 @@ export function useGameState() {
         ? sanitizeCarriedSkillIds(saved.carriedSkillIds, 'archer')
         : getDefaultCarriedSkillIds('archer', 6)
       setCarriedSkillIds(savedCarry)
+      return
     }
-    setStorageHydrated(true)
+    setPlayerLevel(1)
+    setPlayerExp(0)
+    setPlayerGold(0)
+    setEquippedGear({ ...DEFAULT_GEAR })
+    setInventory([])
+    setPlayerPos({ ...PLAYER_START })
+    const maxHp = calcPlayerStats(1).maxHp
+    const maxMp = Math.floor(maxHp / 2)
+    setPlayerHP(maxHp)
+    setPlayerMaxMp(maxMp)
+    setPlayerMP(maxMp)
+    setCarriedSkillIds(getDefaultCarriedSkillIds('archer', 6))
+    setEnemies([...initialEnemies])
   }, [])
+
+  useEffect(() => {
+    const nextMaxMp = Math.floor(totalStats.maxHp / 2)
+    setPlayerMaxMp(nextMaxMp)
+    setPlayerMP((prev) => Math.min(prev, nextMaxMp))
+  }, [totalStats.maxHp])
+
+  useEffect(() => {
+    if (!nearbyEnemy) {
+      setEnemyPreview({ level: 1, stats: calcEnemyStats(1) })
+      return
+    }
+    setEnemyPreview(createEnemyEncounter(playerLevel, nearbyEnemy.profile))
+  }, [nearbyEnemy, playerLevel])
+
+  useLayoutEffect(() => {
+    applyLocalPlayerSaveOrDefaults(loadSavedState())
+    setStorageHydrated(true)
+  }, [applyLocalPlayerSaveOrDefaults])
 
   useLayoutEffect(() => {
     setChatMessages(loadChatMessages())
@@ -366,12 +458,41 @@ export function useGameState() {
     setCarriedSkillIds(carried)
   }, [])
 
+  /**
+   * Clear shared browser persistence and reset in-memory game state to new-guest defaults.
+   * Call after `auth.signOut()` resolves (see DockFeatureModal) so we do not rely solely on
+   * `onAuthStateChange`, and from `SIGNED_OUT` when the local session is actually gone.
+   */
+  const finalizeLocalSignOut = useCallback(() => {
+    clearSharedBrowserGamePersistence()
+    wipeSupabaseAuthLocalStorageKeys()
+    applyLocalPlayerSaveOrDefaults(null)
+    saveState(guestSavedStatePayload())
+    setChatMessages([])
+    setBattleLogs([])
+    setBattleCount(0)
+    setAutomationTask(null)
+    setShowBattle(false)
+    setNearbyEnemy(null)
+    setCombatEnemyId(null)
+    setPvpOpponentName(undefined)
+    setIsPVPMode(false)
+    setDockPanel(null)
+    setAuthedUserId(null)
+    setAccountLabel(null)
+    setDbHydrated(true)
+  }, [applyLocalPlayerSaveOrDefaults])
+
+  const logoutAccount = finalizeLocalSignOut
+
   // Supabase auth: detect session, load from DB on login, set authedUserId
   useEffect(() => {
     if (!supabaseClient) {
       setDbHydrated(true)
       return
     }
+
+    const client = supabaseClient
 
     const applySessionUser = (user: { id: string; email?: string | null }) => {
       setAuthedUserId(user.id)
@@ -380,29 +501,21 @@ export function useGameState() {
 
     async function initFromAuth() {
       try {
-        const { data: { user } } = await supabaseClient!.auth.getUser()
-        if (user) {
-          applySessionUser(user)
-          const save = await loadPlayerSave()
-          if (save && save.level > 1) {
-            // Only overwrite local state if DB has real progress (level > 1)
-            // This lets a first-time login inherit localStorage progress
-            applyDbSave(save)
-          }
-          const logs = await fetchBattleHistory(50)
-          if (logs.length > 0) {
-            setBattleLogs(logs.map(r => ({
-              id: r.id,
-              result: r.result,
-              timestamp: new Date(r.created_at).getTime(),
-              rounds: r.rounds ?? 0,
-              expGained: r.exp_gained,
-              goldGained: r.gold_gained,
-              battleType: r.battle_type,
-              opponentName: r.opponent_name ?? undefined,
-            })))
-          }
+        const { data: { session }, error } = await client.auth.getSession()
+        if (error || !session?.user) {
+          setDbHydrated(true)
+          return
         }
+        applySessionUser(session.user)
+        const save = await loadPlayerSave()
+        if (save) {
+          applyDbSave(save)
+        } else {
+          applyLocalPlayerSaveOrDefaults(loadSavedState())
+          setChatMessages(loadChatMessages())
+        }
+        const logs = await fetchBattleHistory(50)
+        setBattleLogs(mapBattleHistoryRows(logs))
       } catch (e) {
         console.warn('Auth init failed:', e)
       } finally {
@@ -412,25 +525,19 @@ export function useGameState() {
 
     initFromAuth()
 
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         applySessionUser(session.user)
         try {
           const save = await loadPlayerSave()
-          if (save) applyDbSave(save)
-          const logs = await fetchBattleHistory(50)
-          if (logs.length > 0) {
-            setBattleLogs(logs.map(r => ({
-              id: r.id,
-              result: r.result,
-              timestamp: new Date(r.created_at).getTime(),
-              rounds: r.rounds ?? 0,
-              expGained: r.exp_gained,
-              goldGained: r.gold_gained,
-              battleType: r.battle_type,
-              opponentName: r.opponent_name ?? undefined,
-            })))
+          if (save) {
+            applyDbSave(save)
+          } else {
+            applyLocalPlayerSaveOrDefaults(loadSavedState())
+            setChatMessages(loadChatMessages())
           }
+          const logs = await fetchBattleHistory(50)
+          setBattleLogs(mapBattleHistoryRows(logs))
         } catch (e) {
           console.warn('DB load on sign-in failed:', e)
         }
@@ -440,21 +547,14 @@ export function useGameState() {
         applySessionUser(session.user)
       }
       if (event === 'SIGNED_OUT') {
-        // Some environments may emit transient SIGNED_OUT during auth transitions.
-        // Re-check current user before clearing local auth state.
-        const { data: { user } } = await supabaseClient.auth.getUser()
-        if (user) {
-          applySessionUser(user)
-          return
-        }
-        setAuthedUserId(null)
-        setAccountLabel(null)
-        setDbHydrated(true)
+        // Do not re-check `getSession()` here: right after `signOut({ scope: 'local' })` it can still
+        // briefly return the old user, which would call `applySessionUser` and skip cleanup — user stays "logged in".
+        finalizeLocalSignOut()
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [supabaseClient, applyDbSave])
+  }, [supabaseClient, applyDbSave, applyLocalPlayerSaveOrDefaults, finalizeLocalSignOut])
 
   // Auto save — localStorage always; DB when logged in and DB hydrated
   useEffect(() => {
@@ -815,10 +915,6 @@ export function useGameState() {
     setDockPanel(null)
   }, [])
 
-  const logoutAccount = useCallback(() => {
-    setAccountLabel(null)
-  }, [])
-
   const pushChatMessage = useCallback((text: string, isSelf: boolean) => {
     const normalized = text.trim()
     if (!normalized) return
@@ -1021,6 +1117,8 @@ export function useGameState() {
     showSkills,
     setShowSkills,
     accountLabel,
+    /** Supabase user id when logged in; null for guests. Used for instant profile UI without waiting on auth round-trips. */
+    authUserId: authedUserId,
     logoutAccount,
     dockPanel,
     setDockPanel,

@@ -91,6 +91,13 @@ const MIN_TIMEOUT_MS = 400
 const DEFAULT_TIMEOUT_MS = 60000
 const ERROR_BODY_SNIPPET_LIMIT = 140
 
+function defaultModelForProvider(provider: LlmProviderConfig['provider'] | undefined): string {
+  if (provider === 'deepseek') return 'deepseek-chat'
+  if (provider === 'zhipu') return 'glm-4.5'
+  if (provider === 'minimax') return 'MiniMax-M2.7'
+  return 'gpt-4o-mini'
+}
+
 class HeuristicDecisionProvider implements DecisionProvider {
   async request(context: LlmDecisionContext): Promise<RawBattleDecision> {
     const { actor, target } = context
@@ -281,7 +288,12 @@ function buildPrompt(context: LlmDecisionContext): string {
 }
 
 function parseJsonObject(text: string): Record<string, unknown> | null {
-  const trimmed = text.trim()
+  let trimmed = text.trim()
+  // MiniMax may wrap JSON in <think>…</think> blocks (same as ai-proxy / parseOpenAiSse).
+  trimmed = trimmed
+    .replace(/<think>[\s\S]*?<\/redacted_thinking>/gi, '')
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .trim()
   if (!trimmed) return null
   try {
     return JSON.parse(trimmed) as Record<string, unknown>
@@ -300,52 +312,85 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
 
 function buildBehaviorTreePatchSystemPrompt(): string {
   return [
-    'You are a battle behavior-tree optimizer.',
-    'Return JSON only. No markdown.',
-    'Goal: update the existing behavior tree with minimal safe changes.',
+    'You are a deterministic battle behavior-tree patch planner.',
+    'Return JSON only. No markdown. No extra keys outside the schema.',
+    'Task:',
+    '- Given "situation" and current "behaviorTree", return a minimal patch that improves immediate decision quality.',
+    '- Keep edits small and safe. Do not rewrite the tree.',
     'Output schema:',
     '{',
     '  "patch": {',
     '    "baseVersion": number,',
-    '    "reason": string,',
+    '    "reason": "fix_legality|break_loop|improve_range_tempo|stabilize_trade|improve_priority",',
     '    "ops": [',
     '      {"op":"set_condition_value","nodeId":string,"value":number}',
-    '      | {"op":"replace_action","nodeId":string,"action":"basic_attack|cast_skill|dash|dodge|flee","target":"approach|retreat|hold|center","moveStep":number}',
+    '      | {"op":"replace_action","nodeId":string,"action":"basic_attack|cast_skill|dash|dodge|flee","target":"approach|retreat|hold|center","skillId":string,"moveStep":number}',
     '      | {"op":"reorder_children","nodeId":string,"orderedChildIds":string[]}',
     '    ]',
     '  }',
     '}',
-    'Rules:',
-    '- Keep ops short (<=3 ops).',
-    '- Prefer threshold and priority tweaks over large rewrites.',
-    '- Keep actions legal and executable.',
+    'Decision policy (deterministic):',
+    '- Priority order: legality issues > stuck/loop behavior > range/tempo mismatch > micro priority tuning.',
+    '- If multiple candidates are similarly good, choose by op type order: set_condition_value > reorder_children > replace_action.',
+    '- Always produce 1 to 3 ops (never 0 ops).',
+    'Operation constraints:',
+    '- Use existing nodeId values only.',
+    '- Do not add/remove nodes. Do not change node types.',
+    '- set_condition_value: small change only; prefer relative delta <= 20% from current value.',
+    '- reorder_children: only reorder existing direct children; do not invent child ids.',
+    '- replace_action:',
+    '  - action must be legal and executable in context.',
+    '  - if action="cast_skill", include skillId from actor available skills.',
+    '  - if action="dash", include moveStep in [0.4, 4.2].',
+    '  - target must be one of approach|retreat|hold|center.',
+    'Behavior expectations:',
+    '- Avoid mirror full-retreat and corner-lock loops.',
+    '- Preserve combat pressure when safe.',
+    '- Prefer threshold and ordering tweaks before action replacement.',
+    '- Keep rationale consistent with selected reason enum.',
   ].join('\n')
 }
 
 function buildInitialBehaviorTreeSystemPrompt(): string {
   return [
-    'You are designing an initial battle behavior tree.',
-    'Return JSON only. No markdown.',
+    'You are a deterministic initial battle behavior-tree planner.',
+    'Return JSON only. No markdown. No extra keys outside the schema.',
+    'Task:',
+    '- Build one executable initial tree from "situation" and "seedTree".',
+    '- Prefer stable, focused structure with safe combat pressure.',
     'Output schema:',
     '{',
     '  "tree": {',
     '    "treeId": string,',
     '    "version": number,',
     '    "updatedAtTick": number,',
-    '    "root": BehaviorNode',
+    '    "root": BehaviorCompositeNode',
     '  }',
     '}',
     'BehaviorNode:',
     '- selector/sequence: {id,type,name,children[]}',
     '- condition: {id,type:"condition",name,metric,operator?,value?}',
     '- action: {id,type:"action",name,action,target?,skillId?,moveStep?}',
+    'BehaviorCompositeNode:',
+    '- root must be type "selector" or "sequence" (never condition/action).',
     'Allowed metrics: hp_ratio,target_hp_ratio,distance,hp_disadvantage,hp_advantage,battle_phase_numeric,consecutive_losing_trade,near_edge,has_any_ready_skill,ready_skill_out_of_range,no_ready_skill_in_range,basic_in_range,recent_dash_rejects,recent_blocked_rejects,dash_cooldown_active,dash_streak_locked',
     'Allowed actions: basic_attack,cast_skill,dash,dodge,flee',
     'Allowed targets: approach,retreat,hold,center',
-    'Guidelines:',
+    'Hard constraints:',
+    '- tree depth <= 6.',
+    '- all node ids must be unique and non-empty.',
+    '- each selector/sequence must have at least one child.',
+    '- cast_skill action must include skillId from actor available skills.',
+    '- dash action may include moveStep only, and moveStep must be in [0.4, 4.2].',
+    '- non-dash actions should not rely on moveStep.',
+    'Deterministic construction policy:',
+    '- Priority order: legality/executability > anti-loop safety > range/tempo control > micro optimization.',
+    '- If multiple structures are similarly good, prefer the one closer to seedTree ordering and naming style.',
+    '- Keep branches concise and behavior-focused; avoid broad speculative branches.',
+    'Behavior expectations:',
     '- Avoid mirror full-retreat behavior.',
-    '- Keep combat pressure and avoid corner-lock loops.',
-    '- Keep tree depth <= 6 and branches focused.',
+    '- Avoid corner-lock loops and repeated same-direction no-progress movement patterns.',
+    '- Keep combat pressure when safe; retreat only when truly disadvantaged.',
   ].join('\n')
 }
 
@@ -597,7 +642,7 @@ export class AutoDecisionEngine {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             provider: this.config.provider,
-            model: this.config.model || 'deepseek-chat',
+            model: this.config.model || defaultModelForProvider(this.config.provider),
             systemPrompt: buildBehaviorTreePatchSystemPrompt(),
             prompt: JSON.stringify(payload),
             timeoutMs
@@ -675,7 +720,7 @@ export class AutoDecisionEngine {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             provider: this.config.provider,
-            model: this.config.model || 'deepseek-chat',
+            model: this.config.model || defaultModelForProvider(this.config.provider),
             systemPrompt: buildInitialBehaviorTreeSystemPrompt(),
             prompt: JSON.stringify(payload),
             timeoutMs

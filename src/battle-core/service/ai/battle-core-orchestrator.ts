@@ -25,6 +25,8 @@ type ActorState = {
   nextActionTick: number
   /** Last walk context from prefetch; used when macro LLM callback re-evaluates BT. */
   lastWalk?: BattleCommandWalkContext
+  /** One-time console summary per actor (see `behaviorTreeLog`). */
+  btStartLogged: boolean
 }
 
 type OrchestratorOptions = {
@@ -46,6 +48,11 @@ type OrchestratorOptions = {
   onLlmSingleActionCommitted?: (actorId: string) => void
   /** While a multi-step LLM `sequence` is still playing, do not start another prefetch (avoids 8s stall every tick). */
   shouldDeferPrefetch?: (actorId: string) => boolean
+  /**
+   * When true, logs once per actor at first BT use (`bt_started`: tree source + first mapped decision),
+   * and relies on `updateLongTermBtAfterBattle({ behaviorTreeLog: true })` for persist logs (see long-term module).
+   */
+  behaviorTreeLog?: boolean
 }
 
 export type RawSequenceData = {
@@ -66,6 +73,7 @@ export class BattleCoreOrchestrator {
   private readonly resolveSeedBehaviorTree?: OrchestratorOptions['resolveSeedBehaviorTree']
   private readonly onLlmSingleActionCommitted?: OrchestratorOptions['onLlmSingleActionCommitted']
   private readonly shouldDeferPrefetch?: OrchestratorOptions['shouldDeferPrefetch']
+  private readonly behaviorTreeLog: boolean
   private readonly useProxyMode: boolean
   private readonly actorStates = new Map<string, ActorState>()
   private readonly macroPlanIntervalTicks = 5
@@ -79,6 +87,7 @@ export class BattleCoreOrchestrator {
     this.resolveSeedBehaviorTree = options?.resolveSeedBehaviorTree
     this.onLlmSingleActionCommitted = options?.onLlmSingleActionCommitted
     this.shouldDeferPrefetch = options?.shouldDeferPrefetch
+    this.behaviorTreeLog = Boolean(options?.behaviorTreeLog)
     this.decisionEngine = new AutoDecisionEngine(this.llmConfig)
     this.useProxyMode = Boolean(this.llmConfig?.proxyUrl)
     this.llmAvailability = this.useProxyMode ? 'unknown' : 'available'
@@ -273,6 +282,7 @@ export class BattleCoreOrchestrator {
       ...augment,
     }
 
+    let bindSource: 'long_term_seed' | 'initial_template' | null = null
     if (!state.btTree) {
       const seed = this.resolveSeedBehaviorTree?.({ session, actorId }) ?? null
       state.btTree =
@@ -281,15 +291,30 @@ export class BattleCoreOrchestrator {
           actorId,
           currentTick: session.tick,
         })
+      bindSource = seed ? 'long_term_seed' : 'initial_template'
     }
 
-    state.cachedDecision = evaluateBehaviorTree({
+    const btPrefetchDecision = evaluateBehaviorTree({
       session,
       actor,
       target,
       tree: state.btTree,
       walk,
     }) as RawBattleDecision
+    state.cachedDecision = btPrefetchDecision
+    if (!state.btStartLogged) {
+      this.logBehaviorTree('bt_started', {
+        actorId,
+        sessionTick: session.tick,
+        battleId: session.id,
+        source: bindSource ?? 'session_existing',
+        treeId: state.btTree.treeId,
+        version: state.btTree.version,
+        updatedAtTick: state.btTree.updatedAtTick,
+        ...this.btDecisionLogSlice(btPrefetchDecision),
+      })
+      state.btStartLogged = true
+    }
 
     if (state.pending) return
 
@@ -400,6 +425,9 @@ export class BattleCoreOrchestrator {
       if (!('nextActionTick' in existing)) {
         ; (existing as ActorState).nextActionTick = 0
       }
+      if (!('btStartLogged' in existing)) {
+        ; (existing as ActorState).btStartLogged = false
+      }
       return existing
     }
     const created: ActorState = {
@@ -411,9 +439,31 @@ export class BattleCoreOrchestrator {
       lastPatchTick: -9999,
       lastMacroPlanTick: -9999,
       nextActionTick: 0,
+      btStartLogged: false,
     }
     this.actorStates.set(actorId, created)
     return created
+  }
+
+  private logBehaviorTree(event: string, fields: Record<string, unknown>): void {
+    if (!this.behaviorTreeLog) {
+      return
+    }
+    console.info(`[battle-core][BT] ${event}`, fields)
+  }
+
+  private btDecisionLogSlice(d: RawBattleDecision): Record<string, unknown> {
+    const meta = d.metadata
+    const btNode =
+      meta && typeof meta === 'object' && meta !== null && 'btNode' in meta
+        ? (meta as { btNode?: unknown }).btNode
+        : undefined
+    return {
+      decisionAction: d.action,
+      skillId: d.skillId,
+      btNodeId: btNode,
+      sequenceLen: Array.isArray(d.sequence) ? d.sequence.length : 0,
+    }
   }
 
   private computeActionIntervalTicks(spd: number): number {

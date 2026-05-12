@@ -1,22 +1,29 @@
 import { createClient } from '@supabase/supabase-js'
-import { createHybridStorageAdapter } from '../hybridStorageAdapter'
 import type { Database } from '../db/types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 const isConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
+function browserLocalStorage(): Storage | undefined {
+  if (typeof globalThis === 'undefined' || typeof window === 'undefined') return undefined
+  try {
+    return window.localStorage
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Browser Supabase client.
- * Uses the hybrid storage adapter (cookie + localStorage) so auth persists
- * across tab close; legacy sessionStorage entries are migrated on read.
+ * Auth session is stored in `localStorage` only (no sessionStorage / per-tab split).
  */
 export const supabase = isConfigured
   ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        storage: createHybridStorageAdapter(),
+        storage: browserLocalStorage(),
       },
     })
   : null
