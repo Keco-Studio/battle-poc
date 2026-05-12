@@ -492,6 +492,8 @@ export function useGameState() {
       return
     }
 
+    const client = supabaseClient
+
     const applySessionUser = (user: { id: string; email?: string | null }) => {
       setAuthedUserId(user.id)
       setAccountLabel(user.email ?? user.id)
@@ -499,7 +501,7 @@ export function useGameState() {
 
     async function initFromAuth() {
       try {
-        const { data: { session }, error } = await supabaseClient.auth.getSession()
+        const { data: { session }, error } = await client.auth.getSession()
         if (error || !session?.user) {
           setDbHydrated(true)
           return
@@ -523,7 +525,7 @@ export function useGameState() {
 
     initFromAuth()
 
-    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         applySessionUser(session.user)
         try {
