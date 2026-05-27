@@ -10,12 +10,14 @@ import {
   cooldownMsFromTicks,
   createEnemyEncounter,
   getBattleRewards,
+  JOB_DISPLAY_NAMES,
   type Skill,
   type Enemy,
   type MapCharacterVisualId,
 } from '../constants'
 import type { DockPanelId } from '../hooks/useGameState'
 import DockFeatureModal from './DockFeatureModal'
+import JobSelectModal from './JobSelectModal'
 import InteractionButtons from './map-ui/InteractionButtons'
 import EnemyInfoModal from './map-ui/EnemyInfoModal'
 import MapBattleViewport from './map-ui/MapBattleViewport'
@@ -1282,21 +1284,35 @@ export default function GameMap({ game }: Props) {
       )}
 
       {/* Top-left player info */}
-      <div
-        onClick={() => setShowCharacter(true)}
-        className="absolute top-4 left-4 z-20 min-w-48 cursor-pointer rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-4 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)] transition-colors hover:brightness-105"
-      >
+      <div className="absolute top-4 left-4 z-20 min-w-48 rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-4 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)]">
         <div className="mb-3 flex items-center gap-3">
-          <Image
-            src="/player/idle/south.png"
-            alt="Player"
-            width={48}
-            height={48}
-            className="h-12 w-12 rounded-lg border border-cyan-300 bg-gradient-to-b from-cyan-50 to-indigo-100 object-contain pixelated"
-          />
+          <div
+            onClick={() => setShowCharacter(true)}
+            className="cursor-pointer transition-opacity hover:opacity-80"
+          >
+            <Image
+              src="/player/idle/south.png"
+              alt="Player"
+              width={48}
+              height={48}
+              className="h-12 w-12 rounded-lg border border-cyan-300 bg-gradient-to-b from-cyan-50 to-indigo-100 object-contain pixelated"
+            />
+          </div>
           <div>
-            <div className="font-arcade text-[11px] text-slate-700">WARRIOR</div>
-            <div className="text-sm font-bold text-fuchsia-600">Lv.{playerLevel}</div>
+            <button
+              type="button"
+              onClick={() => game.setShowJobSelect(true)}
+              className="font-arcade text-[11px] text-slate-700 hover:text-fuchsia-600 transition-colors cursor-pointer"
+              title="Click to change class"
+            >
+              {JOB_DISPLAY_NAMES[game.jobClassId] ?? 'Warrior'}
+            </button>
+            <div
+              onClick={() => setShowCharacter(true)}
+              className="text-sm font-bold text-fuchsia-600 cursor-pointer hover:brightness-110"
+            >
+              Lv.{playerLevel}
+            </div>
           </div>
         </div>
         <div className="space-y-2">
@@ -1369,6 +1385,13 @@ export default function GameMap({ game }: Props) {
         {pixellabSyncHint && <span className="text-[10px] leading-snug text-amber-200/90">{pixellabSyncHint}</span>}
 
       </div>
+
+      {game.showJobSelect && (
+        <JobSelectModal
+          game={game}
+          onClose={() => game.setShowJobSelect(false)}
+        />
+      )}
 
       <PixellabMapGeneratorModal
         open={showPixellabMapGen}

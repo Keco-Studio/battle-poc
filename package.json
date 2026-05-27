@@ -14,7 +14,7 @@
     "test": "vitest run",
     "generate:demo-tileset": "node scripts/generate-dungeon-tileset-from-sprite.mjs",
     "generate:bt-eval-docx": "node scripts/generate-behavior-tree-llm-eval-docx.mjs",
-    "eval:bt-online": "vitest run tests/behavior-tree-llm-online-eval.test.ts --reporter=verbose"
+    "eval:bt-online": "BT_EVAL_PROXY_URL=http://127.0.0.1:8787 BT_EVAL_PROVIDER=minimax vitest run tests/behavior-tree-llm-online-eval.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

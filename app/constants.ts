@@ -175,7 +175,7 @@ export function getDefaultCarriedSkillIds(role: string = 'hero', maxCount = 6): 
 }
 
 /** Strips unknown ids, dedupes, caps at 6; falls back to role default when empty. */
-export function sanitizeCarriedSkillIds(ids: string[], role: string = 'archer'): string[] {
+export function sanitizeCarriedSkillIds(ids: string[], role: string = 'hero'): string[] {
   const validIds = new Set(allSkills.map((s) => s.id))
   const cleaned = Array.from(
     new Set(
@@ -196,7 +196,54 @@ export const equipmentTypes: Record<EquipmentType, EquipmentInfo> = {
   shoes: { name: 'Shoes', icon: '👟', stat: 'spd', bonus: 1 },
 }
 
-// Player level/stat calculation
+// ─────────────────────────────────────────────
+// Job / Class system
+// ─────────────────────────────────────────────
+export type JobClassId = 'hero' | 'tank' | 'archer' | 'mage' | 'healer' | 'assassin'
+export const JOB_CLASS_IDS: JobClassId[] = ['hero', 'tank', 'archer', 'mage', 'healer', 'assassin']
+
+export const JOB_DISPLAY_NAMES: Record<JobClassId, string> = {
+  hero: 'Warrior',
+  tank: 'Tank',
+  archer: 'Archer',
+  mage: 'Mage',
+  healer: 'Healer',
+  assassin: 'Assassin',
+}
+
+export const JOB_DESCRIPTIONS: Record<JobClassId, string> = {
+  hero: 'Balanced frontline. Balances damage and control, maintains pressure rhythm.',
+  tank: 'Heavy armor frontline. Absorbs damage to protect allies, disrupts enemy rhythm.',
+  archer: 'Ranged physical DPS. Maintains safe distance for sustained pressure, kites enemies.',
+  mage: 'Ranged magic DPS. Uses control to open combo windows, follows freeze with shatter.',
+  healer: 'Team support. Prioritizes keeping allies alive, uses debuffs and cleanse.',
+  assassin: 'Melee assassin. Uses displacement to flank and dive, executes low-HP targets.',
+}
+
+export const JOB_PREFERRED_RANGE: Record<JobClassId, 'melee' | 'mid' | 'ranged'> = {
+  hero: 'melee',
+  tank: 'melee',
+  archer: 'ranged',
+  mage: 'ranged',
+  healer: 'mid',
+  assassin: 'melee',
+}
+
+/** Role-specific base & growth stats, aligned with DB seed (job_classes table). */
+export const ROLE_STATS: Record<JobClassId, {
+  baseHp: number; baseAtk: number; baseDef: number; baseSpd: number
+  growthHp: number; growthAtk: number; growthDef: number; growthSpd: number
+  hpMult: number
+}> = {
+  hero:     { baseHp: 120, baseAtk: 6,  baseDef: 4, baseSpd: 4, growthHp: 35, growthAtk: 5, growthDef: 3, growthSpd: 3, hpMult: 5 },
+  tank:     { baseHp: 150, baseAtk: 4,  baseDef: 7, baseSpd: 2, growthHp: 45, growthAtk: 3, growthDef: 5, growthSpd: 1, hpMult: 5 },
+  archer:   { baseHp: 90,  baseAtk: 7,  baseDef: 2, baseSpd: 6, growthHp: 25, growthAtk: 6, growthDef: 2, growthSpd: 4, hpMult: 5 },
+  mage:     { baseHp: 80,  baseAtk: 9,  baseDef: 1, baseSpd: 4, growthHp: 20, growthAtk: 7, growthDef: 1, growthSpd: 3, hpMult: 5 },
+  healer:   { baseHp: 100, baseAtk: 4,  baseDef: 4, baseSpd: 5, growthHp: 28, growthAtk: 3, growthDef: 3, growthSpd: 3, hpMult: 5 },
+  assassin: { baseHp: 85,  baseAtk: 10, baseDef: 2, baseSpd: 8, growthHp: 22, growthAtk: 8, growthDef: 2, growthSpd: 5, hpMult: 5 },
+}
+
+// Player level/stat calculation (legacy flat constants kept for reference)
 export const BASE_STATS = { hp: 100, atk: 5, def: 3, spd: 3 }
 export const LEVEL_UP = { hp: 30, atk: 5, def: 3, spd: 3 }
 export const HP_MULTIPLIER = 5
@@ -205,12 +252,15 @@ export const HP_MULTIPLIER = 5
 export const ENEMY_BASE_STATS = { hp: 120, atk: 6, def: 3, spd: 3 }
 export const ENEMY_LEVEL_UP = { hp: 36, atk: 6, def: 3, spd: 3 }
 
-export const calcPlayerStats = (level: number) => ({
-  maxHp: (BASE_STATS.hp + (level - 1) * LEVEL_UP.hp) * HP_MULTIPLIER,
-  atk: BASE_STATS.atk + (level - 1) * LEVEL_UP.atk,
-  def: BASE_STATS.def + (level - 1) * LEVEL_UP.def,
-  spd: BASE_STATS.spd + (level - 1) * LEVEL_UP.spd,
-})
+export function calcPlayerStats(level: number, jobClassId: JobClassId = 'hero') {
+  const s = ROLE_STATS[jobClassId] ?? ROLE_STATS.hero
+  return {
+    maxHp: (s.baseHp + (level - 1) * s.growthHp) * s.hpMult,
+    atk: s.baseAtk + (level - 1) * s.growthAtk,
+    def: s.baseDef + (level - 1) * s.growthDef,
+    spd: s.baseSpd + (level - 1) * s.growthSpd,
+  }
+}
 
 export const BASIC_DAMAGE_MULTIPLIER = 1.24
 export const SKILL_DAMAGE_MULTIPLIER = 1.82
