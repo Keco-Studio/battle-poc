@@ -33,16 +33,16 @@ export async function hydratePocSkills(
   }
 
   const state = loadPocSkillModulesState()
-  const module = getActiveModule(state)
-  const skills = applyModuleToRuntime(module)
+  const activeModule = getActiveModule(state)
+  const skills = applyModuleToRuntime(activeModule)
   return { state, skills }
 }
 
 /** Sync battle-core catalog + return UI skills from persisted active module (no network). */
 export function bootstrapPocSkillsFromPersistence(): Skill[] {
   const state = loadPocSkillModulesState()
-  const module = getActiveModule(state)
-  return applyModuleToRuntime(module)
+  const activeModule = getActiveModule(state)
+  return applyModuleToRuntime(activeModule)
 }
 
 export function readPocSkillsForInitialRender(): Skill[] {
