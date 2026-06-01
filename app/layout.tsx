@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { SupabaseProvider } from '@/src/lib/SupabaseContext'
+import { BattleRuntimeProviders } from '@/src/components/BattleRuntimeProviders'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="zh">
       <body>
-        <SupabaseProvider>{children}</SupabaseProvider>
+        <BattleRuntimeProviders>{children}</BattleRuntimeProviders>
       </body>
     </html>
   )

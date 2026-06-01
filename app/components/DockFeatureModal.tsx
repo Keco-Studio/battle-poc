@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   X,
   Trophy,
@@ -18,18 +18,14 @@ import {
 import type { DockPanelId, GameState, PVPUser } from '../hooks/useGameState'
 import { calcPlayerStats } from '../constants'
 import ChatPanel from './ChatPanel'
+import AuthForm from '@/src/components/auth/AuthForm'
 import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
-import { savePlayerSave } from '@/src/lib/db/player-saves'
+import { useAuth } from '@/src/lib/contexts/AuthContext'
 import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
 import { formatProfileSessionLabel, getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
-import { defaultDisplayNameFromEmail, isValidEmailFormat } from '@/src/lib/auth/email-format'
-import { formatPasswordGrantAuthError } from '@/src/lib/auth/format-password-auth-error'
 
 const CACHE_TTL_MS = 300 * 1000
 const PVP_CACHE_KEY = 'battle:pvp-users-cache'
-
-/** Cap sign-in / sign-up / first save so the CTA cannot stay on "Please wait…" forever if the network stalls. */
-const AUTH_SUBMIT_TIMEOUT_MS = 75_000
 
 /** Sign-out should not block the UI indefinitely if the auth endpoint hangs. */
 const AUTH_SIGNOUT_TIMEOUT_MS = 45_000
@@ -147,15 +143,6 @@ type HistoryItem = {
   battleType: 'pve' | 'pvp'
 }
 
-function getFriendlyAuthErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : 'Authentication failed'
-  const dbError = error as { code?: string; message?: string } | null
-  if (dbError?.code === '23505' && /character_name/i.test(dbError.message ?? '')) {
-    return 'That character name is already taken. Try a different email prefix or contact support.'
-  }
-  return message
-}
-
 function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
   const base = 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-sm'
   if (battleType === 'pvp') {
@@ -173,21 +160,11 @@ function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
 }
 
 export default function DockFeatureModal({ game }: Props) {
-  const { dockPanel, closeDockPanel, playerLevel, battleLog, login, logoutAccount, authUserId, accountLabel } = game
+  const { dockPanel, closeDockPanel, playerLevel, battleLog, logoutAccount, authUserId, accountLabel } = game
   const supabase = useSupabaseOptional()
-  const [loginAccount, setLoginAccount] = useState('')
-  const [loginPassword, setLoginPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [authResolved, setAuthResolved] = useState(false)
+  const { isAuthenticated, isLoading: authLoading, userProfile, signOut: authSignOut } = useAuth()
+  const [signOutLoading, setSignOutLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
-  /** Incremented on submit timeout / outer failure so in-flight awaits cannot apply `login()` after abort. */
-  const authSubmitGenerationRef = useRef(0)
-  /** Supabase user when logged in (email may be null for some OAuth accounts). */
-  const [profileSession, setProfileSession] = useState<{ email: string | null; id: string } | null>(null)
   const [dataFlowTrace, setDataFlowTrace] = useState<DataFlowTraceItem[]>([])
   const [pvpUsers, setPvpUsers] = useState<PVPUser[]>([])
   const [pvpLoading, setPvpLoading] = useState(false)
@@ -250,69 +227,6 @@ export default function DockFeatureModal({ game }: Props) {
     }
   }, [supabase])
 
-  const refreshSession = useCallback(async () => {
-    if (!supabase) {
-      setProfileSession(null)
-      setAuthResolved(true)
-      return
-    }
-    try {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession()
-      if (error || !session?.user) {
-        setProfileSession(null)
-      } else {
-        const u = session.user
-        setProfileSession({ email: u.email ?? null, id: u.id })
-      }
-    } catch {
-      setProfileSession(null)
-    } finally {
-      setAuthResolved(true)
-    }
-  }, [supabase])
-
-  useEffect(() => {
-    if (supabase && authUserId) {
-      const label = (accountLabel ?? '').trim()
-      const looksLikeEmail = /@/.test(label)
-      setProfileSession({
-        id: authUserId,
-        email: looksLikeEmail ? label : null,
-      })
-      setAuthResolved(true)
-    } else if (!authUserId) {
-      setProfileSession(null)
-      setAuthResolved(true)
-    }
-    void refreshSession()
-  }, [supabase, authUserId, accountLabel, refreshSession])
-
-  // Leaving profile while a request is in flight would otherwise leave authLoading stuck true until remount.
-  useEffect(() => {
-    if (dockPanel !== 'character_login') {
-      setAuthLoading(false)
-    }
-  }, [dockPanel])
-
-  useEffect(() => {
-    if (!supabase) return
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user
-      if (u) {
-        setProfileSession({ email: u.email ?? null, id: u.id })
-      } else {
-        setProfileSession(null)
-      }
-      setAuthResolved(true)
-    })
-    return () => subscription.unsubscribe()
-  }, [supabase])
-
   useEffect(() => {
     if (!dockPanel) return
     const onKey = (e: KeyboardEvent) => {
@@ -333,9 +247,9 @@ export default function DockFeatureModal({ game }: Props) {
   useEffect(() => {
     if (dockPanel !== 'character_login') return
     if (!supabase) return
-    if (!profileSession) return
+    if (!isAuthenticated) return
     void refreshOpenclawHealth()
-  }, [dockPanel, refreshOpenclawHealth, profileSession, supabase])
+  }, [dockPanel, refreshOpenclawHealth, isAuthenticated, supabase])
 
   useEffect(() => {
     if (dockPanel !== 'battle_system') return
@@ -413,15 +327,24 @@ export default function DockFeatureModal({ game }: Props) {
   }, [dockPanel, supabase])
 
   const meta = useMemo(() => (dockPanel ? PANEL_META[dockPanel] : null), [dockPanel])
+
+  const profileSession = useMemo(() => {
+    if (!isAuthenticated) return null
+    const id = userProfile?.id ?? authUserId
+    if (!id) return null
+    const email = userProfile?.email ?? (accountLabel && /@/.test(accountLabel) ? accountLabel : null)
+    return { id, email }
+  }, [isAuthenticated, userProfile, authUserId, accountLabel])
+
   const profileAuthViewState = useMemo(
     () =>
       getProfileAuthViewState({
         supabaseConfigured: isBattleSupabaseConfigured(),
         hasSupabaseClient: Boolean(supabase),
-        authResolved,
+        authResolved: !authLoading,
         session: profileSession,
       }),
-    [authResolved, profileSession, supabase],
+    [authLoading, profileSession, supabase],
   )
   const [pvpSearchQuery, setPvpSearchQuery] = useState('')
 
@@ -605,7 +528,7 @@ export default function DockFeatureModal({ game }: Props) {
 
             {dockPanel === 'character_login' && (
               <div className="flex flex-col items-center">
-                <div className="oc-rainbow-border w-full max-w-[340px] p-5">
+                <div className="oc-rainbow-border w-full max-w-[28rem] p-5">
                   <div className="mb-3 text-center">
                     <div className="mb-1 flex items-center justify-center gap-1 text-[15px] font-bold text-slate-900">
                       <Sparkles size={14} className="text-orange-500" />
@@ -614,7 +537,7 @@ export default function DockFeatureModal({ game }: Props) {
                     </div>
                     <div className="text-[11px] text-slate-500">
                       {isBattleSupabaseConfigured()
-                        ? 'Email + password (keco-studio style). Turn off “Confirm email” in Supabase Auth for instant sign-up sessions.'
+                        ? 'Same Keco Studio account — email, password, or Google.'
                         : 'Supabase is not configured: local guest mode only. Set NEXT_PUBLIC_SUPABASE_URL / ANON_KEY in .env'}
                     </div>
                   </div>
@@ -644,16 +567,14 @@ export default function DockFeatureModal({ game }: Props) {
                       </p>
                       <button
                         type="button"
-                        disabled={authLoading}
+                        disabled={signOutLoading}
                         onClick={async () => {
                           setAuthError(null)
-                          setAuthLoading(true)
+                          setSignOutLoading(true)
                           try {
                             pushDataFlowTrace('auth.signOut', 'start')
-                            // Default `signOut()` uses global scope (revokes refresh token on the Auth server) and can
-                            // hang on slow/unreachable networks. Local scope clears the browser session immediately.
                             await withTimeout(
-                              supabase!.auth.signOut({ scope: 'local' }),
+                              authSignOut(),
                               AUTH_SIGNOUT_TIMEOUT_MS,
                               'Sign out timed out. Close the panel and try again, or refresh the page.',
                             )
@@ -662,10 +583,8 @@ export default function DockFeatureModal({ game }: Props) {
                             pushDataFlowTrace('auth.signOut', 'error', e instanceof Error ? e.message : 'Sign out failed')
                             setAuthError(e instanceof Error ? e.message : 'Sign out failed')
                           } finally {
-                            // Always clear local game + auth id, even if `signOut` hangs or throws — otherwise the UI stays "logged in".
                             logoutAccount()
-                            setProfileSession(null)
-                            setAuthLoading(false)
+                            setSignOutLoading(false)
                           }
                         }}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -788,223 +707,7 @@ export default function DockFeatureModal({ game }: Props) {
                     </div>
                   ) : (
                     <>
-                      <div className="mb-3 flex justify-center gap-2 text-[11px] font-bold">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuthMode('signin')
-                            setAuthError(null)
-                            setConfirmPassword('')
-                            setShowConfirmPassword(false)
-                          }}
-                          className={
-                            authMode === 'signin'
-                              ? 'text-orange-600 underline underline-offset-2'
-                              : 'text-slate-400 hover:text-slate-600'
-                          }
-                        >
-                          Sign in
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuthMode('signup')
-                            setAuthError(null)
-                          }}
-                          className={
-                            authMode === 'signup'
-                              ? 'text-orange-600 underline underline-offset-2'
-                              : 'text-slate-400 hover:text-slate-600'
-                          }
-                        >
-                          Sign up
-                        </button>
-                      </div>
-
-                      <label className="mb-3 block">
-                        <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-                          <User size={12} /> Email
-                        </span>
-                        <input
-                          type="email"
-                          autoComplete="email"
-                          value={loginAccount}
-                          onChange={(e) => setLoginAccount(e.target.value)}
-                          placeholder="you@example.com"
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                        />
-                      </label>
-
-                      <label className="mb-4 block">
-                        <span className="mb-1 flex items-center justify-between gap-1 text-[11px] font-bold text-slate-700">
-                          <span>Password</span>
-                        </span>
-                        <div className="relative">
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
-                            value={loginPassword}
-                            onChange={(e) => setLoginPassword(e.target.value)}
-                            placeholder="**********"
-                            className="auth-password-input w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword((v) => !v)}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            className="absolute inset-y-0 right-2 my-auto flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                          >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                          </button>
-                        </div>
-                      </label>
-                      {authMode === 'signup' && (
-                        <label className="mb-4 block">
-                          <span className="mb-1 flex items-center gap-1 text-[11px] font-bold text-slate-700">
-                            Confirm password
-                          </span>
-                          <div className="relative">
-                            <input
-                              type={showConfirmPassword ? 'text' : 'password'}
-                              autoComplete="new-password"
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              placeholder="**********"
-                              className="auth-password-input w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-[13px] text-slate-800 outline-none focus:border-orange-400"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowConfirmPassword((v) => !v)}
-                              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                              className="absolute inset-y-0 right-2 my-auto flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                            >
-                              {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
-                        </label>
-                      )}
-
-                      {authError && (
-                        <p className="mb-3 rounded-lg bg-rose-50 px-2 py-1.5 text-center text-[12px] text-rose-700">
-                          {authError}
-                        </p>
-                      )}
-
-                      <button
-                        type="button"
-                        disabled={authLoading}
-                        onClick={async () => {
-                          setAuthError(null)
-                          const email = loginAccount.trim()
-                          const password = loginPassword
-                          if (!email) {
-                            setAuthError('Please enter email')
-                            return
-                          }
-                          if (!isValidEmailFormat(email)) {
-                            setAuthError('Please enter a valid email address')
-                            return
-                          }
-                          if (password.length < 6) {
-                            setAuthError('Password must be at least 6 characters (Supabase default policy)')
-                            return
-                          }
-                          if (authMode === 'signup' && password !== confirmPassword) {
-                            setAuthError('Passwords do not match')
-                            return
-                          }
-                          setAuthLoading(true)
-                          authSubmitGenerationRef.current += 1
-                          const submitGen = authSubmitGenerationRef.current
-                          const alive = () => authSubmitGenerationRef.current === submitGen
-                          try {
-                            await withTimeout(
-                              (async () => {
-                                if (authMode === 'signup') {
-                                  const characterName = defaultDisplayNameFromEmail(email)
-                                  pushDataFlowTrace('auth.signUp', 'start')
-                                  const { error: signUpError } = await supabase!.auth.signUp({
-                                    email,
-                                    password,
-                                    options: {
-                                      data: { display_name: characterName },
-                                    },
-                                  })
-                                  if (!alive()) return
-                                  if (signUpError) {
-                                    pushDataFlowTrace('auth.signUp', 'error', signUpError.message)
-                                    setAuthError(formatPasswordGrantAuthError(signUpError))
-                                    return
-                                  }
-                                  pushDataFlowTrace('auth.signUp', 'success')
-
-                                  const { data } = await supabase!.auth.getSession()
-                                  if (!alive()) return
-                                  const signUpUser = data.session?.user
-                                  if (signUpUser) {
-                                    login(signUpUser.email ?? signUpUser.id)
-                                    setProfileSession({ email: signUpUser.email ?? null, id: signUpUser.id })
-                                    await savePlayerSave({ character_name: characterName })
-                                  } else {
-                                    // Same as keco-studio: if the project returns no session after signUp, sign in with password.
-                                    pushDataFlowTrace('auth.signInWithPassword', 'start', 'Retry after sign-up')
-                                    const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password })
-                                    if (!alive()) return
-                                    if (signInError) {
-                                      pushDataFlowTrace('auth.signInWithPassword', 'error', signInError.message)
-                                      setAuthError(formatPasswordGrantAuthError(signInError))
-                                      return
-                                    }
-                                    pushDataFlowTrace('auth.signInWithPassword', 'success')
-                                    const { data: signedInData } = await supabase!.auth.getSession()
-                                    if (!alive()) return
-                                    const retryUser = signedInData.session?.user
-                                    if (retryUser) {
-                                      login(retryUser.email ?? retryUser.id)
-                                      setProfileSession({ email: retryUser.email ?? null, id: retryUser.id })
-                                      await savePlayerSave({ character_name: characterName })
-                                    }
-                                  }
-                                } else {
-                                  pushDataFlowTrace('auth.signInWithPassword', 'start')
-                                  const { error } = await supabase!.auth.signInWithPassword({ email, password })
-                                  if (!alive()) return
-                                  if (error) {
-                                    pushDataFlowTrace('auth.signInWithPassword', 'error', error.message)
-                                    setAuthError(formatPasswordGrantAuthError(error))
-                                    return
-                                  }
-                                  pushDataFlowTrace('auth.signInWithPassword', 'success')
-                                  const { data } = await supabase!.auth.getSession()
-                                  if (!alive()) return
-                                  const signedUser = data.session?.user
-                                  if (signedUser) {
-                                    login(signedUser.email ?? signedUser.id)
-                                    setProfileSession({ email: signedUser.email ?? null, id: signedUser.id })
-                                  }
-                                }
-                              })(),
-                              AUTH_SUBMIT_TIMEOUT_MS,
-                              'Request timed out. Check your network and try again.',
-                            )
-                          } catch (e) {
-                            authSubmitGenerationRef.current += 1
-                            const friendlyMessage = getFriendlyAuthErrorMessage(e)
-                            setAuthError(friendlyMessage)
-                            pushDataFlowTrace(
-                              authMode === 'signup' ? 'auth.signUp' : 'auth.signInWithPassword',
-                              'error',
-                              friendlyMessage
-                            )
-                          } finally {
-                            setAuthLoading(false)
-                          }
-                        }}
-                        className="oc-arcade-btn oc-arcade-btn-cta w-full disabled:opacity-60"
-                      >
-                        {authLoading ? 'Please wait…' : authMode === 'signup' ? 'Sign up and enter' : 'ENTER ARENA'}
-                      </button>
+                      <AuthForm variant="embedded" suppressRedirect />
                       <div className="mt-3 text-center">
                         <button
                           type="button"
