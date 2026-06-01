@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   createOnlineEvalEngineConfigFromEnv,
-  formatBehaviorTreeOnlineEvalReport,
   runBehaviorTreeOnlineEvalSuite,
 } from '../src/battle-core/eval/behavior-tree-llm/online-eval'
 
@@ -27,7 +26,6 @@ describe('behavior tree llm online eval', () => {
       )
       const runs = Math.max(1, Number(process.env.BT_EVAL_RUNS || 3))
       const report = await runBehaviorTreeOnlineEvalSuite({ llmConfig: config, runs })
-      console.log(formatBehaviorTreeOnlineEvalReport(report))
 
       const minRate = Number(process.env.BT_EVAL_MIN_HARD_PASS_RATE || 0)
       expect(report.aggregate.hardPassRate).toBeGreaterThanOrEqual(minRate)

@@ -2,7 +2,8 @@
 
 import { X, Sparkles, ArrowLeft, Lock } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
-import { allSkills } from '../constants'
+import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
+import { PocSkillDraftPanel } from './skills/PocSkillDraftPanel'
 
 interface Props {
   game: GameState
@@ -18,6 +19,7 @@ export default function SkillsPanel({ game }: Props) {
     setCarriedSkillIds,
   } = game
 
+  const { skills: allSkills } = useBattleSkills()
   const carriedSkills = getAvailableSkills()
   const unlockedSkills = allSkills.filter((skill) => skill.unlockLevel <= playerLevel)
 
@@ -68,7 +70,8 @@ export default function SkillsPanel({ game }: Props) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <div className="grid grid-cols-3 gap-2">
+          <PocSkillDraftPanel />
+          <div className="grid grid-cols-3 items-stretch gap-2">
             {allSkills.map((skill) => {
               const unlocked = skill.unlockLevel <= playerLevel
               const checked = carriedSkillIds.includes(skill.id)
@@ -76,7 +79,7 @@ export default function SkillsPanel({ game }: Props) {
               return (
                 <div
                   key={skill.id}
-                  className={`relative flex flex-col gap-1.5 rounded-xl border p-3 transition-colors ${
+                  className={`relative flex h-full min-h-[148px] flex-col gap-1.5 rounded-xl border p-3 transition-colors ${
                     !unlocked
                       ? 'border-slate-200 bg-slate-50 opacity-70'
                       : checked
@@ -84,7 +87,7 @@ export default function SkillsPanel({ game }: Props) {
                         : 'border-slate-200 bg-white'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <div
                       className={`flex h-10 w-10 items-center justify-center rounded-lg text-xl ${
                         unlocked ? 'bg-white ring-1 ring-slate-200' : 'bg-slate-200 text-slate-400'
@@ -103,13 +106,15 @@ export default function SkillsPanel({ game }: Props) {
                       )}
                     </div>
                   </div>
-                  <div className="text-[11px] leading-snug text-slate-500">{skill.desc}</div>
+                  <div className="min-h-[3.5rem] flex-1 text-[11px] leading-snug text-slate-500">
+                    {skill.desc}
+                  </div>
                   {unlocked && (
                     <button
                       type="button"
                       onClick={() => toggleCarry(skill.id)}
                       disabled={disabledByLimit}
-                      className={`mt-1 rounded-md py-1 text-[11px] font-bold transition-colors ${
+                      className={`mt-auto shrink-0 rounded-md py-1 text-[11px] font-bold transition-colors ${
                         checked
                           ? 'bg-orange-500 text-white hover:bg-orange-400'
                           : disabledByLimit

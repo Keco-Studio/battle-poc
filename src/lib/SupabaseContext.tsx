@@ -1,8 +1,8 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabase } from './supabase/client'
+import { getOrCreateBrowserSupabaseClient } from './supabase/client'
 
 function readSupabaseEnv(): { url: string; anonKey: string } | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -19,7 +19,7 @@ export function isBattleSupabaseConfigured(): boolean {
 const SupabaseContext = createContext<SupabaseClient | null>(null)
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
-  const client = supabase
+  const client = useMemo(() => getOrCreateBrowserSupabaseClient(), [])
 
   return <SupabaseContext.Provider value={client}>{children}</SupabaseContext.Provider>
 }
@@ -27,4 +27,15 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
 /** Returns `null` when env vars are missing; callers must handle guest mode. */
 export function useSupabaseOptional(): SupabaseClient | null {
   return useContext(SupabaseContext)
+}
+
+/** Throws when Supabase is not configured — same contract as keco-studio. */
+export function useSupabase(): SupabaseClient {
+  const client = useContext(SupabaseContext)
+  if (!client) {
+    throw new Error(
+      'Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local.'
+    )
+  }
+  return client
 }

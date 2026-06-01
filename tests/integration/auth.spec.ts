@@ -145,7 +145,7 @@ test.describe('Auth flow', () => {
     await fillSignUpForm(page, randomEmail(), '12345', '12345')
     await page.getByRole('button', { name: 'Sign up and enter' }).click()
     await expect(
-      page.getByText('Password must be at least 6 characters (Supabase default policy)')
+      page.getByText('Password must be at least 6 characters (Supabase default policy)'),
     ).toBeVisible()
   })
 
@@ -181,7 +181,6 @@ test.describe('Auth flow', () => {
     await expect(page.getByText('Current session:')).toBeVisible({ timeout: 30000 })
     await expect(page.getByText(existingAuthEmail!)).toBeVisible()
 
-    // Refresh once to avoid transient authLoading state keeping sign-out disabled.
     await page.reload()
     await openProfilePanel(page)
     await expect(page.getByText('Current session:')).toBeVisible({ timeout: 15000 })

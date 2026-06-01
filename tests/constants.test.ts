@@ -9,43 +9,55 @@ import {
   expForLevel,
   getBattleRewards,
   createEnemyEncounter,
-  allSkills,
+  getAllSkills,
   equipmentTypes,
   getDefaultCarriedSkillIds,
   sanitizeCarriedSkillIds,
 } from '../app/constants'
 
 describe('calcPlayerStats', () => {
-  it('should calculate level 1 stats correctly', () => {
+  it('should calculate level 1 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(1)
-    expect(stats.maxHp).toBe(500)  // (100 + 0*30) * 5
-    expect(stats.atk).toBe(5)      // 5 + 0*5
-    expect(stats.def).toBe(3)      // 3 + 0*3
-    expect(stats.spd).toBe(3)      // 3 + 0*3
+    expect(stats.maxHp).toBe(600)  // (120 + 0*35) * 5
+    expect(stats.atk).toBe(6)      // 6 + 0*5
+    expect(stats.def).toBe(4)      // 4 + 0*3
+    expect(stats.spd).toBe(4)      // 4 + 0*3
   })
 
-  it('should calculate level 2 stats correctly', () => {
+  it('should calculate level 2 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(2)
-    expect(stats.maxHp).toBe(650)  // (100 + 1*30) * 5
-    expect(stats.atk).toBe(10)     // 5 + 1*5
-    expect(stats.def).toBe(6)      // 3 + 1*3
-    expect(stats.spd).toBe(6)      // 3 + 1*3
+    expect(stats.maxHp).toBe(775)  // (120 + 1*35) * 5
+    expect(stats.atk).toBe(11)     // 6 + 1*5
+    expect(stats.def).toBe(7)      // 4 + 1*3
+    expect(stats.spd).toBe(7)      // 4 + 1*3
   })
 
-  it('should calculate level 5 stats correctly', () => {
+  it('should calculate level 5 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(5)
-    expect(stats.maxHp).toBe(1100) // (100 + 4*30) * 5
-    expect(stats.atk).toBe(25)     // 5 + 4*5
-    expect(stats.def).toBe(15)     // 3 + 4*3
-    expect(stats.spd).toBe(15)     // 3 + 4*3
+    expect(stats.maxHp).toBe(1300) // (120 + 4*35) * 5
+    expect(stats.atk).toBe(26)     // 6 + 4*5
+    expect(stats.def).toBe(16)     // 4 + 4*3
+    expect(stats.spd).toBe(16)     // 4 + 4*3
   })
 
-  it('should calculate level 10 stats correctly', () => {
+  it('should calculate level 10 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(10)
-    expect(stats.maxHp).toBe(1850) // (100 + 9*30) * 5
-    expect(stats.atk).toBe(50)     // 5 + 9*5
-    expect(stats.def).toBe(30)     // 3 + 9*3
-    expect(stats.spd).toBe(30)     // 3 + 9*3
+    expect(stats.maxHp).toBe(2175) // (120 + 9*35) * 5
+    expect(stats.atk).toBe(51)     // 6 + 9*5
+    expect(stats.def).toBe(31)     // 4 + 9*3
+    expect(stats.spd).toBe(31)     // 4 + 9*3
+  })
+
+  it('should use job-specific stats when jobClassId is provided', () => {
+    const mageStats = calcPlayerStats(1, 'mage')
+    expect(mageStats.maxHp).toBe(400)  // (80 + 0*20) * 5
+    expect(mageStats.atk).toBe(9)
+    expect(mageStats.def).toBe(1)
+
+    const tankStats = calcPlayerStats(1, 'tank')
+    expect(tankStats.maxHp).toBe(750)  // (150 + 0*45) * 5
+    expect(tankStats.atk).toBe(4)
+    expect(tankStats.def).toBe(7)
   })
 })
 
@@ -157,13 +169,13 @@ describe('getBattleRewards', () => {
   })
 })
 
-describe('allSkills', () => {
+describe('getAllSkills', () => {
   it('should include domain catalog skills', () => {
-    expect(allSkills.length).toBeGreaterThan(10)
+    expect(getAllSkills().length).toBeGreaterThan(10)
   })
 
   it('should include domain skill ids (carry bar has no defend pseudo-skill)', () => {
-    const ids = allSkills.map(s => s.id)
+    const ids = getAllSkills().map(s => s.id)
     expect(ids).not.toContain('defend')
     expect(ids).toContain('arcane_bolt')
     expect(ids).toContain('fireball')
@@ -171,7 +183,7 @@ describe('allSkills', () => {
   })
 
   it('should map cast skills to domain core skill ids', () => {
-    const fireball = allSkills.find(s => s.id === 'fireball')
+    const fireball = getAllSkills().find(s => s.id === 'fireball')
     expect(fireball?.action).toBe('cast_skill')
     expect(fireball?.coreSkillId).toBe('fireball')
     expect(typeof fireball?.cooldownTicks).toBe('number')

@@ -19,6 +19,7 @@ import type { DockPanelId, GameState, PVPUser } from '../hooks/useGameState'
 import { calcPlayerStats } from '../constants'
 import ChatPanel from './ChatPanel'
 import { isBattleSupabaseConfigured, useSupabaseOptional } from '@/src/lib/SupabaseContext'
+import { useAuth } from '@/src/lib/contexts/AuthContext'
 import { savePlayerSave } from '@/src/lib/db/player-saves'
 import { DATA_FLOW_TRACE_EVENT, getDataFlowTrace, pushDataFlowTrace, type DataFlowTraceItem } from '@/src/lib/debug/data-flow-trace'
 import { formatProfileSessionLabel, getProfileAuthViewState } from '@/src/lib/auth/profile-auth-view-state'
@@ -28,7 +29,7 @@ import { formatPasswordGrantAuthError } from '@/src/lib/auth/format-password-aut
 const CACHE_TTL_MS = 300 * 1000
 const PVP_CACHE_KEY = 'battle:pvp-users-cache'
 
-/** Cap sign-in / sign-up / first save so the CTA cannot stay on "Please wait…" forever if the network stalls. */
+/** Cap sign-in / sign-up so the CTA cannot stay on "Please wait…" forever if the network stalls. */
 const AUTH_SUBMIT_TIMEOUT_MS = 75_000
 
 /** Sign-out should not block the UI indefinitely if the auth endpoint hangs. */
@@ -175,19 +176,17 @@ function HistoryIcon({ battleType }: { battleType: 'pve' | 'pvp' }) {
 export default function DockFeatureModal({ game }: Props) {
   const { dockPanel, closeDockPanel, playerLevel, battleLog, login, logoutAccount, authUserId, accountLabel } = game
   const supabase = useSupabaseOptional()
+  const { isAuthenticated, isLoading: authSessionLoading, userProfile, signOut: authSignOut } = useAuth()
   const [loginAccount, setLoginAccount] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [authResolved, setAuthResolved] = useState(false)
+  const [authSubmitLoading, setAuthSubmitLoading] = useState(false)
+  const [signOutLoading, setSignOutLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
-  /** Incremented on submit timeout / outer failure so in-flight awaits cannot apply `login()` after abort. */
   const authSubmitGenerationRef = useRef(0)
-  /** Supabase user when logged in (email may be null for some OAuth accounts). */
-  const [profileSession, setProfileSession] = useState<{ email: string | null; id: string } | null>(null)
   const [dataFlowTrace, setDataFlowTrace] = useState<DataFlowTraceItem[]>([])
   const [pvpUsers, setPvpUsers] = useState<PVPUser[]>([])
   const [pvpLoading, setPvpLoading] = useState(false)
@@ -250,68 +249,11 @@ export default function DockFeatureModal({ game }: Props) {
     }
   }, [supabase])
 
-  const refreshSession = useCallback(async () => {
-    if (!supabase) {
-      setProfileSession(null)
-      setAuthResolved(true)
-      return
-    }
-    try {
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession()
-      if (error || !session?.user) {
-        setProfileSession(null)
-      } else {
-        const u = session.user
-        setProfileSession({ email: u.email ?? null, id: u.id })
-      }
-    } catch {
-      setProfileSession(null)
-    } finally {
-      setAuthResolved(true)
-    }
-  }, [supabase])
-
-  useEffect(() => {
-    if (supabase && authUserId) {
-      const label = (accountLabel ?? '').trim()
-      const looksLikeEmail = /@/.test(label)
-      setProfileSession({
-        id: authUserId,
-        email: looksLikeEmail ? label : null,
-      })
-      setAuthResolved(true)
-    } else if (!authUserId) {
-      setProfileSession(null)
-      setAuthResolved(true)
-    }
-    void refreshSession()
-  }, [supabase, authUserId, accountLabel, refreshSession])
-
-  // Leaving profile while a request is in flight would otherwise leave authLoading stuck true until remount.
   useEffect(() => {
     if (dockPanel !== 'character_login') {
-      setAuthLoading(false)
+      setAuthSubmitLoading(false)
     }
   }, [dockPanel])
-
-  useEffect(() => {
-    if (!supabase) return
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const u = session?.user
-      if (u) {
-        setProfileSession({ email: u.email ?? null, id: u.id })
-      } else {
-        setProfileSession(null)
-      }
-      setAuthResolved(true)
-    })
-    return () => subscription.unsubscribe()
-  }, [supabase])
 
   useEffect(() => {
     if (!dockPanel) return
@@ -333,9 +275,9 @@ export default function DockFeatureModal({ game }: Props) {
   useEffect(() => {
     if (dockPanel !== 'character_login') return
     if (!supabase) return
-    if (!profileSession) return
+    if (!isAuthenticated) return
     void refreshOpenclawHealth()
-  }, [dockPanel, refreshOpenclawHealth, profileSession, supabase])
+  }, [dockPanel, refreshOpenclawHealth, isAuthenticated, supabase])
 
   useEffect(() => {
     if (dockPanel !== 'battle_system') return
@@ -413,15 +355,24 @@ export default function DockFeatureModal({ game }: Props) {
   }, [dockPanel, supabase])
 
   const meta = useMemo(() => (dockPanel ? PANEL_META[dockPanel] : null), [dockPanel])
+
+  const profileSession = useMemo(() => {
+    if (!isAuthenticated) return null
+    const id = userProfile?.id ?? authUserId
+    if (!id) return null
+    const email = userProfile?.email ?? (accountLabel && /@/.test(accountLabel) ? accountLabel : null)
+    return { id, email }
+  }, [isAuthenticated, userProfile, authUserId, accountLabel])
+
   const profileAuthViewState = useMemo(
     () =>
       getProfileAuthViewState({
         supabaseConfigured: isBattleSupabaseConfigured(),
         hasSupabaseClient: Boolean(supabase),
-        authResolved,
+        authResolved: !authSessionLoading,
         session: profileSession,
       }),
-    [authResolved, profileSession, supabase],
+    [authSessionLoading, profileSession, supabase],
   )
   const [pvpSearchQuery, setPvpSearchQuery] = useState('')
 
@@ -644,16 +595,14 @@ export default function DockFeatureModal({ game }: Props) {
                       </p>
                       <button
                         type="button"
-                        disabled={authLoading}
+                        disabled={signOutLoading}
                         onClick={async () => {
                           setAuthError(null)
-                          setAuthLoading(true)
+                          setSignOutLoading(true)
                           try {
                             pushDataFlowTrace('auth.signOut', 'start')
-                            // Default `signOut()` uses global scope (revokes refresh token on the Auth server) and can
-                            // hang on slow/unreachable networks. Local scope clears the browser session immediately.
                             await withTimeout(
-                              supabase!.auth.signOut({ scope: 'local' }),
+                              authSignOut(),
                               AUTH_SIGNOUT_TIMEOUT_MS,
                               'Sign out timed out. Close the panel and try again, or refresh the page.',
                             )
@@ -662,10 +611,8 @@ export default function DockFeatureModal({ game }: Props) {
                             pushDataFlowTrace('auth.signOut', 'error', e instanceof Error ? e.message : 'Sign out failed')
                             setAuthError(e instanceof Error ? e.message : 'Sign out failed')
                           } finally {
-                            // Always clear local game + auth id, even if `signOut` hangs or throws — otherwise the UI stays "logged in".
                             logoutAccount()
-                            setProfileSession(null)
-                            setAuthLoading(false)
+                            setSignOutLoading(false)
                           }
                         }}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-[12px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
@@ -893,7 +840,7 @@ export default function DockFeatureModal({ game }: Props) {
 
                       <button
                         type="button"
-                        disabled={authLoading}
+                        disabled={authSubmitLoading}
                         onClick={async () => {
                           setAuthError(null)
                           const email = loginAccount.trim()
@@ -914,7 +861,9 @@ export default function DockFeatureModal({ game }: Props) {
                             setAuthError('Passwords do not match')
                             return
                           }
-                          setAuthLoading(true)
+                          if (!supabase) return
+
+                          setAuthSubmitLoading(true)
                           authSubmitGenerationRef.current += 1
                           const submitGen = authSubmitGenerationRef.current
                           const alive = () => authSubmitGenerationRef.current === submitGen
@@ -924,11 +873,11 @@ export default function DockFeatureModal({ game }: Props) {
                                 if (authMode === 'signup') {
                                   const characterName = defaultDisplayNameFromEmail(email)
                                   pushDataFlowTrace('auth.signUp', 'start')
-                                  const { error: signUpError } = await supabase!.auth.signUp({
+                                  const { error: signUpError } = await supabase.auth.signUp({
                                     email,
                                     password,
                                     options: {
-                                      data: { display_name: characterName },
+                                      data: { username: characterName, display_name: characterName },
                                     },
                                   })
                                   if (!alive()) return
@@ -939,17 +888,18 @@ export default function DockFeatureModal({ game }: Props) {
                                   }
                                   pushDataFlowTrace('auth.signUp', 'success')
 
-                                  const { data } = await supabase!.auth.getSession()
+                                  const { data } = await supabase.auth.getSession()
                                   if (!alive()) return
                                   const signUpUser = data.session?.user
                                   if (signUpUser) {
                                     login(signUpUser.email ?? signUpUser.id)
-                                    setProfileSession({ email: signUpUser.email ?? null, id: signUpUser.id })
                                     await savePlayerSave({ character_name: characterName })
                                   } else {
-                                    // Same as keco-studio: if the project returns no session after signUp, sign in with password.
                                     pushDataFlowTrace('auth.signInWithPassword', 'start', 'Retry after sign-up')
-                                    const { error: signInError } = await supabase!.auth.signInWithPassword({ email, password })
+                                    const { error: signInError } = await supabase.auth.signInWithPassword({
+                                      email,
+                                      password,
+                                    })
                                     if (!alive()) return
                                     if (signInError) {
                                       pushDataFlowTrace('auth.signInWithPassword', 'error', signInError.message)
@@ -957,18 +907,17 @@ export default function DockFeatureModal({ game }: Props) {
                                       return
                                     }
                                     pushDataFlowTrace('auth.signInWithPassword', 'success')
-                                    const { data: signedInData } = await supabase!.auth.getSession()
+                                    const { data: signedInData } = await supabase.auth.getSession()
                                     if (!alive()) return
                                     const retryUser = signedInData.session?.user
                                     if (retryUser) {
                                       login(retryUser.email ?? retryUser.id)
-                                      setProfileSession({ email: retryUser.email ?? null, id: retryUser.id })
                                       await savePlayerSave({ character_name: characterName })
                                     }
                                   }
                                 } else {
                                   pushDataFlowTrace('auth.signInWithPassword', 'start')
-                                  const { error } = await supabase!.auth.signInWithPassword({ email, password })
+                                  const { error } = await supabase.auth.signInWithPassword({ email, password })
                                   if (!alive()) return
                                   if (error) {
                                     pushDataFlowTrace('auth.signInWithPassword', 'error', error.message)
@@ -976,12 +925,11 @@ export default function DockFeatureModal({ game }: Props) {
                                     return
                                   }
                                   pushDataFlowTrace('auth.signInWithPassword', 'success')
-                                  const { data } = await supabase!.auth.getSession()
+                                  const { data } = await supabase.auth.getSession()
                                   if (!alive()) return
                                   const signedUser = data.session?.user
                                   if (signedUser) {
                                     login(signedUser.email ?? signedUser.id)
-                                    setProfileSession({ email: signedUser.email ?? null, id: signedUser.id })
                                   }
                                 }
                               })(),
@@ -995,15 +943,19 @@ export default function DockFeatureModal({ game }: Props) {
                             pushDataFlowTrace(
                               authMode === 'signup' ? 'auth.signUp' : 'auth.signInWithPassword',
                               'error',
-                              friendlyMessage
+                              friendlyMessage,
                             )
                           } finally {
-                            setAuthLoading(false)
+                            setAuthSubmitLoading(false)
                           }
                         }}
                         className="oc-arcade-btn oc-arcade-btn-cta w-full disabled:opacity-60"
                       >
-                        {authLoading ? 'Please wait…' : authMode === 'signup' ? 'Sign up and enter' : 'ENTER ARENA'}
+                        {authSubmitLoading
+                          ? 'Please wait…'
+                          : authMode === 'signup'
+                            ? 'Sign up and enter'
+                            : 'ENTER ARENA'}
                       </button>
                       <div className="mt-3 text-center">
                         <button

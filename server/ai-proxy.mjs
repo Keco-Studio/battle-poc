@@ -7,7 +7,7 @@ loadEnvFromFile(resolve(process.cwd(), 'server/.env'));
 setupProxyDispatcher();
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
-const ALLOWED_ORIGIN = process.env.AI_PROXY_ALLOWED_ORIGIN || 'http://localhost:3000';
+const ALLOWED_ORIGIN = process.env.AI_PROXY_ALLOWED_ORIGIN || 'http://localhost:3002';
 /** Default upstream for chat + battle when request body does not specify `provider`. */
 const AI_LLM_PROVIDER = String(process.env.AI_LLM_PROVIDER || 'deepseek').trim().toLowerCase();
 const DEEPSEEK_API_KEY = String(process.env.DEEPSEEK_API_KEY || '').trim();

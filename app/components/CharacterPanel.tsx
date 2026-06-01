@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { X, User, Swords, Shield, Heart, Zap, Sparkles } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
-import { EquipmentType, equipmentTypes, expForLevel } from '../constants'
+import { EquipmentType, equipmentTypes, expForLevel, JOB_DISPLAY_NAMES } from '../constants'
 
 interface Props {
   game: GameState
@@ -48,7 +48,7 @@ export default function CharacterPanel({ game }: Props) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">Profile</div>
             <div className="truncate text-[11px] text-slate-500">
-              Lv.{playerLevel} Warrior
+              Lv.{playerLevel} {JOB_DISPLAY_NAMES[game.jobClassId] ?? 'Warrior'}
             </div>
           </div>
           <button
@@ -71,7 +71,7 @@ export default function CharacterPanel({ game }: Props) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 flex items-center justify-between text-[12px] font-bold text-slate-700">
-                  <span>Lv.{playerLevel} Warrior</span>
+                  <span>Lv.{playerLevel} {JOB_DISPLAY_NAMES[game.jobClassId] ?? 'Warrior'}</span>
                   <span className="text-slate-400">{playerExp}/{nextLevelExp}</span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">

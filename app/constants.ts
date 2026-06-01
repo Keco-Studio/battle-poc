@@ -2,7 +2,9 @@ import {
   getAllBattleSkillDefinitions,
   getRoleSkillLoadout,
 } from '../src/battle-core/content/skills/basic-skill-catalog'
-import type { BattleSkillDefinition } from '../src/battle-core/domain/types/skill-types'
+import {
+  buildSkillFromDefinition,
+} from '../src/lib/skills/pocSkillUi'
 
 // Equipment types
 export type EquipmentType = 'weapon' | 'ring' | 'armor' | 'shoes'
@@ -47,59 +49,7 @@ export const BASIC_ATTACK: Skill = {
   cooldownTicks: 0,
 }
 
-const MAP_BATTLE_TICK_MS = 115
-
-export function cooldownMsFromTicks(cooldownTicks: number): number {
-  return Math.max(0, cooldownTicks) * MAP_BATTLE_TICK_MS
-}
-
-function categoryToType(def: BattleSkillDefinition): SkillType {
-  switch (def.category) {
-    case 'control':
-      return 'control'
-    case 'utility':
-      return 'utility'
-    case 'mobility':
-      return 'mobility'
-    case 'sustain':
-      return 'sustain'
-    default:
-      return 'damage'
-  }
-}
-
-function iconForCategory(def: BattleSkillDefinition): string {
-  switch (def.category) {
-    case 'control':
-      return '❄️'
-    case 'utility':
-      return '🧩'
-    case 'mobility':
-      return '💨'
-    case 'sustain':
-      return '🌀'
-    default:
-      return '💥'
-  }
-}
-
-function buildSkillFromDefinition(def: BattleSkillDefinition): Skill {
-  return {
-    id: def.id,
-    action: 'cast_skill',
-    coreSkillId: def.id,
-    name: def.name,
-    icon: iconForCategory(def),
-    unlockLevel: 1,
-    type: categoryToType(def),
-    multiplier: def.ratio,
-    desc: `${def.description ?? 'domain skill'}（MP ${def.mpCost} / Range ${def.range} / CD ${def.cooldownTicks}t）`,
-    mpCost: def.mpCost,
-    range: def.range,
-    cooldownTicks: def.cooldownTicks,
-    cooldownMs: cooldownMsFromTicks(def.cooldownTicks),
-  }
-}
+export { cooldownMsFromTicks } from '../src/lib/skills/pocSkillUi'
 
 // Equipment data
 export interface EquipmentInfo {
@@ -159,24 +109,48 @@ export const INTERACTION_RANGE = 2.5
 // Collision detection resolution
 export const COLLISION_SCALE = 2
 
-// Skill data (carry bar: cast-only entries from battle-core catalog)
-export const allSkills: Skill[] = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
+// Skill data (carry bar: cast-only entries from active skill module)
+const _allSkills: Skill[] = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
+
+function replaceAllSkillsInPlace(skills: Skill[]): void {
+  _allSkills.length = 0
+  _allSkills.push(...skills)
+}
+
+export function setAllSkills(skills: Skill[]): void {
+  replaceAllSkillsInPlace(skills)
+}
+
+export function getAllSkills(): Skill[] {
+  return _allSkills
+}
+
+/** @deprecated Prefer getAllSkills() — same array reference, updated in place */
+export const allSkills: Skill[] = _allSkills
+
+export function refreshAllSkillsFromCatalog(): Skill[] {
+  const next = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
+  replaceAllSkillsInPlace(next)
+  return next
+}
 
 export function getSkillById(id: string): Skill | undefined {
   if (id === BASIC_ATTACK.id) return BASIC_ATTACK
-  return allSkills.find(s => s.id === id)
+  return getAllSkills().find(s => s.id === id)
 }
 
 export function getDefaultCarriedSkillIds(role: string = 'hero', maxCount = 6): string[] {
   const loadout = getRoleSkillLoadout(role)
-  const valid = loadout.filter((id) => allSkills.some((s) => s.id === id))
+  const skills = getAllSkills()
+  const valid = loadout.filter((id) => skills.some((s) => s.id === id))
   const dedup = Array.from(new Set(valid))
   return dedup.slice(0, Math.max(1, maxCount))
 }
 
 /** Strips unknown ids, dedupes, caps at 6; falls back to role default when empty. */
-export function sanitizeCarriedSkillIds(ids: string[], role: string = 'archer'): string[] {
-  const validIds = new Set(allSkills.map((s) => s.id))
+export function sanitizeCarriedSkillIds(ids: string[], role: string = 'hero'): string[] {
+  const skills = getAllSkills()
+  const validIds = new Set(skills.map((s) => s.id))
   const cleaned = Array.from(
     new Set(
       ids
@@ -196,7 +170,54 @@ export const equipmentTypes: Record<EquipmentType, EquipmentInfo> = {
   shoes: { name: 'Shoes', icon: '👟', stat: 'spd', bonus: 1 },
 }
 
-// Player level/stat calculation
+// ─────────────────────────────────────────────
+// Job / Class system
+// ─────────────────────────────────────────────
+export type JobClassId = 'hero' | 'tank' | 'archer' | 'mage' | 'healer' | 'assassin'
+export const JOB_CLASS_IDS: JobClassId[] = ['hero', 'tank', 'archer', 'mage', 'healer', 'assassin']
+
+export const JOB_DISPLAY_NAMES: Record<JobClassId, string> = {
+  hero: 'Warrior',
+  tank: 'Tank',
+  archer: 'Archer',
+  mage: 'Mage',
+  healer: 'Healer',
+  assassin: 'Assassin',
+}
+
+export const JOB_DESCRIPTIONS: Record<JobClassId, string> = {
+  hero: 'Balanced frontline. Balances damage and control, maintains pressure rhythm.',
+  tank: 'Heavy armor frontline. Absorbs damage to protect allies, disrupts enemy rhythm.',
+  archer: 'Ranged physical DPS. Maintains safe distance for sustained pressure, kites enemies.',
+  mage: 'Ranged magic DPS. Uses control to open combo windows, follows freeze with shatter.',
+  healer: 'Team support. Prioritizes keeping allies alive, uses debuffs and cleanse.',
+  assassin: 'Melee assassin. Uses displacement to flank and dive, executes low-HP targets.',
+}
+
+export const JOB_PREFERRED_RANGE: Record<JobClassId, 'melee' | 'mid' | 'ranged'> = {
+  hero: 'melee',
+  tank: 'melee',
+  archer: 'ranged',
+  mage: 'ranged',
+  healer: 'mid',
+  assassin: 'melee',
+}
+
+/** Role-specific base & growth stats, aligned with DB seed (job_classes table). */
+export const ROLE_STATS: Record<JobClassId, {
+  baseHp: number; baseAtk: number; baseDef: number; baseSpd: number
+  growthHp: number; growthAtk: number; growthDef: number; growthSpd: number
+  hpMult: number
+}> = {
+  hero:     { baseHp: 120, baseAtk: 6,  baseDef: 4, baseSpd: 4, growthHp: 35, growthAtk: 5, growthDef: 3, growthSpd: 3, hpMult: 5 },
+  tank:     { baseHp: 150, baseAtk: 4,  baseDef: 7, baseSpd: 2, growthHp: 45, growthAtk: 3, growthDef: 5, growthSpd: 1, hpMult: 5 },
+  archer:   { baseHp: 90,  baseAtk: 7,  baseDef: 2, baseSpd: 6, growthHp: 25, growthAtk: 6, growthDef: 2, growthSpd: 4, hpMult: 5 },
+  mage:     { baseHp: 80,  baseAtk: 9,  baseDef: 1, baseSpd: 4, growthHp: 20, growthAtk: 7, growthDef: 1, growthSpd: 3, hpMult: 5 },
+  healer:   { baseHp: 100, baseAtk: 4,  baseDef: 4, baseSpd: 5, growthHp: 28, growthAtk: 3, growthDef: 3, growthSpd: 3, hpMult: 5 },
+  assassin: { baseHp: 85,  baseAtk: 10, baseDef: 2, baseSpd: 8, growthHp: 22, growthAtk: 8, growthDef: 2, growthSpd: 5, hpMult: 5 },
+}
+
+// Player level/stat calculation (legacy flat constants kept for reference)
 export const BASE_STATS = { hp: 100, atk: 5, def: 3, spd: 3 }
 export const LEVEL_UP = { hp: 30, atk: 5, def: 3, spd: 3 }
 export const HP_MULTIPLIER = 5
@@ -205,12 +226,15 @@ export const HP_MULTIPLIER = 5
 export const ENEMY_BASE_STATS = { hp: 120, atk: 6, def: 3, spd: 3 }
 export const ENEMY_LEVEL_UP = { hp: 36, atk: 6, def: 3, spd: 3 }
 
-export const calcPlayerStats = (level: number) => ({
-  maxHp: (BASE_STATS.hp + (level - 1) * LEVEL_UP.hp) * HP_MULTIPLIER,
-  atk: BASE_STATS.atk + (level - 1) * LEVEL_UP.atk,
-  def: BASE_STATS.def + (level - 1) * LEVEL_UP.def,
-  spd: BASE_STATS.spd + (level - 1) * LEVEL_UP.spd,
-})
+export function calcPlayerStats(level: number, jobClassId: JobClassId = 'hero') {
+  const s = ROLE_STATS[jobClassId] ?? ROLE_STATS.hero
+  return {
+    maxHp: (s.baseHp + (level - 1) * s.growthHp) * s.hpMult,
+    atk: s.baseAtk + (level - 1) * s.growthAtk,
+    def: s.baseDef + (level - 1) * s.growthDef,
+    spd: s.baseSpd + (level - 1) * s.growthSpd,
+  }
+}
 
 export const BASIC_DAMAGE_MULTIPLIER = 1.24
 export const SKILL_DAMAGE_MULTIPLIER = 1.82

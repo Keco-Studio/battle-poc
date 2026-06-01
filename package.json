@@ -3,22 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "dev:ai": "NODE_USE_ENV_PROXY=1 node server/ai-proxy.mjs",
     "dev:openclaw-service": "node server/openclaw-chat-bridge.mjs",
     "dev:openclaw-bridge": "npm run dev:openclaw-service",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3002",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "generate:demo-tileset": "node scripts/generate-dungeon-tileset-from-sprite.mjs",
     "generate:bt-eval-docx": "node scripts/generate-behavior-tree-llm-eval-docx.mjs",
-    "eval:bt-online": "vitest run tests/behavior-tree-llm-online-eval.test.ts --reporter=verbose"
+    "eval:bt-online": "BT_EVAL_PROXY_URL=http://127.0.0.1:8787 BT_EVAL_PROVIDER=minimax vitest run tests/behavior-tree-llm-online-eval.test.ts --reporter=verbose"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",
+    "@tanstack/react-query": "^5.100.14",
     "lucide-react": "^1.8.0",
     "next": "15.1.9",
     "phaser": "^3.80.1",

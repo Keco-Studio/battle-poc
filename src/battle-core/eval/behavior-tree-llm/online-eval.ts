@@ -11,17 +11,17 @@ type EvalSuite = 'patch' | 'initial_tree'
 type EvalDimension = 'format' | 'schema_contract' | 'runtime_apply' | 'inventory' | 'effective'
 
 type EvalRunResult = {
-  passByDimension: Record<EvalDimension, boolean>
-  hardPass: boolean
+  passByDimension: Record<EvalDimension, boolean> /*dimensions passed?*/
+  hardPass: boolean /*if the five dimensions are all passed*/
   note?: string
 }
 
 type EvalCaseResult = {
   id: string
-  suite: EvalSuite
-  runs: number
-  hardPassRate: number
-  passRateByDimension: Record<EvalDimension, number>
+  suite: EvalSuite /*which dimension*/
+  runs: number   /*how many times to run*/
+  hardPassRate: number /*passed / all */
+  passRateByDimension: Record<EvalDimension, number>/*how many times passed in each dimension*/
   failures: string[]
 }
 
@@ -113,6 +113,7 @@ function makeContext(): { context: LlmDecisionContext; actor: BattleEntity; targ
   }
 }
 
+/*to test whether the llm can fix it*/
 function buildBadPatchTree(): BehaviorTreeState {
   return {
     treeId: 'bt_eval_bad_patch',
@@ -127,6 +128,7 @@ function buildBadPatchTree(): BehaviorTreeState {
           type: 'sequence',
           children: [
             {
+              /*hp percentage of the actor > 0.2 but retreat*/
               id: 'retreat_hp_gate',
               type: 'condition',
               metric: 'hp_ratio',
@@ -165,6 +167,7 @@ function buildBadPatchTree(): BehaviorTreeState {
   }
 }
 
+/*to test whether the llm can build a new tree*/
 function buildBadInitialSeed(): BehaviorTreeState {
   return {
     treeId: 'bt_eval_bad_seed',
@@ -184,6 +187,7 @@ function buildBadInitialSeed(): BehaviorTreeState {
   }
 }
 
+
 function collectActionNodes(root: BehaviorTreeNode): Array<{ action: string; skillId?: string; moveStep?: number }> {
   if (root.type === 'action') {
     return [{ action: root.action, skillId: root.skillId, moveStep: root.moveStep }]
@@ -192,6 +196,7 @@ function collectActionNodes(root: BehaviorTreeNode): Array<{ action: string; ski
   return root.children.flatMap((child) => collectActionNodes(child))
 }
 
+/*to calculate the rate of the pass*/
 function safeRate(hit: number, total: number): number {
   return total <= 0 ? 0 : Number((hit / total).toFixed(3))
 }
@@ -213,6 +218,7 @@ function isInventoryValid(tree: BehaviorTreeState, allowSkills: Set<string>): bo
   return true
 }
 
+/*to rebuild the tree*/
 async function runPatchCase(engine: AutoDecisionEngine, runs: number): Promise<EvalCaseResult> {
   const dimKeys: EvalDimension[] = ['format', 'schema_contract', 'runtime_apply', 'inventory', 'effective']
   const dimHits: Record<EvalDimension, number> = {
@@ -234,6 +240,8 @@ async function runPatchCase(engine: AutoDecisionEngine, runs: number): Promise<E
       target: context.target,
       tree,
     })
+
+    /*get answer from llm*/
     const llm = await engine.requestBehaviorTreePatch({ context, tree })
     const parsedPatch = llm.patch
     const format = llm.source === 'remote_llm' && !llm.error
@@ -298,6 +306,7 @@ async function runPatchCase(engine: AutoDecisionEngine, runs: number): Promise<E
   }
 }
 
+/*to build a new tree*/
 async function runInitialCase(engine: AutoDecisionEngine, runs: number): Promise<EvalCaseResult> {
   const dimKeys: EvalDimension[] = ['format', 'schema_contract', 'runtime_apply', 'inventory', 'effective']
   const dimHits: Record<EvalDimension, number> = {
@@ -368,7 +377,7 @@ async function runInitialCase(engine: AutoDecisionEngine, runs: number): Promise
       inventory: safeRate(dimHits.inventory, runs),
       effective: safeRate(dimHits.effective, runs),
     },
-    failures: failures.slice(0, 3),
+    failures: failures.slice(0, 3),/*error message*/
   }
 }
 
@@ -410,6 +419,7 @@ export function createOnlineEvalEngineConfigFromEnv(env: NodeJS.ProcessEnv): Llm
 export async function runBehaviorTreeOnlineEvalSuite(input: {
   llmConfig: LlmProviderConfig
   runs?: number
+  logToConsole?: boolean
 }): Promise<OnlineEvalReport> {
   const runs = Math.max(1, Math.floor(input.runs ?? 3))
   const engine = new AutoDecisionEngine(input.llmConfig)
@@ -422,7 +432,7 @@ export async function runBehaviorTreeOnlineEvalSuite(input: {
     initial_tree: safeRate(cases.filter((item) => item.suite === 'initial_tree').reduce((sum, item) => sum + item.hardPassRate, 0), 1),
   }
 
-  return {
+  const report: OnlineEvalReport = {
     meta: {
       provider: input.llmConfig.provider,
       model: input.llmConfig.model || 'default',
@@ -434,6 +444,12 @@ export async function runBehaviorTreeOnlineEvalSuite(input: {
       bySuite,
     },
   }
+
+  if (input.logToConsole !== false) {
+    console.log(formatBehaviorTreeOnlineEvalReport(report))
+  }
+
+  return report
 }
 
 export function formatBehaviorTreeOnlineEvalReport(report: OnlineEvalReport): string {
@@ -459,6 +475,7 @@ export function formatBehaviorTreeOnlineEvalReport(report: OnlineEvalReport): st
   return lines.join('\n')
 }
 
+/*a reserved api*/
 export function buildSeedTreeForFutureCases(actorId: string): BehaviorTreeState {
   return createInitialBehaviorTree({ actorId, currentTick: 0 })
 }

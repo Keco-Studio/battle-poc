@@ -7,7 +7,7 @@ import {
   calcEnemyStats,
   createEnemyEncounter,
   expForLevel,
-  allSkills,
+  getAllSkills,
   equipmentTypes,
   initialEnemies,
   PLAYER_START,
@@ -15,7 +15,10 @@ import {
   getBattleRewards,
   getDefaultCarriedSkillIds,
   sanitizeCarriedSkillIds,
+  JOB_DISPLAY_NAMES,
 } from '../constants'
+import { POC_SKILLS_UPDATED_EVENT } from '@/src/lib/skills/pocSkillModulesStorage'
+import type { JobClassId } from '../constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { loadPlayerSave, savePlayerSave, recordBattle, fetchBattleHistory } from '@/src/lib/db'
 import type { BattleHistoryRow, PlayerSaveRow } from '@/src/lib/db'
@@ -118,11 +121,13 @@ interface SavedState {
   inventory: InventoryItem[]
   playerPos: { x: number; y: number }
   carriedSkillIds?: string[]
+  jobClassId?: string
 }
 
 const STORAGE_KEY = 'battle-game-save'
 const CHAT_STORAGE_KEY = 'battle-chat-messages'
-/** Dock PVP list cache (must clear on sign-out so guests do not see the previous account’s roster). */
+const JOB_SELECTED_KEY = 'battle-job-selected'
+/** Dock PVP list cache (must clear on sign-out so guests do not see the previous account's roster). */
 const PVP_PLAYERS_CACHE_KEY = 'battle:pvp-users-cache'
 
 function loadSavedState(): SavedState | null {
@@ -177,6 +182,7 @@ function clearSharedBrowserGamePersistence(): void {
     window.localStorage.removeItem(SYSTEM_CHAT_THREADS_STORAGE_KEY)
     window.localStorage.removeItem(ENEMY_CHAT_THREADS_STORAGE_KEY)
     window.localStorage.removeItem(PVP_PLAYERS_CACHE_KEY)
+    window.localStorage.removeItem(JOB_SELECTED_KEY)
     clearLongTermBtPersisted()
   } catch (e) {
     console.warn('Failed to clear browser game persistence:', e)
@@ -226,7 +232,7 @@ const DEFAULT_GEAR: Record<EquipmentType, EquippedItem | null> = {
 
 /** Guest snapshot written to `localStorage` immediately on sign-out to avoid a race with the auto-save effect. */
 function guestSavedStatePayload(): SavedState {
-  const maxHp = calcPlayerStats(1).maxHp
+  const maxHp = calcPlayerStats(1, 'hero').maxHp
   return {
     playerLevel: 1,
     playerExp: 0,
@@ -235,7 +241,8 @@ function guestSavedStatePayload(): SavedState {
     equippedGear: { ...DEFAULT_GEAR },
     inventory: [],
     playerPos: { ...PLAYER_START },
-    carriedSkillIds: getDefaultCarriedSkillIds('archer', 6),
+    carriedSkillIds: getDefaultCarriedSkillIds('hero', 6),
+    jobClassId: 'hero',
   }
 }
 
@@ -339,17 +346,23 @@ export function useGameState() {
   const [skillCooldownEndAt, setSkillCooldownEndAt] = useState<Record<string, number>>({})
   const [gainedExp, setGainedExp] = useState(0)
   const [gainedGold, setGainedGold] = useState(0)
-  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('archer', 6))
+  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('hero', 6))
+
+  /** Current job class id */
+  const [jobClassId, setJobClassId] = useState<JobClassId>('hero')
+
+  /** Whether to show the job selection modal */
+  const [showJobSelect, setShowJobSelect] = useState(false)
 
   /** Automation task state */
   const [automationTask, setAutomationTask] = useState<AutomationMode | null>(null)
 
   // Base stats
-  const playerStats = calcPlayerStats(playerLevel)
+  const playerStats = calcPlayerStats(playerLevel, jobClassId)
 
   // Stats after equipment bonus
   const getTotalStats = useCallback((): TotalStats => {
-    const base = calcPlayerStats(playerLevel)
+    const base = calcPlayerStats(playerLevel, jobClassId)
     let atkBonus = 0, defBonus = 0, spdBonus = 0, maxHpBonus = 0
     if (equippedGear.weapon) atkBonus = playerLevel * equipmentTypes.weapon.bonus
     if (equippedGear.ring) maxHpBonus = playerLevel * equipmentTypes.ring.bonus
@@ -361,7 +374,7 @@ export function useGameState() {
       def: base.def + defBonus,
       spd: base.spd + spdBonus,
     }
-  }, [playerLevel, equippedGear])
+  }, [playerLevel, equippedGear, jobClassId])
 
   const totalStats = getTotalStats()
 
@@ -371,14 +384,20 @@ export function useGameState() {
    */
   const applyLocalPlayerSaveOrDefaults = useCallback((saved: SavedState | null) => {
     if (saved) {
+      // Existing save → suppress job select modal for returning players
+      if (typeof window !== 'undefined') {
+        try { window.localStorage.setItem(JOB_SELECTED_KEY, '1') } catch { /* ignore */ }
+      }
       const lv = saved.playerLevel ?? 1
+      const job = (saved.jobClassId ?? 'hero') as JobClassId
       setPlayerLevel(lv)
       setPlayerExp(saved.playerExp ?? 0)
       setPlayerGold(saved.playerGold ?? 0)
       setEquippedGear(saved.equippedGear ?? { ...DEFAULT_GEAR })
       setInventory(Array.isArray(saved.inventory) ? saved.inventory : [])
       setPlayerPos(saved.playerPos ?? { ...PLAYER_START })
-      const maxForLevel = calcPlayerStats(lv).maxHp
+      setJobClassId(job)
+      const maxForLevel = calcPlayerStats(lv, job).maxHp
       const ringBonus = saved.equippedGear?.ring ? lv * equipmentTypes.ring.bonus : 0
       const maxHp = maxForLevel + ringBonus
       const hp = typeof saved.playerHP === 'number' ? saved.playerHP : maxHp
@@ -387,8 +406,8 @@ export function useGameState() {
       setPlayerMaxMp(maxMp)
       setPlayerMP(maxMp)
       const savedCarry = Array.isArray(saved.carriedSkillIds)
-        ? sanitizeCarriedSkillIds(saved.carriedSkillIds, 'archer')
-        : getDefaultCarriedSkillIds('archer', 6)
+        ? sanitizeCarriedSkillIds(saved.carriedSkillIds, job)
+        : getDefaultCarriedSkillIds(job, 6)
       setCarriedSkillIds(savedCarry)
       return
     }
@@ -398,12 +417,13 @@ export function useGameState() {
     setEquippedGear({ ...DEFAULT_GEAR })
     setInventory([])
     setPlayerPos({ ...PLAYER_START })
-    const maxHp = calcPlayerStats(1).maxHp
+    setJobClassId('hero')
+    const maxHp = calcPlayerStats(1, 'hero').maxHp
     const maxMp = Math.floor(maxHp / 2)
     setPlayerHP(maxHp)
     setPlayerMaxMp(maxMp)
     setPlayerMP(maxMp)
-    setCarriedSkillIds(getDefaultCarriedSkillIds('archer', 6))
+    setCarriedSkillIds(getDefaultCarriedSkillIds('hero', 6))
     setEnemies([...initialEnemies])
   }, [])
 
@@ -430,9 +450,20 @@ export function useGameState() {
     setChatMessages(loadChatMessages())
   }, [])
 
+  // Show job select modal for new characters (no existing save)
+  useEffect(() => {
+    if (!storageHydrated || !dbHydrated) return
+    const hasSelected = typeof window !== 'undefined'
+      && window.localStorage.getItem(JOB_SELECTED_KEY) === '1'
+    if (!hasSelected) {
+      setShowJobSelect(true)
+    }
+  }, [storageHydrated, dbHydrated])
+
   // Apply a DB save row to local state — used on login and initial auth check
   const applyDbSave = useCallback((save: PlayerSaveRow) => {
     const lv = save.level ?? 1
+    const job = (save.job_class_id ?? 'hero') as JobClassId
     setPlayerLevel(lv)
     setPlayerExp(save.exp ?? 0)
     setPlayerGold(save.gold ?? 0)
@@ -445,7 +476,8 @@ export function useGameState() {
     setEquippedGear(gear)
     setInventory(Array.isArray(save.inventory) ? (save.inventory as InventoryItem[]) : [])
     setPlayerPos({ x: save.pos_x, y: save.pos_y })
-    const maxHp = calcPlayerStats(lv).maxHp + (gear.ring ? lv * equipmentTypes.ring.bonus : 0)
+    setJobClassId(job)
+    const maxHp = calcPlayerStats(lv, job).maxHp + (gear.ring ? lv * equipmentTypes.ring.bonus : 0)
     const hp = save.current_hp ?? maxHp
     setPlayerHP(Math.min(Math.max(0, hp), maxHp))
     const maxMp = Math.floor(maxHp / 2)
@@ -453,8 +485,8 @@ export function useGameState() {
     setPlayerMP(maxMp)
     const carried =
       Array.isArray(save.carried_skill_ids) && save.carried_skill_ids.length > 0
-        ? sanitizeCarriedSkillIds(save.carried_skill_ids as string[], 'archer')
-        : getDefaultCarriedSkillIds('archer', 6)
+        ? sanitizeCarriedSkillIds(save.carried_skill_ids as string[], job)
+        : getDefaultCarriedSkillIds(job, 6)
     setCarriedSkillIds(carried)
   }, [])
 
@@ -568,6 +600,7 @@ export function useGameState() {
       inventory,
       playerPos,
       carriedSkillIds,
+      jobClassId,
     })
 
     if (!authedUserId || !dbHydrated) return
@@ -584,6 +617,7 @@ export function useGameState() {
       equipped_shoes:    equippedGear.shoes,
       inventory,
       carried_skill_ids: carriedSkillIds,
+      job_class_id:      jobClassId,
     }).catch(e => console.warn('DB auto-save failed:', e))
   }, [
     storageHydrated,
@@ -597,6 +631,7 @@ export function useGameState() {
     inventory,
     playerPos,
     carriedSkillIds,
+    jobClassId,
   ])
 
   useEffect(() => {
@@ -610,7 +645,7 @@ export function useGameState() {
 
   // Get unlocked skills
   const getAvailableSkills = useCallback(() => {
-    const unlocked = allSkills.filter(s => s.unlockLevel <= playerLevel)
+    const unlocked = getAllSkills().filter(s => s.unlockLevel <= playerLevel)
     const carried = carriedSkillIds
       .map((id) => unlocked.find((s) => s.id === id))
       .filter((s): s is NonNullable<typeof s> => !!s)
@@ -618,8 +653,17 @@ export function useGameState() {
   }, [playerLevel, carriedSkillIds])
 
   const updateCarriedSkillIds = useCallback((ids: string[]) => {
-    setCarriedSkillIds(sanitizeCarriedSkillIds(ids, 'archer'))
-  }, [])
+    setCarriedSkillIds(sanitizeCarriedSkillIds(ids, jobClassId))
+  }, [jobClassId])
+
+  // Re-validate equipped skills when the active skill module changes.
+  useEffect(() => {
+    const onSkillsUpdated = () => {
+      setCarriedSkillIds((prev) => sanitizeCarriedSkillIds(prev, jobClassId))
+    }
+    window.addEventListener(POC_SKILLS_UPDATED_EVENT, onSkillsUpdated)
+    return () => window.removeEventListener(POC_SKILLS_UPDATED_EVENT, onSkillsUpdated)
+  }, [jobClassId])
 
   // Level up handling
   const tryLevelUp = useCallback((exp: number) => {
@@ -633,7 +677,7 @@ export function useGameState() {
 
     if (newLevel > playerLevel) {
       setPlayerLevel(newLevel)
-      const stats = calcPlayerStats(newLevel)
+      const stats = calcPlayerStats(newLevel, jobClassId)
       setPlayerHP(stats.maxHp)
       const nextMaxMp = Math.floor(stats.maxHp / 2)
       setPlayerMaxMp(nextMaxMp)
@@ -703,7 +747,7 @@ export function useGameState() {
   const startPVPBattle = useCallback(
     (opponent: PVPUser) => {
       const user = opponent
-      const stats = calcPlayerStats(user.level)
+      const stats = calcPlayerStats(user.level, 'hero')
       if (enemies.length === 0) {
         setEnemies([...initialEnemies])
       }
@@ -1048,6 +1092,39 @@ export function useGameState() {
     setAutomationTask(null)
   }, [])
 
+  /** Switch to a new job class: reset skills, recalc stats, full heal */
+  const switchJob = useCallback((newJob: JobClassId) => {
+    setJobClassId(newJob)
+    const defaultSkills = getDefaultCarriedSkillIds(newJob, 6)
+    setCarriedSkillIds(defaultSkills)
+    const newStats = calcPlayerStats(playerLevel, newJob)
+    setPlayerHP(newStats.maxHp)
+    const nextMaxMp = Math.floor(newStats.maxHp / 2)
+    setPlayerMaxMp(nextMaxMp)
+    setPlayerMP(nextMaxMp)
+    // Persist immediately
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = loadSavedState()
+        saveState({
+          playerLevel: saved?.playerLevel ?? playerLevel,
+          playerExp: saved?.playerExp ?? playerExp,
+          playerGold: saved?.playerGold ?? playerGold,
+          playerHP: newStats.maxHp,
+          equippedGear: saved?.equippedGear ?? equippedGear,
+          inventory: saved?.inventory ?? inventory,
+          playerPos: saved?.playerPos ?? playerPos,
+          carriedSkillIds: defaultSkills,
+          jobClassId: newJob,
+        })
+      } catch { /* ignore */ }
+    }
+    if (typeof window !== 'undefined') {
+      try { window.localStorage.setItem(JOB_SELECTED_KEY, '1') } catch { /* ignore */ }
+    }
+    setShowJobSelect(false)
+  }, [playerLevel, playerExp, playerGold, equippedGear, inventory, playerPos])
+
   // Free heal to full HP
   const healWithGold = useCallback(() => {
     if (playerHP < totalStats.maxHp) {
@@ -1071,6 +1148,11 @@ export function useGameState() {
     setPlayerMaxMp,
     playerStats,
     totalStats,
+    jobClassId,
+    setJobClassId,
+    showJobSelect,
+    setShowJobSelect,
+    switchJob,
     fleeSuccessMessage,
     dismissFleeSuccessMessage,
     battleGridAnchor,
