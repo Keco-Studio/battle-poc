@@ -7,7 +7,7 @@ import {
   calcEnemyStats,
   createEnemyEncounter,
   expForLevel,
-  allSkills,
+  getAllSkills,
   equipmentTypes,
   initialEnemies,
   PLAYER_START,
@@ -17,6 +17,7 @@ import {
   sanitizeCarriedSkillIds,
   JOB_DISPLAY_NAMES,
 } from '../constants'
+import { POC_SKILLS_UPDATED_EVENT } from '@/src/lib/skills/pocSkillModulesStorage'
 import type { JobClassId } from '../constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { loadPlayerSave, savePlayerSave, recordBattle, fetchBattleHistory } from '@/src/lib/db'
@@ -644,7 +645,7 @@ export function useGameState() {
 
   // Get unlocked skills
   const getAvailableSkills = useCallback(() => {
-    const unlocked = allSkills.filter(s => s.unlockLevel <= playerLevel)
+    const unlocked = getAllSkills().filter(s => s.unlockLevel <= playerLevel)
     const carried = carriedSkillIds
       .map((id) => unlocked.find((s) => s.id === id))
       .filter((s): s is NonNullable<typeof s> => !!s)
@@ -653,6 +654,15 @@ export function useGameState() {
 
   const updateCarriedSkillIds = useCallback((ids: string[]) => {
     setCarriedSkillIds(sanitizeCarriedSkillIds(ids, jobClassId))
+  }, [jobClassId])
+
+  // Re-validate equipped skills when the active skill module changes.
+  useEffect(() => {
+    const onSkillsUpdated = () => {
+      setCarriedSkillIds((prev) => sanitizeCarriedSkillIds(prev, jobClassId))
+    }
+    window.addEventListener(POC_SKILLS_UPDATED_EVENT, onSkillsUpdated)
+    return () => window.removeEventListener(POC_SKILLS_UPDATED_EVENT, onSkillsUpdated)
   }, [jobClassId])
 
   // Level up handling

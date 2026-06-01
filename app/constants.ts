@@ -2,7 +2,9 @@ import {
   getAllBattleSkillDefinitions,
   getRoleSkillLoadout,
 } from '../src/battle-core/content/skills/basic-skill-catalog'
-import type { BattleSkillDefinition } from '../src/battle-core/domain/types/skill-types'
+import {
+  buildSkillFromDefinition,
+} from '../src/lib/skills/pocSkillUi'
 
 // Equipment types
 export type EquipmentType = 'weapon' | 'ring' | 'armor' | 'shoes'
@@ -47,59 +49,7 @@ export const BASIC_ATTACK: Skill = {
   cooldownTicks: 0,
 }
 
-const MAP_BATTLE_TICK_MS = 115
-
-export function cooldownMsFromTicks(cooldownTicks: number): number {
-  return Math.max(0, cooldownTicks) * MAP_BATTLE_TICK_MS
-}
-
-function categoryToType(def: BattleSkillDefinition): SkillType {
-  switch (def.category) {
-    case 'control':
-      return 'control'
-    case 'utility':
-      return 'utility'
-    case 'mobility':
-      return 'mobility'
-    case 'sustain':
-      return 'sustain'
-    default:
-      return 'damage'
-  }
-}
-
-function iconForCategory(def: BattleSkillDefinition): string {
-  switch (def.category) {
-    case 'control':
-      return '❄️'
-    case 'utility':
-      return '🧩'
-    case 'mobility':
-      return '💨'
-    case 'sustain':
-      return '🌀'
-    default:
-      return '💥'
-  }
-}
-
-function buildSkillFromDefinition(def: BattleSkillDefinition): Skill {
-  return {
-    id: def.id,
-    action: 'cast_skill',
-    coreSkillId: def.id,
-    name: def.name,
-    icon: iconForCategory(def),
-    unlockLevel: 1,
-    type: categoryToType(def),
-    multiplier: def.ratio,
-    desc: `${def.description ?? 'domain skill'}（MP ${def.mpCost} / Range ${def.range} / CD ${def.cooldownTicks}t）`,
-    mpCost: def.mpCost,
-    range: def.range,
-    cooldownTicks: def.cooldownTicks,
-    cooldownMs: cooldownMsFromTicks(def.cooldownTicks),
-  }
-}
+export { cooldownMsFromTicks } from '../src/lib/skills/pocSkillUi'
 
 // Equipment data
 export interface EquipmentInfo {
@@ -159,24 +109,48 @@ export const INTERACTION_RANGE = 2.5
 // Collision detection resolution
 export const COLLISION_SCALE = 2
 
-// Skill data (carry bar: cast-only entries from battle-core catalog)
-export const allSkills: Skill[] = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
+// Skill data (carry bar: cast-only entries from active skill module)
+const _allSkills: Skill[] = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
+
+function replaceAllSkillsInPlace(skills: Skill[]): void {
+  _allSkills.length = 0
+  _allSkills.push(...skills)
+}
+
+export function setAllSkills(skills: Skill[]): void {
+  replaceAllSkillsInPlace(skills)
+}
+
+export function getAllSkills(): Skill[] {
+  return _allSkills
+}
+
+/** @deprecated Prefer getAllSkills() — same array reference, updated in place */
+export const allSkills: Skill[] = _allSkills
+
+export function refreshAllSkillsFromCatalog(): Skill[] {
+  const next = [...getAllBattleSkillDefinitions().map(buildSkillFromDefinition)]
+  replaceAllSkillsInPlace(next)
+  return next
+}
 
 export function getSkillById(id: string): Skill | undefined {
   if (id === BASIC_ATTACK.id) return BASIC_ATTACK
-  return allSkills.find(s => s.id === id)
+  return getAllSkills().find(s => s.id === id)
 }
 
 export function getDefaultCarriedSkillIds(role: string = 'hero', maxCount = 6): string[] {
   const loadout = getRoleSkillLoadout(role)
-  const valid = loadout.filter((id) => allSkills.some((s) => s.id === id))
+  const skills = getAllSkills()
+  const valid = loadout.filter((id) => skills.some((s) => s.id === id))
   const dedup = Array.from(new Set(valid))
   return dedup.slice(0, Math.max(1, maxCount))
 }
 
 /** Strips unknown ids, dedupes, caps at 6; falls back to role default when empty. */
 export function sanitizeCarriedSkillIds(ids: string[], role: string = 'hero'): string[] {
-  const validIds = new Set(allSkills.map((s) => s.id))
+  const skills = getAllSkills()
+  const validIds = new Set(skills.map((s) => s.id))
   const cleaned = Array.from(
     new Set(
       ids

@@ -576,6 +576,27 @@ export function getAllBattleSkillDefinitions(): BattleSkillDefinition[] {
   return Array.from(SKILL_MAP.values())
 }
 
+/** Raw built-in catalog entries (pre engine cooldown scaling). */
+export function getBuiltinBattleSkillDefinitions(): BattleSkillDefinition[] {
+  return SKILLS.map((skill) => ({ ...skill }))
+}
+
+export function resetSkillCatalogToBuiltin(): void {
+  SKILL_MAP.clear()
+  for (const skill of SKILLS) {
+    const scaled = withScaledCooldown({ ...skill })
+    SKILL_MAP.set(scaled.id, scaled)
+  }
+}
+
+/** Replace runtime catalog with the given definitions (upserts each entry). */
+export function replaceSkillCatalog(definitions: BattleSkillDefinition[]): void {
+  SKILL_MAP.clear()
+  for (const def of definitions) {
+    upsertBattleSkillDefinition(def)
+  }
+}
+
 export function upsertBattleSkillDefinition(skill: BattleSkillDefinition): BattleSkillDefinition {
   const normalized: BattleSkillDefinition = {
     ...skill,

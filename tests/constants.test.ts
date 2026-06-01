@@ -9,7 +9,7 @@ import {
   expForLevel,
   getBattleRewards,
   createEnemyEncounter,
-  allSkills,
+  getAllSkills,
   equipmentTypes,
   getDefaultCarriedSkillIds,
   sanitizeCarriedSkillIds,
@@ -169,13 +169,13 @@ describe('getBattleRewards', () => {
   })
 })
 
-describe('allSkills', () => {
+describe('getAllSkills', () => {
   it('should include domain catalog skills', () => {
-    expect(allSkills.length).toBeGreaterThan(10)
+    expect(getAllSkills().length).toBeGreaterThan(10)
   })
 
   it('should include domain skill ids (carry bar has no defend pseudo-skill)', () => {
-    const ids = allSkills.map(s => s.id)
+    const ids = getAllSkills().map(s => s.id)
     expect(ids).not.toContain('defend')
     expect(ids).toContain('arcane_bolt')
     expect(ids).toContain('fireball')
@@ -183,7 +183,7 @@ describe('allSkills', () => {
   })
 
   it('should map cast skills to domain core skill ids', () => {
-    const fireball = allSkills.find(s => s.id === 'fireball')
+    const fireball = getAllSkills().find(s => s.id === 'fireball')
     expect(fireball?.action).toBe('cast_skill')
     expect(fireball?.coreSkillId).toBe('fireball')
     expect(typeof fireball?.cooldownTicks).toBe('number')

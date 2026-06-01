@@ -1,6 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+    },
+  },
   test: {
     /** Engine unit tests don't need browser; using node avoids jsdom conflicts with newer dependency chains ESM/CJS */
     environment: 'node',

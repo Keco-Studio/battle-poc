@@ -1,0 +1,288 @@
+/* Light-surface skill source panel — aligned with keco-simulation modalLayout */
+
+.panel {
+  color: #0f172a;
+  color-scheme: light;
+}
+
+.sectionTitle {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sectionHint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.sectionCard {
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.metaLine {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.warnLine {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #c2410c;
+}
+
+.okLine {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #15803d;
+}
+
+.errorLine {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #b91c1c;
+}
+
+.selectWrap {
+  position: relative;
+  width: 100%;
+}
+
+.selectTrigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #0f172a;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.selectTrigger:hover:not(:disabled) {
+  border-color: #94a3b8;
+}
+
+.selectTrigger:focus-visible {
+  outline: none;
+  border-color: #0b99ff;
+  box-shadow: 0 0 0 2px rgba(11, 153, 255, 0.2);
+}
+
+.selectTrigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: #f8fafc;
+}
+
+.selectPlaceholder {
+  color: #94a3b8;
+}
+
+.selectChevron {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.selectMenu {
+  position: absolute;
+  z-index: 40;
+  margin-top: 4px;
+  max-height: 220px;
+  width: 100%;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 4px;
+  box-shadow:
+    0 10px 24px -8px rgba(15, 23, 42, 0.18),
+    0 4px 8px -4px rgba(15, 23, 42, 0.08);
+}
+
+.selectOption {
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  padding: 7px 10px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selectOption:hover,
+.selectOption:focus-visible {
+  outline: none;
+  background: #f1f5f9;
+}
+
+.selectOptionActive {
+  background: #eff6ff;
+  color: #0b99ff;
+  font-weight: 600;
+}
+
+.checkboxList {
+  max-height: 128px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 6px;
+}
+
+.checkboxRow {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.checkboxRow:hover {
+  background: #f8fafc;
+}
+
+.checkboxRow input {
+  accent-color: #0b99ff;
+}
+
+.draftRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.primaryBtn {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: none;
+  background: #7c3aed;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.primaryBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.secondaryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 8px 10px;
+  color: #475569;
+  cursor: pointer;
+}
+
+.secondaryBtn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.secondaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.applyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  border-radius: 8px;
+  background: #059669;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.applyBtn:hover:not(:disabled) {
+  background: #047857;
+}
+
+.applyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.importBtn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 8px;
+  background: #0f172a;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.importBtn:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.importBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
