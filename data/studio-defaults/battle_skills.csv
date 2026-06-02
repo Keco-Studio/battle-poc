@@ -1,0 +1,48 @@
+id,name,type,power,mp_cost,max_cooldown,description,category,range,attach_element,attach_strength,attach_turns,dot_damage,dot_turns,freeze_turns,special_effect,special_effect_value,special_effect_duration,reaction_triggers
+aegis_blessing,Aegis Blessing,attack,0.8,7,4,Team-wide damage reduction aura; team survival core.,utility,3,water,weak,2,,,,def_debuff,0.1,2,"[{""element"":""fire"",""reaction"":""vaporize""}]"
+afterimage,Afterimage,attack,1.75,6,2,Second dash; deals damage while leaving decoy.,mobility,3,thunder,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""electrify""}]"
+aimed_snipe,Aimed Snipe,attack,1.95,9,4,Charged long-range execute; high risk reward.,execute,3,fire,strong,4,,,,,,,"[{""element"":""water"",""reaction"":""vaporize""},{""element"":""ice"",""reaction"":""melt""}]"
+arcane_bolt,Arcane Bolt,attack,1.35,4,2,"Single target arcane burst, strong after control.",burst,3,thunder,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""electrify""}]"
+arcane_prison_wave,Arcane Prison Wave,attack,1.84,13,2,Imported arcane control spell; prison-like lock.,control,3,thunder,medium,3,,,1,,,,"[{""element"":""fire"",""reaction"":""overload""}]"
+arctic_storm,Arctic Storm,attack,1.6,10,3,Large AOE freeze; strong team fight control.,control,3,ice,strong,4,,,2,,,,"[{""element"":""fire"",""reaction"":""melt""}]"
+backstab,Backstab,attack,1.78,6,4,Assassin close-range spike damage.,execute,3,random,weak,2,,,,,,,
+barrier,Barrier,attack,0.95,5,3,Support control layer that can freeze shortly.,utility,3,water,weak,2,,,,,,,"[{""element"":""fire"",""reaction"":""vaporize""}]"
+blessing_might,Blessing of Might,heal,0.9,5,3,Ally ATK buff; damage amp for allies.,utility,3,grass,weak,2,,,,heal,0.35,0,
+burning_ground,Burning Ground,attack,1.15,6,3,Undispellable burn DOT; anti-heal pressure.,sustain,3,fire,medium,3,0.3,2,,,,,"[{""element"":""grass"",""reaction"":""burn""}]"
+chilling_touch,Chilling Touch,attack,1.1,6,3,DOT freeze skill; extends control window on frozen targets.,control,3,ice,weak,2,0.25,3,,,,,"[{""element"":""water"",""reaction"":""freeze""}]"
+command_aura,Command Aura,attack,1.18,3,2,Hero pressure pulse that keeps tempo.,utility,3,thunder,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""electrify""}]"
+fireball,Fireball,attack,1.5,6,3,Reliable mid-range burst projectile.,burst,3,fire,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""vaporize""}]"
+focus_shot,Focus Shot,attack,1.3,4,2,High precision archer poke.,burst,3,random,weak,2,,,,,,,
+frost_lock,Frost Lock,attack,1.1,6,3,Applies freeze and opens combo windows.,control,3,ice,medium,3,,,2,,,,"[{""element"":""water"",""reaction"":""freeze""}]"
+frost_lock_wave,Frost Lock Wave,attack,1.92,14,2,Imported frost control wave; freeze-oriented setup.,control,3,ice,strong,4,,,2,,,,"[{""element"":""fire"",""reaction"":""melt""}]"
+frost_trap,Frost Trap,attack,1.05,4,2,Slow zone; remote kite and chase tool.,control,3,ice,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""freeze""}]"
+frostslow_field,Frostslow Field,attack,0.85,7,2,Massive slow zone; no freeze but heavy kite utility.,control,3,water,medium,3,,,,def_debuff,0.1,2,"[{""element"":""thunder"",""reaction"":""electrify""}]"
+glacial_pierce,Glacial Pierce,attack,1.3,7,2,Piercing shard; hits multiple enemies in a line.,burst,3,ice,medium,3,,,,,,,"[{""element"":""fire"",""reaction"":""melt""}]"
+guardian_angel,Guardian Angel,heal,0.85,10,5,Short invulnerability plus full debuff cleanse; clutch save.,utility,3,water,weak,2,,,,heal,0.5,0,
+heal_wave,Heal Wave,heal,0.9,4,2,Support pulse; modeled as low damage utility for now.,sustain,3,,,,,,,heal,0.4,0,
+ice_nova,Ice Nova,attack,1,5,4,Short freeze setup spell for control mages.,control,3,ice,weak,2,,,1,,,,"[{""element"":""fire"",""reaction"":""melt""}]"
+ice_shard_beam,Ice Shard Beam,attack,1.48,9,1,Imported shard beam; sustained frost pressure.,burst,3,ice,medium,3,,,,,,,"[{""element"":""fire"",""reaction"":""melt""}]"
+icefire_collision,Icefire Collision,attack,1.55,8,2,Shatters frozen enemies; massive bonus vs frozen.,execute,3,fire,strong,4,,,,,,,"[{""element"":""ice"",""reaction"":""melt""},{""element"":""water"",""reaction"":""vaporize""}]"
+infernal_orb,Infernal Orb,attack,1.7,10,3,High damage AOE fireball; team fight core burst.,burst,3,fire,strong,4,0.3,2,,,,,"[{""element"":""grass"",""reaction"":""burn""}]"
+iron_bastion,Iron Bastion,attack,0.9,6,3,Shield absorbs burst; tanks frontlinePk.,utility,3,water,medium,3,,,,def_debuff,0.1,2,"[{""element"":""fire"",""reaction"":""vaporize""}]"
+keen_eye,Keen Eye,attack,0.9,4,3,Mark target; team crit buff + damage amp.,utility,3,grass,weak,2,,,,,,,"[{""element"":""thunder"",""reaction"":""quicken""}]"
+lacerate,Lacerate,attack,1.3,5,3,Bleed DOT; execute bonus at low HP.,execute,3,grass,medium,3,0.3,4,,,,,"[{""element"":""fire"",""reaction"":""burn""}]"
+mana_pulse_beam,Mana Pulse Beam,attack,1.52,10,1,Imported arcane pulse beam; medium burst.,burst,3,thunder,medium,3,,,,,,,"[{""element"":""fire"",""reaction"":""overload""},{""element"":""water"",""reaction"":""electrify""}]"
+nox_strike,Nox Strike,attack,1.7,6,3,Instant no-animation strike; no warning for target.,burst,3,random,weak,2,,,,,,,
+phantom_edge,Phantom Edge,attack,1.5,6,2,Gap-close dash; second instance for flexible engage.,mobility,3,thunder,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""electrify""}]"
+piercing_arrow,Piercing Arrow,attack,1.35,5,2,Pierces multiple enemies in a straight line.,burst,3,grass,weak,2,,,,,,,"[{""element"":""fire"",""reaction"":""burn""}]"
+purification,Purification,heal,0.8,7,4,Cleanses 2 debuffs from ally plus shield absorb.,utility,3,water,weak,2,,,,heal,0.35,0,
+radiance,Radiance,heal,1.35,8,3,Team HOT plus shield; sustainable sustain.,sustain,3,grass,weak,2,0.2,3,,heal,0.45,0,
+rain_of_arrows,Rain of Arrows,attack,1.2,7,3,AOE sustained pressure; group poke.,sustain,3,grass,medium,3,,,,,,,"[{""element"":""fire"",""reaction"":""burn""}]"
+rally_call,Rally Call,attack,1.4,5,4,Hero burst call to quickly re-engage.,burst,3,fire,weak,2,,,,,,,"[{""element"":""water"",""reaction"":""vaporize""}]"
+scorching_aura,Scorching Aura,attack,0.9,5,2,Reduces enemy healing; anti-sustain pressure.,control,3,fire,weak,2,,,,,,,"[{""element"":""grass"",""reaction"":""burn""}]"
+shadow_cloak,Shadow Cloak,attack,0.85,5,3,Invisibility on use; ambush / reposition tool.,mobility,3,thunder,weak,2,,,,,,,
+shadow_step,Shadow Step,attack,1.55,5,3,Assassin gap-close burst.,mobility,3,thunder,medium,3,,,,,,,"[{""element"":""water"",""reaction"":""electrify""}]"
+shield_retaliation,Shield Retaliation,attack,1.05,7,3,Reflects blocked magic damage back to attacker.,control,3,water,medium,3,,,,,,,"[{""element"":""thunder"",""reaction"":""electrify""}]"
+shield_wall,Shield Wall,attack,1.05,3,2,Tank shove with stable frontline damage.,utility,3,water,weak,2,,,,,,,
+taunt,Taunt,attack,0.95,4,3,Tank control poke that briefly hinders target.,control,3,water,weak,2,,,,atk_debuff,0.15,2,
+unstoppable_charge,Unstoppable Charge,attack,1.25,8,3,Immunity dash; team fight initiation breakthrough skill.,mobility,3,fire,medium,3,,,,,,,"[{""element"":""ice"",""reaction"":""melt""}]"
+void_chain,Void Chain,attack,1.05,8,3,Silences target; pairs with freeze for double lock.,control,3,thunder,strong,4,,,,,,,"[{""element"":""water"",""reaction"":""electrify""}]"
+volley,Volley,attack,1.12,4,3,Archer sustained ranged pressure.,sustain,3,grass,weak,2,,,,,,,"[{""element"":""fire"",""reaction"":""burn""}]"
+warpull,Warpull,attack,0.95,8,3,Pulls enemy to self; disruption + combo setup.,control,3,water,medium,3,,,,,,,"[{""element"":""fire"",""reaction"":""vaporize""}]"
+weakening_hex,Weakening Hex,attack,0.95,6,3,Enemy ATK/DEF debuff; weakens overall enemy combat capability.,control,3,grass,medium,3,,,,def_debuff,0.25,3,"[{""element"":""thunder"",""reaction"":""quicken""}]"

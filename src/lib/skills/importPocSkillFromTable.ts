@@ -5,7 +5,11 @@ import {
   POC_SKILL_MAPPING_FIELDS,
   type PocSkillColumnMappingKey,
   type PocSkillFlatRow,
+  type PocSkillKecoExtraFields,
 } from './pocSkillFieldMapping'
+import { flatRowToKecoSkillFromRow } from './kecoSkillTableCodec'
+import { registerKecoSkills } from '@/src/keco/kecoSkillBridge'
+import { setKecoSkillsRecord } from './kecoSkillRegistry'
 import type { PocSkillDraft } from './pocSkillDrafts'
 import { cellValueToString } from '@/src/lib/studio/cellDisplayValue'
 import {
@@ -28,32 +32,20 @@ const HEADER_SKILL_CANDIDATES: Record<string, PocSkillColumnMappingKey[]> = {
   desc: ['description'],
   category: ['category'],
   skillcategory: ['category'],
-  type: ['category'],
-  skilltype: ['category'],
-  ratio: ['ratio'],
-  power: ['ratio'],
-  damage: ['ratio'],
-  multiplier: ['ratio'],
+  power: ['power'],
+  ratio: ['power'],
+  damage: ['power'],
+  multiplier: ['power'],
   mpcost: ['mpCost'],
   mp: ['mpCost'],
   manacost: ['mpCost'],
   range: ['range'],
   castrange: ['range'],
-  cooldownticks: ['cooldownTicks'],
-  cooldown: ['cooldownTicks'],
-  cd: ['cooldownTicks'],
-  maxcooldown: ['cooldownTicks'],
-  maxcd: ['cooldownTicks'],
-  freezeduration: ['applyFreezeTicks'],
-  freezeturns: ['applyFreezeTicks'],
-  freeze: ['applyFreezeTicks'],
-  freezeticks: ['applyFreezeTicks'],
-  applyfreezeticks: ['applyFreezeTicks'],
-  shatterbonus: ['shatterBonusRatio'],
-  shatterbonusratio: ['shatterBonusRatio'],
-  shatter: ['shatterBonusRatio'],
-  consumefreezeonhit: ['consumeFreezeOnHit'],
-  consumefreeze: ['consumeFreezeOnHit'],
+  maxcooldown: ['maxCooldown'],
+  cooldownticks: ['maxCooldown'],
+  cooldown: ['maxCooldown'],
+  cd: ['maxCooldown'],
+  maxcd: ['maxCooldown'],
 }
 
 export type ImportHeaderAmbiguity = {
@@ -227,10 +219,52 @@ export function skillFieldLabel(key: PocSkillColumnMappingKey): string {
   return POC_SKILL_MAPPING_FIELDS.find((f) => f.key === key)?.label ?? key
 }
 
+const KECO_COLUMN_ALIASES: Record<string, keyof PocSkillKecoExtraFields> = {
+  type: 'skillType',
+  skilltype: 'skillType',
+  attachelement: 'attachElement',
+  element: 'attachElement',
+  attachstrength: 'attachStrength',
+  strength: 'attachStrength',
+  attachturns: 'attachTurns',
+  attachduration: 'attachTurns',
+  dotdamage: 'dotDamage',
+  dotturns: 'dotTurns',
+  dotduration: 'dotTurns',
+  freezeturns: 'freezeTurns',
+  freezeduration: 'freezeTurns',
+  freeze: 'freezeTurns',
+  special: 'specialEffect',
+  specialeffect: 'specialEffect',
+  specialtype: 'specialEffect',
+  specialeffectvalue: 'specialEffectValue',
+  specialvalue: 'specialEffectValue',
+  specialeffectduration: 'specialEffectDuration',
+  specialduration: 'specialEffectDuration',
+  reactiontriggers: 'reactionTriggersJson',
+  reactiontriggersjson: 'reactionTriggersJson',
+  reactions: 'reactionTriggersJson',
+}
+
+function mergeKecoColumnsIntoFlat(
+  flat: PocSkillFlatRow,
+  row: StudioTableRow,
+  columns: StudioTableColumn[],
+): void {
+  for (const col of columns) {
+    const token = normalizeHeaderToken(col.label)
+    const key = KECO_COLUMN_ALIASES[token]
+    if (!key) continue
+    const value = cellValueToString(row.values[col.key]).trim()
+    if (value) flat[key] = value
+  }
+}
+
 export function rowToFlatSkill(
   row: StudioTableRow,
   columnToField: Map<string, PocSkillColumnMappingKey>,
   idColumnKey: string,
+  columns?: StudioTableColumn[],
 ): PocSkillFlatRow {
   const flat = emptyPocSkillFlatRow()
   const idValue = cellValueToString(row.values[idColumnKey]).trim()
@@ -254,6 +288,8 @@ export function rowToFlatSkill(
     flat.description = flat.name
   }
 
+  if (columns) mergeKecoColumnsIntoFlat(flat, row, columns)
+
   return flat
 }
 
@@ -271,14 +307,22 @@ export function importBattleSkillsFromTableRows(args: {
   const seen = new Set<string>()
   const out: BattleSkillDefinition[] = []
 
+  const kecoSkills: import('@keco/battle-engine').Skill[] = []
+
   for (const row of rows) {
-    const flat = rowToFlatSkill(row, plan.columnToField, idColumnKey)
+    const flat = rowToFlatSkill(row, plan.columnToField, idColumnKey, columns)
     if (!flat.id.trim() && !flat.name.trim()) continue
     if (!flat.id.trim()) flat.id = flat.name
     const def = flatRowToBattleSkillDefinition(flat)
     if (!def || seen.has(def.id)) continue
     seen.add(def.id)
     out.push(def)
+    const keco = flatRowToKecoSkillFromRow(flat)
+    if (keco) kecoSkills.push(keco)
+  }
+
+  if (kecoSkills.length > 0) {
+    setKecoSkillsRecord(registerKecoSkills(kecoSkills))
   }
 
   return out

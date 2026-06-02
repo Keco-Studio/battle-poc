@@ -1,0 +1,7 @@
+id,skill_ids
+archer,"focus_shot,volley,arcane_bolt,piercing_arrow,aimed_snipe,frost_trap,rain_of_arrows,keen_eye"
+assassin,"shadow_step,backstab,arcane_bolt,shadow_cloak,afterimage,lacerate,phantom_edge,nox_strike"
+healer,"heal_wave,barrier,command_aura,radiance,blessing_might,weakening_hex,purification,guardian_angel"
+hero,"rally_call,command_aura,shield_wall,arcane_bolt,frost_lock,focus_shot"
+mage,"fireball,ice_nova,arcane_bolt,frost_lock,chilling_touch,arctic_storm,frostslow_field,void_chain,glacial_pierce,burning_ground,infernal_orb,scorching_aura,icefire_collision"
+tank,"shield_wall,taunt,barrier,iron_bastion,shield_retaliation,warpull,aegis_blessing,unstoppable_charge"

@@ -24,6 +24,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@keco/battle-engine": [
+        "./packages/keco-battle-engine/src/index.ts"
       ]
     },
     "target": "ES2017"

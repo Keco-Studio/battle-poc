@@ -1,23 +1,21 @@
 import type { BattleSkillDefinition } from '@/src/battle-core/domain/types/skill-types'
+import { KECO_SKILL_CAST_RANGE } from '@/src/keco/kecoSkillBridge'
 
 /** Normalize header / column key for case-insensitive alias lookup. */
 export function normalizeHeaderToken(raw: string): string {
   return raw.trim().toLowerCase().replace(/[\s_-]+/g, '')
 }
 
-/** Maps a Studio table column to a battle-poc skill field. */
+/** Maps a Studio table column to a battle-poc skill field (simulation-aligned core + POC extras). */
 export type PocSkillColumnMappingKey =
   | 'id'
   | 'name'
   | 'description'
   | 'category'
-  | 'ratio'
-  | 'mpCost'
   | 'range'
-  | 'cooldownTicks'
-  | 'applyFreezeTicks'
-  | 'shatterBonusRatio'
-  | 'consumeFreezeOnHit'
+  | 'power'
+  | 'mpCost'
+  | 'maxCooldown'
 
 export type PocSkillMappingFieldDef = {
   key: PocSkillColumnMappingKey
@@ -33,20 +31,32 @@ export const POC_SKILL_MAPPING_FIELDS: PocSkillMappingFieldDef[] = [
   { key: 'description', label: 'Description', group: 'core' },
   {
     key: 'category',
-    label: 'Category',
+    label: 'Category (POC)',
     group: 'core',
     hint: 'burst | control | sustain | mobility | utility | execute',
   },
-  { key: 'ratio', label: 'Damage ratio', group: 'combat', hint: 'Skill damage multiplier (e.g. 1.35)' },
+  { key: 'power', label: 'Power', group: 'combat', hint: 'Same as keco-simulation power / damage multiplier' },
   { key: 'mpCost', label: 'MP cost', group: 'combat' },
-  { key: 'range', label: 'Cast range', group: 'combat', hint: 'Tiles / world units' },
-  { key: 'cooldownTicks', label: 'Cooldown ticks', group: 'combat', hint: 'Base CD before engine scaling' },
-  { key: 'applyFreezeTicks', label: 'Freeze ticks', group: 'control' },
-  { key: 'shatterBonusRatio', label: 'Shatter bonus ratio', group: 'control' },
-  { key: 'consumeFreezeOnHit', label: 'Consume freeze on hit', group: 'control', hint: 'true | false' },
+  { key: 'maxCooldown', label: 'Max cooldown', group: 'combat', hint: 'Keco maxCooldown (turns)' },
+  { key: 'range', label: 'Cast range (POC)', group: 'combat', hint: 'Map battle tiles; default 3' },
 ]
 
-export type PocSkillFlatRow = Record<PocSkillColumnMappingKey, string>
+/** Keco element columns — same semantics as keco-simulation skill sheet (snake_case in CSV). */
+export type PocSkillKecoExtraFields = {
+  skillType: string
+  attachElement: string
+  attachStrength: string
+  attachTurns: string
+  dotDamage: string
+  dotTurns: string
+  freezeTurns: string
+  specialEffect: string
+  specialEffectValue: string
+  specialEffectDuration: string
+  reactionTriggersJson: string
+}
+
+export type PocSkillFlatRow = Record<PocSkillColumnMappingKey, string> & PocSkillKecoExtraFields
 
 export function emptyPocSkillFlatRow(): PocSkillFlatRow {
   return {
@@ -54,13 +64,21 @@ export function emptyPocSkillFlatRow(): PocSkillFlatRow {
     name: '',
     description: '',
     category: 'burst',
-    ratio: '1',
+    power: '1',
     mpCost: '0',
-    range: '6',
-    cooldownTicks: '0',
-    applyFreezeTicks: '',
-    shatterBonusRatio: '',
-    consumeFreezeOnHit: '',
+    maxCooldown: '0',
+    range: String(KECO_SKILL_CAST_RANGE),
+    skillType: 'attack',
+    attachElement: '',
+    attachStrength: 'weak',
+    attachTurns: '',
+    dotDamage: '',
+    dotTurns: '',
+    freezeTurns: '',
+    specialEffect: '',
+    specialEffectValue: '',
+    specialEffectDuration: '',
+    reactionTriggersJson: '',
   }
 }
 
@@ -113,14 +131,6 @@ function parseCategory(raw: string): BattleSkillDefinition['category'] {
   return 'burst'
 }
 
-function parseBool(raw: string): boolean | undefined {
-  const v = raw.trim().toLowerCase()
-  if (!v) return undefined
-  if (v === 'true' || v === '1' || v === 'yes') return true
-  if (v === 'false' || v === '0' || v === 'no') return false
-  return undefined
-}
-
 export function flatRowToBattleSkillDefinition(row: PocSkillFlatRow): BattleSkillDefinition | null {
   const idResolved = resolveSkillId(row.id)
   if ('error' in idResolved) return null
@@ -131,43 +141,32 @@ export function flatRowToBattleSkillDefinition(row: PocSkillFlatRow): BattleSkil
     name,
     description: row.description.trim() || undefined,
     category: parseCategory(row.category),
-    ratio: Math.max(0, parseNum(row.ratio, 1)),
+    ratio: Math.max(0, parseNum(row.power, 1)),
     mpCost: parseIntNonNeg(row.mpCost, 0),
-    range: Math.max(0.5, parseNum(row.range, 6)),
-    cooldownTicks: parseIntNonNeg(row.cooldownTicks, 0),
+    range: KECO_SKILL_CAST_RANGE,
+    cooldownTicks: parseIntNonNeg(row.maxCooldown, 0),
   }
 
-  const freeze = row.applyFreezeTicks.trim()
+  const freeze = row.freezeTurns.trim()
   if (freeze) {
-    const ticks = parseIntNonNeg(freeze, 0)
-    if (ticks > 0) def.applyFreezeTicks = ticks
+    const turns = parseIntNonNeg(freeze, 0)
+    if (turns > 0) def.applyFreezeTicks = turns
   }
-
-  const shatter = row.shatterBonusRatio.trim()
-  if (shatter) {
-    const ratio = parseNum(shatter, 0)
-    if (ratio > 0) def.shatterBonusRatio = ratio
-  }
-
-  const consume = parseBool(row.consumeFreezeOnHit)
-  if (consume !== undefined) def.consumeFreezeOnHit = consume
 
   return def
 }
 
 export function battleSkillDefinitionToFlatRow(def: BattleSkillDefinition): PocSkillFlatRow {
   return {
+    ...emptyPocSkillFlatRow(),
     id: def.id,
     name: def.name,
     description: def.description ?? '',
     category: def.category ?? 'burst',
-    ratio: String(def.ratio),
+    power: String(def.ratio),
     mpCost: String(def.mpCost),
-    range: String(def.range),
-    cooldownTicks: String(Math.floor(def.cooldownTicks / 10)),
-    applyFreezeTicks: def.applyFreezeTicks != null ? String(def.applyFreezeTicks) : '',
-    shatterBonusRatio: def.shatterBonusRatio != null ? String(def.shatterBonusRatio) : '',
-    consumeFreezeOnHit:
-      def.consumeFreezeOnHit != null ? String(def.consumeFreezeOnHit) : '',
+    range: String(def.range ?? KECO_SKILL_CAST_RANGE),
+    maxCooldown: String(Math.floor(def.cooldownTicks / 10) || def.cooldownTicks),
+    freezeTurns: def.applyFreezeTicks != null ? String(def.applyFreezeTicks) : '',
   }
 }

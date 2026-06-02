@@ -1,0 +1,7 @@
+id,name,description,preferred_range,base_hp,base_atk,base_def,base_spd,growth_hp,growth_atk,growth_def,growth_spd,hp_mult
+hero,Warrior,"Balanced frontline. Balances damage and control, maintains pressure rhythm.",melee,120,6,4,4,35,5,3,3,5
+tank,Tank,"Heavy armor frontline. Absorbs damage to protect allies, disrupts enemy rhythm.",melee,150,4,7,2,45,3,5,1,5
+archer,Archer,"Ranged physical DPS. Maintains safe distance for sustained pressure, kites enemies.",ranged,90,7,2,6,25,6,2,4,5
+mage,Mage,"Ranged magic DPS. Uses control to open combo windows, follows freeze with shatter.",ranged,80,9,1,4,20,7,1,3,5
+healer,Healer,"Team support. Prioritizes keeping allies alive, uses debuffs and cleanse.",mid,100,4,4,5,28,3,3,3,5
+assassin,Assassin,"Melee assassin. Uses displacement to flank and dive, executes low-HP targets.",melee,85,10,2,8,22,8,2,5,5
