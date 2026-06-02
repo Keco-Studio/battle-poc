@@ -4,6 +4,7 @@ import { createBattleSession, type BattleSession } from '../battle-core/domain/e
 import type { TotalStats } from '../../app/hooks/useGameState'
 import type { EnemyCombatStats } from '../../app/constants'
 import type { LlmProviderConfig } from '../battle-core/service/ai/auto-decision-engine'
+import { attachKecoOverlay } from '@/src/keco/attachKecoOverlay'
 
 const PLAYER_CORE_SKILLS = [
   'backstab',
@@ -142,7 +143,7 @@ export function createMapBattleSession(cfg: MapBattleStartConfig): BattleSession
     skillIds: cfg.enemySkillIds,
   })
 
-  return createBattleSession({
+  const session = createBattleSession({
     left,
     right,
     preparationTicks: 5,
@@ -153,6 +154,7 @@ export function createMapBattleSession(cfg: MapBattleStartConfig): BattleSession
       maxY: Math.max(1, cfg.mapHeight),
     },
   })
+  return attachKecoOverlay(session)
 }
 
 export function newCommandId(): string {

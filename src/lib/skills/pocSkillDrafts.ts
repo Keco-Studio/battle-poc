@@ -155,13 +155,10 @@ export function draftToFlatRow(draft: PocSkillDraft): PocSkillFlatRow {
     name: pick('name'),
     description: pick('description'),
     category: pick('category') || base.category,
-    ratio: pick('ratio') || base.ratio,
+    power: pick('power') || base.power,
     mpCost: pick('mpCost') || base.mpCost,
     range: pick('range') || base.range,
-    cooldownTicks: pick('cooldownTicks') || base.cooldownTicks,
-    applyFreezeTicks: pick('applyFreezeTicks'),
-    shatterBonusRatio: pick('shatterBonusRatio'),
-    consumeFreezeOnHit: pick('consumeFreezeOnHit'),
+    maxCooldown: pick('maxCooldown') || base.maxCooldown,
   }
 }
 

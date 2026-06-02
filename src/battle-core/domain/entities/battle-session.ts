@@ -9,6 +9,7 @@ import {
   BattleTick
 } from '../types/battle-types'
 import { BattleEntity } from './battle-entity'
+import type { KecoCombatExtension } from '@/src/keco/types'
 
 export type BattleSession = {
   id: BattleSessionId
@@ -38,6 +39,8 @@ export type BattleSession = {
   events: BattleEvent[]
   createdAt: number
   updatedAt: number
+  /** Keco elemental combat (executeSkill + reactions). */
+  keco?: KecoCombatExtension
 }
 
 export function createBattleSession(input: {

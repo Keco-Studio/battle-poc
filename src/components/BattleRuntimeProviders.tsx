@@ -4,6 +4,7 @@ import { QueryProvider } from '@/src/lib/providers/QueryProvider'
 import { SupabaseProvider } from '@/src/lib/SupabaseContext'
 import { AuthProvider } from '@/src/lib/contexts/AuthContext'
 import { BattleSkillsProvider } from '@/src/lib/skills/BattleSkillsProvider'
+import { BattleJobsProvider } from '@/src/lib/jobs/BattleJobsProvider'
 
 /** Same provider stack as keco-simulation StudioRuntimeProviders, plus battle skills. */
 export function BattleRuntimeProviders({ children }: { children: React.ReactNode }) {
@@ -11,7 +12,9 @@ export function BattleRuntimeProviders({ children }: { children: React.ReactNode
     <QueryProvider>
       <SupabaseProvider>
         <AuthProvider>
-          <BattleSkillsProvider>{children}</BattleSkillsProvider>
+          <BattleJobsProvider>
+            <BattleSkillsProvider>{children}</BattleSkillsProvider>
+          </BattleJobsProvider>
         </AuthProvider>
       </SupabaseProvider>
     </QueryProvider>

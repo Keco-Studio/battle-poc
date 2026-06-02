@@ -1,0 +1,5 @@
+id,name,icon,stat,bonus
+weapon,Weapon,⚔️,atk,1
+ring,Ring,💍,maxHp,10
+armor,Armor,🛡️,def,1
+shoes,Shoes,👟,spd,1

@@ -5,6 +5,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      '@keco/battle-engine': path.resolve(
+        __dirname,
+        'packages/keco-battle-engine/src/index.ts',
+      ),
     },
   },
   test: {

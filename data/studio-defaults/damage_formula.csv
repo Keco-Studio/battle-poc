@@ -1,0 +1,2 @@
+id,mode,basic_power,skill_power_scale,defend_damage_reduction,defend_skill_reduction,element_reactions_enabled
+battle_damage,keco_element,1,1,0.6,0.62,1

@@ -17,6 +17,7 @@
     "eval:bt-online": "BT_EVAL_PROXY_URL=http://127.0.0.1:8787 BT_EVAL_PROVIDER=minimax vitest run tests/behavior-tree-llm-online-eval.test.ts --reporter=verbose"
   },
   "dependencies": {
+    "@keco/battle-engine": "file:./packages/keco-battle-engine",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",
     "@tanstack/react-query": "^5.100.14",
