@@ -57,8 +57,13 @@ export function savePocGameConfigModulesState(
   if (typeof window === 'undefined') return
   localStorage.setItem(POC_GAME_CONFIG_MODULES_STORAGE_KEY, JSON.stringify(state))
   if (options?.notify !== false) {
-    window.dispatchEvent(new CustomEvent(POC_GAME_CONFIG_UPDATED_EVENT))
+    notifyPocGameConfigUpdated()
   }
+}
+
+export function notifyPocGameConfigUpdated(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(POC_GAME_CONFIG_UPDATED_EVENT))
 }
 
 export function getActiveModule(state: PocGameConfigModulesState): PocGameConfigModule {

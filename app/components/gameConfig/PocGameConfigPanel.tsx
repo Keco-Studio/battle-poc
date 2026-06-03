@@ -16,13 +16,19 @@ import {
   savePocGameConfigDrafts,
   type PocGameConfigDraft,
 } from '@/src/lib/gameConfig/pocGameConfigDrafts'
+import type { GameConfigImportKind } from '@/src/lib/gameConfig/gameConfigTypes'
 import { BALANCE_SCALAR_KEYS } from '@/src/lib/gameConfig/defaultGameConfig'
 import { listSelectableStudioTables } from '@/src/lib/jobs/studioJobPicker'
 import { ImportGameConfigBlock } from './ImportGameConfigBlock'
 import { SkillSourceSelect } from '../skills/SkillSourceSelect'
 import styles from '../skills/SkillSourcePanel.module.css'
 
-export function PocGameConfigPanel() {
+type Props = {
+  /** When set (import hub), lock import kind and hide type picker. */
+  importKind?: GameConfigImportKind
+}
+
+export function PocGameConfigPanel({ importKind }: Props) {
   const supabase = useSupabaseOptional()
   const { userProfile, isAuthenticated, isLoading: authLoading } = useAuth()
   const {
@@ -72,32 +78,36 @@ export function PocGameConfigPanel() {
 
   return (
     <div className={`${styles.panel} mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3`}>
-      <div>
-        <div className={styles.sectionTitle}>Game config source</div>
-        <p className={styles.sectionHint}>
-          Equipment, class skill loadouts, basic attack, exp/rewards, enemy growth, and battle
-          formula scalars. Defaults apply when module is &quot;Default game config&quot;.
-        </p>
-      </div>
+      {!importKind && (
+        <>
+          <div>
+            <div className={styles.sectionTitle}>Game config source</div>
+            <p className={styles.sectionHint}>
+              Equipment, class skill loadouts, basic attack, exp/rewards, enemy growth, and battle
+              formula scalars. Defaults apply when module is &quot;Default game config&quot;.
+            </p>
+          </div>
 
-      <div>
-        <span className={styles.fieldLabel}>Active module</span>
-        <SkillSourceSelect
-          value={activeModuleId}
-          onChange={selectModule}
-          options={
-            moduleOptions.some((m) => m.value === DEFAULT_POC_GAME_CONFIG_MODULE_ID)
-              ? moduleOptions
-              : [...moduleOptions, { value: DEFAULT_POC_GAME_CONFIG_MODULE_ID, label: 'Default game config' }]
-          }
-          aria-label="Active game config module"
-        />
-      </div>
+          <div>
+            <span className={styles.fieldLabel}>Active module</span>
+            <SkillSourceSelect
+              value={activeModuleId}
+              onChange={selectModule}
+              options={
+                moduleOptions.some((m) => m.value === DEFAULT_POC_GAME_CONFIG_MODULE_ID)
+                  ? moduleOptions
+                  : [...moduleOptions, { value: DEFAULT_POC_GAME_CONFIG_MODULE_ID, label: 'Default game config' }]
+              }
+              aria-label="Active game config module"
+            />
+          </div>
 
-      <details className="text-[11px] text-slate-500">
-        <summary className="cursor-pointer font-semibold text-slate-600">Balance scalar keys</summary>
-        <p className="mt-1">{BALANCE_SCALAR_KEYS.join(', ')}</p>
-      </details>
+          <details className="text-[11px] text-slate-500">
+            <summary className="cursor-pointer font-semibold text-slate-600">Balance scalar keys</summary>
+            <p className="mt-1">{BALANCE_SCALAR_KEYS.join(', ')}</p>
+          </details>
+        </>
+      )}
 
       {!supabaseReady ? (
         <p className={styles.warnLine}>Sign in to import from Keco Studio.</p>
@@ -112,6 +122,7 @@ export function PocGameConfigPanel() {
             onImportDraft={(d) => persistDrafts([...drafts, ...(Array.isArray(d) ? d : [d])])}
             onError={setImportError}
             onSuccess={setStatusMessage}
+            fixedKind={importKind}
           />
           <div className={styles.sectionCard}>
             <div className="mb-2 flex items-center justify-between gap-2">

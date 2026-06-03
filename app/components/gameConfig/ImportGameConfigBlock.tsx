@@ -32,6 +32,8 @@ type Props = {
   onImportDraft: (draft: PocGameConfigDraft | PocGameConfigDraft[]) => void
   onError?: (message: string) => void
   onSuccess?: (message: string) => void
+  /** When set (import hub), hide type picker and lock import kind. */
+  fixedKind?: GameConfigImportKind
 }
 
 export function ImportGameConfigBlock({
@@ -43,15 +45,17 @@ export function ImportGameConfigBlock({
   onImportDraft,
   onError,
   onSuccess,
+  fixedKind,
 }: Props) {
   const supabase = useSupabaseOptional()
-  const [kind, setKind] = useState<GameConfigImportKind>('balance_scalar')
+  const [kind, setKind] = useState<GameConfigImportKind>(fixedKind ?? 'balance_scalar')
   const [tableId, setTableId] = useState('')
   const [loaded, setLoaded] = useState<{ columns: import('@/src/lib/studio/studioLibraryService').StudioTableColumn[]; rows: import('@/src/lib/studio/studioLibraryService').StudioTableRow[] } | null>(null)
   const [idColumnKey, setIdColumnKey] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const loadSeq = useRef(0)
+  const effectiveKind = fixedKind ?? kind
 
   useEffect(() => {
     if (!tableId && tables.length > 0) setTableId(tables[0]!.id)
@@ -68,13 +72,13 @@ export function ImportGameConfigBlock({
       .then((res) => {
         if (seq !== loadSeq.current) return
         setLoaded(res)
-        setIdColumnKey(res ? detectIdColumnKey(res.columns, kind) ?? res.columns[0]?.key ?? '' : '')
+        setIdColumnKey(res ? detectIdColumnKey(res.columns, effectiveKind) ?? res.columns[0]?.key ?? '' : '')
         setSelectedIds([])
       })
       .finally(() => {
         if (seq === loadSeq.current) setLoading(false)
       })
-  }, [tableId, supabase, supabaseReady, kind])
+  }, [tableId, supabase, supabaseReady, effectiveKind])
 
   const idOptions = useMemo(() => {
     if (!loaded || !idColumnKey) return []
@@ -92,7 +96,7 @@ export function ImportGameConfigBlock({
       if (!row) continue
       drafts.push(
         buildDraftFromTableRow({
-          kind,
+          kind: effectiveKind,
           tableId,
           row,
           columns: loaded.columns,
@@ -119,7 +123,7 @@ export function ImportGameConfigBlock({
     onImportDraft(accepted.length === 1 ? accepted[0]! : accepted)
     onSuccess?.(`Imported ${accepted.length} config draft(s)`)
     setSelectedIds([])
-  }, [loaded, idColumnKey, selectedIds, kind, tableId, existingDrafts, onImportDraft, onError, onSuccess])
+  }, [loaded, idColumnKey, selectedIds, effectiveKind, tableId, existingDrafts, onImportDraft, onError, onSuccess])
 
   const tableOptions = tables.map((t) => ({ value: t.id, label: t.name }))
   const columnOptions = (loaded?.columns ?? []).map((c) => ({ value: c.key, label: c.label }))
@@ -132,12 +136,14 @@ export function ImportGameConfigBlock({
         (one key per row). Loadout row: id=hero, skillIds=skill_a,skill_b,…
       </p>
       <div className="mb-2 grid gap-2">
-        <SkillSourceSelect
-          value={kind}
-          onChange={(v) => setKind(v as GameConfigImportKind)}
-          options={KIND_OPTIONS}
-          aria-label="Config import type"
-        />
+        {!fixedKind && (
+          <SkillSourceSelect
+            value={kind}
+            onChange={(v) => setKind(v as GameConfigImportKind)}
+            options={KIND_OPTIONS}
+            aria-label="Config import type"
+          />
+        )}
         <SkillSourceSelect
           value={tableId}
           onChange={setTableId}
