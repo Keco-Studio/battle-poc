@@ -1,4 +1,5 @@
 import { BattleSkillDefinition } from '../../domain/types/skill-types'
+import { getRoleSkillLoadout as getRoleSkillLoadoutFromGameConfig } from '@/src/lib/gameConfig/gameConfigRegistry'
 
 const SKILL_COOLDOWN_MULTIPLIER = 10
 
@@ -625,8 +626,7 @@ export function upsertBattleSkillDefinitions(skills: BattleSkillDefinition[]): B
 }
 
 export function getRoleSkillLoadout(role: string): string[] {
-  const key = String(role || '').trim().toLowerCase()
-  return ROLE_SKILL_LOADOUTS[key] ? [...ROLE_SKILL_LOADOUTS[key]] : ['arcane_bolt', 'frost_lock']
+  return getRoleSkillLoadoutFromGameConfig(role)
 }
 
 /**

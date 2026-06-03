@@ -1,6 +1,6 @@
 'use client'
 
-import { X, Sparkles, ArrowLeft, Lock } from 'lucide-react'
+import { X, Sparkles, ArrowLeft, Lock, Download } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
 import { PocSkillDraftPanel } from './skills/PocSkillDraftPanel'
@@ -14,6 +14,7 @@ export default function SkillsPanel({ game }: Props) {
     playerLevel,
     setShowSkills,
     setShowCharacter,
+    openStudioImportCategory,
     getAvailableSkills,
     carriedSkillIds,
     setCarriedSkillIds,
@@ -70,6 +71,16 @@ export default function SkillsPanel({ game }: Props) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <button
+            type="button"
+            onClick={() => {
+              setShowSkills(false)
+              openStudioImportCategory('skills')
+            }}
+            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 py-2 text-[12px] font-bold text-violet-700 hover:bg-violet-100"
+          >
+            <Download size={14} /> Studio 导入
+          </button>
           <PocSkillDraftPanel />
           <div className="grid grid-cols-3 items-stretch gap-2">
             {allSkills.map((skill) => {

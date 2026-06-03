@@ -3,6 +3,7 @@
 import { QueryProvider } from '@/src/lib/providers/QueryProvider'
 import { SupabaseProvider } from '@/src/lib/SupabaseContext'
 import { AuthProvider } from '@/src/lib/contexts/AuthContext'
+import { BattleGameConfigProvider } from '@/src/lib/gameConfig/BattleGameConfigProvider'
 import { BattleSkillsProvider } from '@/src/lib/skills/BattleSkillsProvider'
 import { BattleJobsProvider } from '@/src/lib/jobs/BattleJobsProvider'
 
@@ -12,9 +13,11 @@ export function BattleRuntimeProviders({ children }: { children: React.ReactNode
     <QueryProvider>
       <SupabaseProvider>
         <AuthProvider>
-          <BattleJobsProvider>
-            <BattleSkillsProvider>{children}</BattleSkillsProvider>
-          </BattleJobsProvider>
+          <BattleGameConfigProvider>
+            <BattleJobsProvider>
+              <BattleSkillsProvider>{children}</BattleSkillsProvider>
+            </BattleJobsProvider>
+          </BattleGameConfigProvider>
         </AuthProvider>
       </SupabaseProvider>
     </QueryProvider>
