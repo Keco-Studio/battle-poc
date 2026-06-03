@@ -2,6 +2,7 @@ import {
   getAllBattleSkillDefinitions,
   getRoleSkillLoadout,
 } from '../src/battle-core/content/skills/basic-skill-catalog'
+import { getActiveRoleStats } from '@/src/lib/jobs/jobConfigRegistry'
 import {
   buildSkillFromDefinition,
 } from '../src/lib/skills/pocSkillUi'
@@ -226,8 +227,8 @@ export const HP_MULTIPLIER = 5
 export const ENEMY_BASE_STATS = { hp: 120, atk: 6, def: 3, spd: 3 }
 export const ENEMY_LEVEL_UP = { hp: 36, atk: 6, def: 3, spd: 3 }
 
-export function calcPlayerStats(level: number, jobClassId: JobClassId = 'hero') {
-  const s = ROLE_STATS[jobClassId] ?? ROLE_STATS.hero
+export function calcPlayerStats(level: number, jobClassId: JobClassId | string = 'hero') {
+  const s = getActiveRoleStats(jobClassId) ?? ROLE_STATS[jobClassId as JobClassId] ?? ROLE_STATS.hero
   return {
     maxHp: (s.baseHp + (level - 1) * s.growthHp) * s.hpMult,
     atk: s.baseAtk + (level - 1) * s.growthAtk,

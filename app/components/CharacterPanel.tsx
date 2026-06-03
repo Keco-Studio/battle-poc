@@ -1,15 +1,19 @@
 'use client'
 
 import Image from 'next/image'
-import { X, User, Swords, Shield, Heart, Zap, Sparkles } from 'lucide-react'
+import { X, User, Swords, Shield, Heart, Zap, Sparkles, Download } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
-import { EquipmentType, equipmentTypes, expForLevel, JOB_DISPLAY_NAMES } from '../constants'
+import { EquipmentType, equipmentTypes, expForLevel } from '../constants'
+import { useBattleJobs } from '@/src/lib/jobs/BattleJobsProvider'
+import { PocJobConfigPanel } from './jobs/PocJobConfigPanel'
+import { PocGameConfigPanel } from './gameConfig/PocGameConfigPanel'
 
 interface Props {
   game: GameState
 }
 
 export default function CharacterPanel({ game }: Props) {
+  const { displayNames } = useBattleJobs()
   const {
     playerLevel,
     playerExp,
@@ -20,7 +24,10 @@ export default function CharacterPanel({ game }: Props) {
     setShowEquipment,
     setShowSkills,
     healWithGold,
+    openStudioImportMenu,
   } = game
+
+  const jobLabel = displayNames[game.jobClassId] ?? 'Warrior'
 
   const nextLevelExp = expForLevel(playerLevel)
   const canHeal = playerHP < totalStats.maxHp
@@ -48,7 +55,7 @@ export default function CharacterPanel({ game }: Props) {
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">Profile</div>
             <div className="truncate text-[11px] text-slate-500">
-              Lv.{playerLevel} {JOB_DISPLAY_NAMES[game.jobClassId] ?? 'Warrior'}
+              Lv.{playerLevel} {jobLabel}
             </div>
           </div>
           <button
@@ -63,6 +70,10 @@ export default function CharacterPanel({ game }: Props) {
 
         {/* 600x380 horizontal layout: left column Avatar+Stats, right column Equipment+Actions */}
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-y-auto p-4">
+          <div className="col-span-2 space-y-0">
+            <PocJobConfigPanel />
+            <PocGameConfigPanel />
+          </div>
           {/* Left column */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -71,7 +82,7 @@ export default function CharacterPanel({ game }: Props) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="mb-0.5 flex items-center justify-between text-[12px] font-bold text-slate-700">
-                  <span>Lv.{playerLevel} {JOB_DISPLAY_NAMES[game.jobClassId] ?? 'Warrior'}</span>
+                  <span>Lv.{playerLevel} {jobLabel}</span>
                   <span className="text-slate-400">{playerExp}/{nextLevelExp}</span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
@@ -151,6 +162,16 @@ export default function CharacterPanel({ game }: Props) {
             </div>
 
             <div className="mt-auto flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCharacter(false)
+                  openStudioImportMenu()
+                }}
+                className="flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 py-2 text-[12px] font-bold text-violet-700 hover:bg-violet-100"
+              >
+                <Download size={14} /> Studio 导入
+              </button>
               <button
                 type="button"
                 onClick={() => {

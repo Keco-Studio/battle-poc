@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Trophy, ScrollText, MessageSquare, Swords, User } from 'lucide-react'
+import { Trophy, ScrollText, MessageSquare, Swords, User, Download } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
 import {
   INTERACTION_RANGE,
@@ -137,6 +137,7 @@ export default function GameMap({ game }: Props) {
     totalStats,
     playerExp,
     setShowCharacter,
+    openStudioImportMenu,
     fleeSuccessMessage,
     dismissFleeSuccessMessage,
     dockPanel,
@@ -1285,7 +1286,7 @@ export default function GameMap({ game }: Props) {
 
       {/* Top-left player info */}
       <div className="absolute top-4 left-4 z-20 min-w-48 rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-4 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)]">
-        <div className="mb-3 flex items-center gap-3">
+        <div className="mb-3 flex items-start gap-3">
           <div
             onClick={() => setShowCharacter(true)}
             className="cursor-pointer transition-opacity hover:opacity-80"
@@ -1298,7 +1299,7 @@ export default function GameMap({ game }: Props) {
               className="h-12 w-12 rounded-lg border border-cyan-300 bg-gradient-to-b from-cyan-50 to-indigo-100 object-contain pixelated"
             />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <button
               type="button"
               onClick={() => game.setShowJobSelect(true)}
@@ -1314,6 +1315,18 @@ export default function GameMap({ game }: Props) {
               Lv.{playerLevel}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              openStudioImportMenu()
+            }}
+            className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-violet-300/80 bg-white/90 px-2 py-1.5 text-violet-700 shadow-sm transition-colors hover:border-violet-400 hover:bg-violet-50"
+            title="从 Keco Studio 导入数据"
+          >
+            <Download size={14} strokeWidth={2.4} />
+            <span className="font-arcade text-[9px] font-bold leading-none">导入</span>
+          </button>
         </div>
         <div className="space-y-2">
           <div>

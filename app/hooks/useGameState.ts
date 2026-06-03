@@ -315,6 +315,11 @@ export function useGameState() {
   const [showEnemyInfo, setShowEnemyInfo] = useState(false)
   const [showEquipment, setShowEquipment] = useState(false)
   const [showSkills, setShowSkills] = useState(false)
+  const [showStudioImport, setShowStudioImport] = useState(false)
+  const [studioImportCategory, setStudioImportCategory] =
+    useState<import('@/app/components/studioImport/studioImportCatalog').StudioImportCategoryId | null>(
+      null,
+    )
 
   /** Display label after Supabase sign-in (usually email); null for guests. */
   const [accountLabel, setAccountLabel] = useState<string | null>(null)
@@ -1198,6 +1203,23 @@ export function useGameState() {
     setShowEquipment,
     showSkills,
     setShowSkills,
+    showStudioImport,
+    studioImportCategory,
+    openStudioImportMenu: () => {
+      setShowStudioImport(true)
+      setStudioImportCategory(null)
+    },
+    openStudioImportCategory: (
+      category: import('@/app/components/studioImport/studioImportCatalog').StudioImportCategoryId,
+    ) => {
+      setShowStudioImport(true)
+      setStudioImportCategory(category)
+    },
+    setStudioImportCategory,
+    closeStudioImport: () => {
+      setShowStudioImport(false)
+      setStudioImportCategory(null)
+    },
     accountLabel,
     /** Supabase user id when logged in; null for guests. Used for instant profile UI without waiting on auth round-trips. */
     authUserId: authedUserId,

@@ -5,6 +5,7 @@ import CharacterPanel from './components/CharacterPanel'
 import EquipmentPanel from './components/EquipmentPanel'
 import SkillsPanel from './components/SkillsPanel'
 import GameMap from './components/GameMap'
+import StudioImportModal from './components/studioImport/StudioImportModal'
 
 export default function HomePage() {
   const game = useGameState()
@@ -16,6 +17,7 @@ export default function HomePage() {
       {game.showCharacter && <CharacterPanel game={game} />}
       {game.showEquipment && <EquipmentPanel game={game} />}
       {game.showSkills && <SkillsPanel game={game} />}
+      {game.showStudioImport && <StudioImportModal game={game} />}
     </>
   )
 }
