@@ -21,36 +21,36 @@ export type StudioImportCatalogEntry = {
 export const STUDIO_IMPORT_CATALOG: StudioImportCatalogEntry[] = [
   {
     id: 'skills',
-    title: '技能',
-    description: '从 Studio 表按 id 导入技能（伤害、CD、元素等）',
+    title: 'Skills',
+    description: 'Import skill rows from Studio libraries (damage, CD, elements).',
   },
   {
     id: 'job_classes',
-    title: '职业属性',
-    description: '基础/成长 HP、ATK、DEF、SPD、hpMult',
+    title: 'Class stats',
+    description: 'Base/growth HP, ATK, DEF, SPD, hpMult.',
   },
   {
     id: 'equipment',
-    title: '装备槽',
+    title: 'Equipment slots',
     description: 'weapon / ring / armor / shoes',
     gameConfigKind: 'equipment',
   },
   {
     id: 'loadout',
-    title: '职业默认技能',
-    description: '各职业携带技能列表（逗号分隔 skill id）',
+    title: 'Class loadouts',
+    description: 'Default skill ids per class (comma-separated)',
     gameConfigKind: 'loadout',
   },
   {
     id: 'basic_attack',
-    title: '普攻',
-    description: 'basic_attack 行：倍率、图标、描述',
+    title: 'Basic attack',
+    description: 'basic_attack row: multiplier, icon, description',
     gameConfigKind: 'basic_attack',
   },
   {
     id: 'balance_scalar',
-    title: '战斗数值',
-    description: '经验、敌人成长、伤害公式等标量 key',
+    title: 'Battle formulas',
+    description: 'EXP, enemy growth, damage scalars, and other keys',
     gameConfigKind: 'balance_scalar',
   },
 ]

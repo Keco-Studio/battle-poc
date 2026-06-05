@@ -169,47 +169,92 @@ export interface MapEnemyRow {
 }
 
 // ─────────────────────────────────────────────
+// Cross-app simulation skill drafts (Studio import bindings)
+// ─────────────────────────────────────────────
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export interface SimulationSkillDraftsRow {
+  id: string
+  user_id: string
+  drafts: Json
+  created_at: string
+  updated_at: string
+}
+
+// ─────────────────────────────────────────────
 // Supabase Database generic type (for typed client)
 // ─────────────────────────────────────────────
 
 export interface Database {
   public: {
     Tables: {
+      simulation_skill_drafts: {
+        Row: SimulationSkillDraftsRow
+        Insert: {
+          id?: string
+          user_id: string
+          drafts?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          drafts?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       skills: {
         Row: SkillRow
         Insert: Omit<SkillRow, 'created_at' | 'updated_at'>
         Update: Partial<Omit<SkillRow, 'id' | 'created_at' | 'updated_at'>>
+        Relationships: []
       }
       job_classes: {
         Row: JobClassRow
         Insert: Omit<JobClassRow, 'created_at'>
         Update: Partial<Omit<JobClassRow, 'id' | 'created_at'>>
+        Relationships: []
       }
       job_class_skills: {
         Row: JobClassSkillRow
         Insert: JobClassSkillRow
         Update: Partial<Pick<JobClassSkillRow, 'is_signature' | 'is_default'>>
+        Relationships: []
       }
       player_saves: {
         Row: PlayerSaveRow
         Insert: PlayerSaveInsert
         Update: PlayerSaveUpdate
+        Relationships: []
       }
       battle_history: {
         Row: BattleHistoryRow
         Insert: BattleHistoryInsert
-        Update: never
+        Update: Partial<Omit<BattleHistoryRow, 'id' | 'user_id' | 'created_at'>>
+        Relationships: []
       }
       enemy_templates: {
         Row: EnemyTemplateRow
         Insert: Omit<EnemyTemplateRow, 'created_at' | 'updated_at'>
         Update: Partial<Omit<EnemyTemplateRow, 'id' | 'created_at' | 'updated_at'>>
+        Relationships: []
       }
       map_enemies: {
         Row: MapEnemyRow
         Insert: Omit<MapEnemyRow, 'id' | 'created_at'>
         Update: Partial<Omit<MapEnemyRow, 'id' | 'created_at'>>
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
   }
 }

@@ -34,6 +34,7 @@ type Props = {
   onImportDraft: (draft: PocSkillDraft | PocSkillDraft[]) => void
   onError?: (message: string) => void
   onSuccess?: (message: string) => void
+  showSectionTitle?: boolean
 }
 
 export function ImportSkillByIdBlock({
@@ -45,6 +46,7 @@ export function ImportSkillByIdBlock({
   onImportDraft,
   onError,
   onSuccess,
+  showSectionTitle = true,
 }: Props) {
   const supabase = useSupabaseOptional()
   const loadSeqRef = useRef(0)
@@ -246,11 +248,19 @@ export function ImportSkillByIdBlock({
   return (
     <>
       <div className={styles.sectionCard}>
-        <div className={styles.sectionTitle}>Import by id</div>
-        <p className={styles.sectionHint}>
-          Pick one or more rows by their id column. Headers map to battle fields (ratio, mpCost,
-          range, cooldownTicks, etc.). Validate &amp; apply normalizes skill ids.
-        </p>
+        {showSectionTitle ? (
+          <>
+            <div className={styles.sectionTitle}>Import by id</div>
+            <p className={styles.sectionHint}>
+              Pick one or more rows by their id column. Headers map to battle fields (ratio,
+              mpCost, range, cooldownTicks, etc.). Apply to catalog normalizes skill ids.
+            </p>
+          </>
+        ) : (
+          <p className={styles.sectionHint}>
+            Select a Studio library, id column, and skill rows to add as drafts.
+          </p>
+        )}
 
         <div className="mb-2 grid gap-2">
           <SkillSourceSelect

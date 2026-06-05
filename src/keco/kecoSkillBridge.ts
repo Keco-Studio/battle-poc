@@ -31,7 +31,7 @@ export function kecoSkillToBattleCoreDefinition(skill: Skill): BattleSkillDefini
     ratio: skillBtRatio(skill),
     mpCost: skill.mpCost,
     range: KECO_SKILL_CAST_RANGE,
-    cooldownTicks: Math.max(0, skill.maxCooldown * 10),
+    cooldownTicks: Math.max(0, skill.maxCooldown),
     applyFreezeTicks: freezeTicks,
   })
 }

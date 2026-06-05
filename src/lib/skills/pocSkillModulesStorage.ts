@@ -13,8 +13,9 @@ export const POC_SKILLS_UPDATED_EVENT = 'battle-poc-skills-updated'
 
 export const DEFAULT_POC_SKILL_MODULE_ID = 'builtin'
 export const DRAFT_SKILL_MODULE_ID = 'studio-drafts'
+export const SIMULATION_SYNC_MODULE_ID = 'simulation-sync'
 
-export type PocSkillModuleSource = 'builtin' | 'studio' | 'drafts'
+export type PocSkillModuleSource = 'builtin' | 'studio' | 'drafts' | 'simulation-sync'
 
 export type PocSkillModule = {
   id: string
@@ -141,9 +142,47 @@ export function applyDefinitionsToRuntimeCatalog(definitions: BattleSkillDefinit
   replaceSkillCatalog(definitions)
 }
 
+/** Merge base module defs with simulation-sync defs (simulation wins on duplicate id). */
+export function mergeSkillDefinitions(
+  base: BattleSkillDefinition[],
+  simulationSync: BattleSkillDefinition[],
+): BattleSkillDefinition[] {
+  const byId = new Map<string, BattleSkillDefinition>()
+  for (const def of base) byId.set(def.id, def)
+  for (const def of simulationSync) byId.set(def.id, def)
+  return [...byId.values()]
+}
+
+export function getSimulationSyncModule(
+  state: PocSkillModulesState,
+): PocSkillModule | undefined {
+  return state.modules.find((m) => m.id === SIMULATION_SYNC_MODULE_ID)
+}
+
 export function applyModuleToRuntime(module: PocSkillModule): Skill[] {
   applyDefinitionsToRuntimeCatalog(module.definitions)
   return buildUiSkillsFromDefinitions(getAllBattleSkillDefinitions())
+}
+
+export function applyMergedModulesToRuntime(
+  baseModule: PocSkillModule,
+  simulationModule: PocSkillModule | null | undefined,
+): { skills: Skill[]; baseSkills: Skill[]; simulationSyncSkills: Skill[] } {
+  const merged = mergeSkillDefinitions(
+    baseModule.definitions,
+    simulationModule?.definitions ?? [],
+  )
+  applyDefinitionsToRuntimeCatalog(merged)
+  const all = buildUiSkillsFromDefinitions(getAllBattleSkillDefinitions())
+  const simulationIds = new Set((simulationModule?.definitions ?? []).map((d) => d.id))
+  const baseIds = new Set(baseModule.definitions.map((d) => d.id))
+  const simulationSyncSkills = all.filter((s) => simulationIds.has(s.id))
+  const baseSkills = all.filter((s) => baseIds.has(s.id) && !simulationIds.has(s.id))
+  return {
+    skills: [...baseSkills, ...simulationSyncSkills],
+    baseSkills,
+    simulationSyncSkills,
+  }
 }
 
 export function upsertDraftModule(
@@ -185,6 +224,31 @@ export function upsertStudioModule(
       ? state.modules.map((m, i) => (i === idx ? mod : m))
       : [...state.modules, mod]
   return { ...state, modules, activeModuleId: id }
+}
+
+export function upsertSimulationSyncModule(
+  state: PocSkillModulesState,
+  definitions: BattleSkillDefinition[],
+): PocSkillModulesState {
+  const mod: PocSkillModule = {
+    id: SIMULATION_SYNC_MODULE_ID,
+    label: 'Simulation sync',
+    source: 'simulation-sync',
+    definitions: cloneDefinitions(definitions),
+  }
+  const idx = state.modules.findIndex((m) => m.id === SIMULATION_SYNC_MODULE_ID)
+  const modules =
+    idx >= 0
+      ? state.modules.map((m, i) => (i === idx ? mod : m))
+      : [...state.modules, mod]
+  return { ...state, modules }
+}
+
+export function clearSimulationSyncModule(state: PocSkillModulesState): PocSkillModulesState {
+  return {
+    ...state,
+    modules: state.modules.filter((m) => m.id !== SIMULATION_SYNC_MODULE_ID),
+  }
 }
 
 export function setActiveModuleId(
