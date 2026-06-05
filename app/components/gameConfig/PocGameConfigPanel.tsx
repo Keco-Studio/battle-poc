@@ -26,9 +26,10 @@ import styles from '../skills/SkillSourcePanel.module.css'
 type Props = {
   /** When set (import hub), lock import kind and hide type picker. */
   importKind?: GameConfigImportKind
+  embedded?: boolean
 }
 
-export function PocGameConfigPanel({ importKind }: Props) {
+export function PocGameConfigPanel({ importKind, embedded = false }: Props) {
   const supabase = useSupabaseOptional()
   const { userProfile, isAuthenticated, isLoading: authLoading } = useAuth()
   const {
@@ -76,8 +77,16 @@ export function PocGameConfigPanel({ importKind }: Props) {
 
   if (authLoading) return <p className={styles.metaLine}>Checking sign-in…</p>
 
+  const draftsForView = importKind ? drafts.filter((d) => d.kind === importKind) : drafts
+
   return (
-    <div className={`${styles.panel} mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3`}>
+    <div
+      className={
+        embedded
+          ? `${styles.panel} space-y-3`
+          : `${styles.panel} mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3`
+      }
+    >
       {!importKind && (
         <>
           <div>
@@ -126,22 +135,24 @@ export function PocGameConfigPanel({ importKind }: Props) {
           />
           <div className={styles.sectionCard}>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className={styles.sectionTitle}>Config drafts ({drafts.length})</span>
+              <span className={styles.sectionTitle}>
+                Config drafts ({draftsForView.length})
+              </span>
               <button
                 type="button"
                 className={styles.applyBtn}
-                disabled={validating || drafts.length === 0 || isHydrating}
+                disabled={validating || draftsForView.length === 0 || isHydrating}
                 onClick={() => void handleValidateApply()}
               >
                 <CheckCircle size={12} />
                 {validating ? 'Applying…' : 'Validate & apply'}
               </button>
             </div>
-            {drafts.length === 0 ? (
+            {draftsForView.length === 0 ? (
               <p className={styles.metaLine}>No drafts yet.</p>
             ) : (
               <ul className="max-h-28 space-y-1 overflow-y-auto">
-                {drafts.map((d) => (
+                {draftsForView.map((d) => (
                   <li key={d.draftId} className={styles.draftRow}>
                     <span className="truncate">{draftLabel(d)}</span>
                     <button

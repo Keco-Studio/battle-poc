@@ -169,12 +169,34 @@ export interface MapEnemyRow {
 }
 
 // ─────────────────────────────────────────────
+// Cross-app simulation skill drafts (Studio import bindings)
+// ─────────────────────────────────────────────
+
+export interface SimulationSkillDraftsRow {
+  id: string
+  user_id: string
+  drafts: unknown
+  created_at: string
+  updated_at: string
+}
+
+// ─────────────────────────────────────────────
 // Supabase Database generic type (for typed client)
 // ─────────────────────────────────────────────
 
 export interface Database {
   public: {
     Tables: {
+      simulation_skill_drafts: {
+        Row: SimulationSkillDraftsRow
+        Insert: {
+          user_id: string
+          drafts?: unknown
+        }
+        Update: {
+          drafts?: unknown
+        }
+      }
       skills: {
         Row: SkillRow
         Insert: Omit<SkillRow, 'created_at' | 'updated_at'>

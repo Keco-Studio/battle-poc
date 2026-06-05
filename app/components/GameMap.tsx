@@ -1322,10 +1322,10 @@ export default function GameMap({ game }: Props) {
               openStudioImportMenu()
             }}
             className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-violet-300/80 bg-white/90 px-2 py-1.5 text-violet-700 shadow-sm transition-colors hover:border-violet-400 hover:bg-violet-50"
-            title="从 Keco Studio 导入数据"
+            title="Import skills, stats, and config from Studio"
           >
             <Download size={14} strokeWidth={2.4} />
-            <span className="font-arcade text-[9px] font-bold leading-none">导入</span>
+            <span className="font-arcade text-[9px] font-bold leading-none">Import</span>
           </button>
         </div>
         <div className="space-y-2">

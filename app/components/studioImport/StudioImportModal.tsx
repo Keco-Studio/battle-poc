@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { ArrowLeft, Download, X, ChevronRight } from 'lucide-react'
 import type { GameState } from '@/app/hooks/useGameState'
-import { PocSkillDraftPanel } from '../skills/PocSkillDraftPanel'
+import { SkillCatalogSourcesPanel } from '../skills/SkillCatalogSourcesPanel'
 import { PocJobConfigPanel } from '../jobs/PocJobConfigPanel'
 import { PocGameConfigPanel } from '../gameConfig/PocGameConfigPanel'
 import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
@@ -74,12 +74,12 @@ export default function StudioImportModal({ game }: Props) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-bold text-slate-900">
-              {activeEntry ? `导入 · ${activeEntry.title}` : '从 Studio 导入'}
+              {activeEntry ? activeEntry.title : 'Import'}
             </div>
             <div className="truncate text-[11px] text-slate-500">
               {activeEntry
                 ? activeEntry.description
-                : '选择数据类型，再选表与行 id 导入为草稿，最后 Validate & apply'}
+                : 'Skills, class stats, equipment, loadouts, and battle formulas — all from here.'}
             </div>
           </div>
           {activeEntry && (
@@ -120,10 +120,10 @@ export default function StudioImportModal({ game }: Props) {
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] font-semibold">
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
-                          草稿 {row.draftCount}
+                          Drafts {row.draftCount}
                         </span>
                         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">
-                          当前 · {row.activeLabel}
+                          Active · {row.activeLabel}
                         </span>
                       </div>
                     </div>
@@ -133,17 +133,17 @@ export default function StudioImportModal({ game }: Props) {
               ))}
             </ul>
           ) : activeEntry.id === 'skills' ? (
-            <PocSkillDraftPanel />
+            <SkillCatalogSourcesPanel embedded />
           ) : activeEntry.id === 'job_classes' ? (
-            <PocJobConfigPanel />
+            <PocJobConfigPanel embedded />
           ) : (
-            <PocGameConfigPanel importKind={activeEntry.gameConfigKind} />
+            <PocGameConfigPanel embedded importKind={activeEntry.gameConfigKind} />
           )}
         </div>
 
         {!activeEntry && (
           <p className={`${styles.metaLine} border-t border-slate-100 px-4 py-2`}>
-            需使用与 Keco Studio 相同的账号登录后才能选表导入。
+            Sign in with your Keco Studio account. Simulation skill sync is in the Skills panel.
           </p>
         )}
       </div>

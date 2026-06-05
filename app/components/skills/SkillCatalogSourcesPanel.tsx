@@ -6,64 +6,68 @@ import { CheckCircle, Trash2 } from 'lucide-react'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import {
-  DEFAULT_POC_JOB_MODULE_ID,
-  DRAFT_JOB_MODULE_ID,
-} from '@/src/lib/jobs/pocJobModulesStorage'
-import { useBattleJobs } from '@/src/lib/jobs/BattleJobsProvider'
+  DEFAULT_POC_SKILL_MODULE_ID,
+  DRAFT_SKILL_MODULE_ID,
+} from '@/src/lib/skills/pocSkillModulesStorage'
+import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
 import {
+  loadPocSkillDrafts,
+  savePocSkillDrafts,
+  type PocSkillDraft,
   draftImportDisplayId,
-  loadPocJobDrafts,
-  savePocJobDrafts,
-  type PocJobDraft,
-} from '@/src/lib/jobs/pocJobDrafts'
-import { listSelectableStudioTables } from '@/src/lib/jobs/studioJobPicker'
-import { ImportJobByIdBlock } from './ImportJobByIdBlock'
-import { SkillSourceSelect } from '../skills/SkillSourceSelect'
-import styles from '../skills/SkillSourcePanel.module.css'
+} from '@/src/lib/skills/pocSkillDrafts'
+import { listSelectableStudioTables } from '@/src/lib/skills/studioSkillPicker'
+import { ImportSkillByIdBlock } from './ImportSkillByIdBlock'
+import { SkillSourceSelect } from './SkillSourceSelect'
+import styles from './SkillSourcePanel.module.css'
 
 type Props = {
+  /** When true, omit outer card chrome (inside Import modal). */
   embedded?: boolean
 }
 
-export function PocJobConfigPanel({ embedded = false }: Props) {
+/** Studio skill import + catalog — used in Import hub only. */
+export function SkillCatalogSourcesPanel({ embedded = false }: Props) {
   const supabase = useSupabaseOptional()
   const { userProfile, isAuthenticated, isLoading: authLoading } = useAuth()
   const {
     modules,
     activeModuleId,
     selectModule,
-    applyJobDrafts,
+    applySkillDrafts,
     isHydrating,
     hydrateError,
-  } = useBattleJobs()
+  } = useBattleSkills()
 
   const supabaseReady = Boolean(supabase && isAuthenticated && userProfile?.id)
-  const [drafts, setDrafts] = useState<PocJobDraft[]>(() => loadPocJobDrafts())
+  const [drafts, setDrafts] = useState<PocSkillDraft[]>(() => loadPocSkillDrafts())
   const [importError, setImportError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
 
   const { data: studioTables = [], isLoading: tablesLoading } = useQuery({
-    queryKey: ['pocJobSelectableTables', userProfile?.id],
+    queryKey: ['pocSkillSelectableTables', userProfile?.id],
     queryFn: () => listSelectableStudioTables(supabase!, userProfile!.id),
     enabled: supabaseReady,
   })
 
-  const moduleOptions = useMemo(
-    () =>
-      modules
-        .filter((m) => m.source !== 'studio' || m.id === activeModuleId)
-        .map((m) => ({ value: m.id, label: m.label })),
-    [modules, activeModuleId],
-  )
+  const moduleOptions = useMemo(() => {
+    const opts = modules
+      .filter((m) => m.source !== 'studio' || m.id === activeModuleId)
+      .map((m) => ({ value: m.id, label: m.label }))
+    if (!opts.some((m) => m.value === DEFAULT_POC_SKILL_MODULE_ID)) {
+      opts.push({ value: DEFAULT_POC_SKILL_MODULE_ID, label: 'Default skills' })
+    }
+    return opts
+  }, [modules, activeModuleId])
 
-  const persistDrafts = useCallback((next: PocJobDraft[]) => {
+  const persistDrafts = useCallback((next: PocSkillDraft[]) => {
     setDrafts(next)
-    savePocJobDrafts(next)
+    savePocSkillDrafts(next)
   }, [])
 
   const handleImportDraft = useCallback(
-    (incoming: PocJobDraft | PocJobDraft[]) => {
+    (incoming: PocSkillDraft | PocSkillDraft[]) => {
       const list = Array.isArray(incoming) ? incoming : [incoming]
       persistDrafts([...drafts, ...list])
     },
@@ -82,61 +86,52 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
     setImportError(null)
     setStatusMessage(null)
     try {
-      const result = await applyJobDrafts()
+      const result = await applySkillDrafts()
       if (result.errors.length > 0) {
         setImportError(result.errors.join('; '))
       } else {
-        setStatusMessage('Applied class stats from Studio drafts')
+        setStatusMessage(`Applied ${result.skills.length} skill(s) from Studio drafts`)
       }
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Validate failed')
     } finally {
       setValidating(false)
     }
-  }, [applyJobDrafts])
+  }, [applySkillDrafts])
 
   if (authLoading) {
     return <p className={styles.metaLine}>Checking sign-in…</p>
   }
 
-  const allModuleOptions =
-    moduleOptions.some((m) => m.value === DEFAULT_POC_JOB_MODULE_ID)
-      ? moduleOptions
-      : [...moduleOptions, { value: DEFAULT_POC_JOB_MODULE_ID, label: 'Default classes' }]
+  const shellClass = embedded
+    ? `${styles.panel} space-y-3`
+    : `${styles.panel} ${styles.unifiedShell}`
 
   return (
-    <div
-      className={
-        embedded
-          ? `${styles.panel} space-y-3`
-          : `${styles.panel} mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3`
-      }
-    >
+    <div className={shellClass}>
       <div>
-        <div className={styles.sectionTitle}>Class stats source</div>
+        <div className={styles.sectionTitle}>Active catalog</div>
         <p className={styles.sectionHint}>
-          Default growth curves from built-in data, or Studio drafts (base / growth / hpMult).
-          Changing module updates HP, ATK, DEF, SPD for battles.
+          Base skill set for battles. Simulation-synced skills are managed in the Skills panel.
         </p>
-      </div>
-
-      <div>
-        <span className={styles.fieldLabel}>Active module</span>
         <SkillSourceSelect
           value={activeModuleId}
           onChange={selectModule}
-          options={allModuleOptions}
-          aria-label="Active class stats module"
+          options={moduleOptions}
+          aria-label="Active skill catalog"
         />
+        {activeModuleId === DRAFT_SKILL_MODULE_ID && (
+          <p className={`${styles.okLine} mt-2`}>Studio draft catalog is active.</p>
+        )}
       </div>
 
       {!supabaseReady ? (
         <p className={styles.warnLine}>
-          Sign in with the same Supabase account as Keco Studio to import class rows.
+          Sign in with the same account as Keco Studio to import skills.
         </p>
       ) : (
-        <>
-          <ImportJobByIdBlock
+        <div className="space-y-3">
+          <ImportSkillByIdBlock
             disabled={validating}
             tables={studioTables}
             tablesLoading={tablesLoading}
@@ -149,7 +144,7 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
 
           <div className={styles.sectionCard}>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className={styles.sectionTitle}>Class drafts ({drafts.length})</span>
+              <span className={styles.sectionTitle}>Pending drafts ({drafts.length})</span>
               <button
                 type="button"
                 onClick={() => void handleValidateApply()}
@@ -157,13 +152,13 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
                 className={styles.applyBtn}
               >
                 <CheckCircle size={12} />
-                {validating ? 'Applying…' : 'Validate & apply'}
+                {validating ? 'Applying…' : 'Apply to catalog'}
               </button>
             </div>
 
             {drafts.length === 0 ? (
               <p className={styles.metaLine}>
-                No drafts yet. Import classes by id, then Validate &amp; apply.
+                Import rows above, then apply to replace the active catalog with draft skills.
               </p>
             ) : (
               <ul className="max-h-28 space-y-1 overflow-y-auto">
@@ -182,14 +177,8 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
                 ))}
               </ul>
             )}
-
-            {activeModuleId === DRAFT_JOB_MODULE_ID && (
-              <p className={`${styles.okLine} mt-2`}>
-                Draft module is active — battles use validated Studio class stats.
-              </p>
-            )}
           </div>
-        </>
+        </div>
       )}
 
       {(hydrateError || importError) && (
@@ -199,3 +188,6 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
     </div>
   )
 }
+
+/** @deprecated Use SkillCatalogSourcesPanel */
+export const PocSkillDraftPanel = SkillCatalogSourcesPanel

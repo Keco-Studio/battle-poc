@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  applyModuleToRuntime,
+  applyMergedModulesToRuntime,
   getActiveModule,
+  getSimulationSyncModule,
   loadPocSkillModulesState,
   notifyPocSkillsUpdated,
   savePocSkillModulesState,
@@ -10,16 +11,32 @@ import {
   type PocSkillModule,
   type PocSkillModulesState,
 } from './pocSkillModulesStorage'
-import { buildUiSkillsFromDefinitions } from './pocSkillUi'
 import type { Skill } from '@/app/constants'
 import { loadPocSkillDrafts } from './pocSkillDrafts'
 import { validatePocSkillDraftsFromLiveTables } from './refreshPocSkillDrafts'
+import { clearSimulationSyncFromRuntime, readMergedSkillsFromPersistence } from './simulationSkillSync'
 
 const DRAFT_MODULE_LABEL = 'Studio drafts'
 
+function applyRuntimeFromState(state: PocSkillModulesState): {
+  skills: Skill[]
+  baseSkills: Skill[]
+  simulationSyncSkills: Skill[]
+} {
+  return applyMergedModulesToRuntime(getActiveModule(state), getSimulationSyncModule(state) ?? null)
+}
+
 export async function hydratePocSkills(
   supabase: SupabaseClient | null,
-): Promise<{ state: PocSkillModulesState; skills: Skill[] }> {
+  options?: { includeSimulationSync?: boolean },
+): Promise<{
+  state: PocSkillModulesState
+  skills: Skill[]
+  baseSkills: Skill[]
+  simulationSyncSkills: Skill[]
+}> {
+  const includeSimulationSync = options?.includeSimulationSync !== false
+
   const drafts = loadPocSkillDrafts()
   if (drafts.length > 0) {
     const draftResult = await validatePocSkillDraftsFromLiveTables(supabase, drafts)
@@ -27,52 +44,72 @@ export async function hydratePocSkills(
       let state = loadPocSkillModulesState()
       state = upsertDraftModule(state, DRAFT_MODULE_LABEL, draftResult.definitions)
       savePocSkillModulesState(state, { notify: false })
-      const skills = applyModuleToRuntime(getActiveModule(state))
-      return { state, skills }
+      if (!includeSimulationSync) {
+        state = {
+          ...state,
+          modules: state.modules.filter((m) => m.source !== 'simulation-sync'),
+        }
+      }
+      return { state, ...applyRuntimeFromState(state) }
     }
   }
 
-  const state = loadPocSkillModulesState()
-  const activeModule = getActiveModule(state)
-  const skills = applyModuleToRuntime(activeModule)
-  return { state, skills }
+  let state = loadPocSkillModulesState()
+  if (!includeSimulationSync) {
+    state = {
+      ...state,
+      modules: state.modules.filter((m) => m.source !== 'simulation-sync'),
+    }
+  }
+  return { state, ...applyRuntimeFromState(state) }
 }
 
-/** Sync battle-core catalog + return UI skills from persisted active module (no network). */
-export function bootstrapPocSkillsFromPersistence(): Skill[] {
-  const state = loadPocSkillModulesState()
-  const activeModule = getActiveModule(state)
-  return applyModuleToRuntime(activeModule)
+/** Sync battle-core catalog + return UI skills from persisted modules (no network). */
+export function bootstrapPocSkillsFromPersistence(): {
+  skills: Skill[]
+  baseSkills: Skill[]
+  simulationSyncSkills: Skill[]
+} {
+  const { skills, baseSkills, simulationSyncSkills } = readMergedSkillsFromPersistence()
+  return { skills, baseSkills, simulationSyncSkills }
 }
 
 export function readPocSkillsForInitialRender(): Skill[] {
-  if (typeof window === 'undefined') {
-    return buildUiSkillsFromDefinitions(getActiveModule(loadPocSkillModulesState()).definitions)
-  }
-  return bootstrapPocSkillsFromPersistence()
+  return bootstrapPocSkillsFromPersistence().skills
 }
 
-export function activateSkillModule(moduleId: string): { state: PocSkillModulesState; skills: Skill[] } {
+export function activateSkillModule(moduleId: string): {
+  state: PocSkillModulesState
+  skills: Skill[]
+  baseSkills: Skill[]
+  simulationSyncSkills: Skill[]
+} {
   let state = loadPocSkillModulesState()
   state = setActiveModuleId(state, moduleId)
   savePocSkillModulesState(state)
-  const skills = applyModuleToRuntime(getActiveModule(state))
-  return { state, skills }
+  return { state, ...applyRuntimeFromState(state) }
 }
 
 export function listSkillModules(): PocSkillModule[] {
-  return loadPocSkillModulesState().modules
+  return loadPocSkillModulesState().modules.filter((m) => m.source !== 'simulation-sync')
 }
 
 export async function applyPocSkillDrafts(
   supabase: SupabaseClient | null,
-): Promise<{ state: PocSkillModulesState; skills: Skill[]; errors: string[] }> {
+): Promise<{
+  state: PocSkillModulesState
+  skills: Skill[]
+  baseSkills: Skill[]
+  simulationSyncSkills: Skill[]
+  errors: string[]
+}> {
   const drafts = loadPocSkillDrafts()
   const result = await validatePocSkillDraftsFromLiveTables(supabase, drafts)
   if (!result.ok) {
+    const state = loadPocSkillModulesState()
     return {
-      state: loadPocSkillModulesState(),
-      skills: applyModuleToRuntime(getActiveModule(loadPocSkillModulesState())),
+      state,
+      ...applyRuntimeFromState(state),
       errors: result.draftErrors.map((e) => `${e.label}: ${e.error}`),
     }
   }
@@ -80,7 +117,8 @@ export async function applyPocSkillDrafts(
   let state = loadPocSkillModulesState()
   state = upsertDraftModule(state, DRAFT_MODULE_LABEL, result.definitions)
   savePocSkillModulesState(state)
-  const skills = applyModuleToRuntime(getActiveModule(state))
   notifyPocSkillsUpdated()
-  return { state, skills, errors: [] }
+  return { state, ...applyRuntimeFromState(state), errors: [] }
 }
+
+export { clearSimulationSyncFromRuntime }
