@@ -1,12 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from './types'
+import type { Database, SimulationSkillDraftsRow } from './types'
 import type {
   SimulationSkillDraft,
   SimulationSkillDraftsPersisted,
 } from '@/src/lib/skills/simulationSkillDraftTypes'
-
-type SimulationSkillDraftsRow =
-  Database['public']['Tables']['simulation_skill_drafts']['Row']
 
 function sanitizeDrafts(raw: unknown): SimulationSkillDraft[] {
   if (!raw || typeof raw !== 'object') return []
@@ -24,13 +21,14 @@ export async function fetchSimulationSkillDraftsForUser(
 ): Promise<SimulationSkillDraft[]> {
   const { data, error } = await supabase
     .from('simulation_skill_drafts')
-    .select('drafts')
+    .select('*')
     .eq('user_id', userId)
     .maybeSingle()
 
   if (error) throw error
-  if (!data) return []
-  return sanitizeDrafts({ version: 1, drafts: data.drafts as SimulationSkillDraft[] })
+  const row = data as SimulationSkillDraftsRow | null
+  if (!row) return []
+  return sanitizeDrafts({ version: 1, drafts: row.drafts as SimulationSkillDraft[] })
 }
 
 export async function upsertSimulationSkillDraftsForUser(
