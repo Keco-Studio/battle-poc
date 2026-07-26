@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, Swords, Shield, Heart, Zap, Target } from 'lucide-react'
 import type { GameState } from '../hooks/useGameState'
 import type { JobClassId } from '../constants'
+import { calcPlayerStats } from '../constants'
 import { useBattleJobs } from '@/src/lib/jobs/BattleJobsProvider'
 import JobClassHoverDetail from './JobClassHoverDetail'
 
@@ -69,10 +70,11 @@ export default function JobSelectModal({ game, onClose }: Props) {
                 const stats = roleStats[jobId]
                 if (!stats) return null
                 const isSelected = jobId === currentJob
-                const lv1Hp = stats.baseHp * stats.hpMult
-                const lv1Atk = stats.baseAtk
-                const lv1Def = stats.baseDef
-                const lv1Spd = stats.baseSpd
+                const lv1 = calcPlayerStats(1, jobId)
+                const lv1Hp = lv1.maxHp
+                const lv1Atk = lv1.atk
+                const lv1Def = lv1.def
+                const lv1Spd = lv1.spd
                 const rangeKey = preferredRanges[jobId] ?? 'melee'
 
                 return (

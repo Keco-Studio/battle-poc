@@ -30,7 +30,14 @@ export type StudioTableValidation = {
 }
 
 const JOB_HEADER_TOKENS = new Set([
+  'hp',
   'basehp',
+  'atk',
+  'baseatk',
+  'def',
+  'basedef',
+  'spd',
+  'basespd',
   'growthhp',
   'hpmult',
   'hpgrowth',
@@ -154,7 +161,7 @@ function validateSkillTable(columns: StudioTableColumn[]): StudioTableValidation
 
   if (jobSig >= 2 && skillSig === 0) {
     errors.push(
-      '该表更像「职业属性」表（含 base_hp、growth_hp 等），不能用于导入技能。请在导入中心选择「职业属性」。',
+      '该表更像「职业属性」表（含 hp、growth_hp 等），不能用于导入技能。请在导入中心选择「职业属性」。',
     )
     return {
       ok: false,
@@ -203,15 +210,15 @@ function validateJobTable(columns: StudioTableColumn[]): StudioTableValidation {
   }
 
   const hasStatField =
-    mapped.has('baseHp') ||
+    mapped.has('hp') ||
     mapped.has('growthHp') ||
     mapped.has('hpMult') ||
-    mapped.has('baseAtk') ||
+    mapped.has('atk') ||
     mapped.has('growthAtk')
 
   if (!hasStatField && jobSig === 0) {
     errors.push(
-      '缺少职业成长列（如 base_hp、growth_hp、hp_mult）。该表无法正确导入职业属性。',
+      '缺少职业成长列（如 hp、growth_hp、hp_mult）。该表无法正确导入职业属性。',
     )
   }
 

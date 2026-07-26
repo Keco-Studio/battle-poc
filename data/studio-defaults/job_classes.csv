@@ -1,4 +1,4 @@
-id,name,description,preferred_range,base_hp,base_atk,base_def,base_spd,growth_hp,growth_atk,growth_def,growth_spd,hp_mult
+id,name,description,preferred_range,hp,atk,def,spd,growth_hp,growth_atk,growth_def,growth_spd,hp_mult
 hero,Warrior,"Balanced frontline. Balances damage and control, maintains pressure rhythm.",melee,120,6,4,4,35,5,3,3,5
 tank,Tank,"Heavy armor frontline. Absorbs damage to protect allies, disrupts enemy rhythm.",melee,150,4,7,2,45,3,5,1,5
 archer,Archer,"Ranged physical DPS. Maintains safe distance for sustained pressure, kites enemies.",ranged,90,7,2,6,25,6,2,4,5

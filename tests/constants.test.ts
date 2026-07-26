@@ -18,7 +18,7 @@ import {
 describe('calcPlayerStats', () => {
   it('should calculate level 1 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(1)
-    expect(stats.maxHp).toBe(600)  // (120 + 0*35) * 5
+    expect(stats.maxHp).toBe(120)  // 120 + 0*35 (hpMult disabled)
     expect(stats.atk).toBe(6)      // 6 + 0*5
     expect(stats.def).toBe(4)      // 4 + 0*3
     expect(stats.spd).toBe(4)      // 4 + 0*3
@@ -26,7 +26,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 2 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(2)
-    expect(stats.maxHp).toBe(775)  // (120 + 1*35) * 5
+    expect(stats.maxHp).toBe(155)  // 120 + 1*35
     expect(stats.atk).toBe(11)     // 6 + 1*5
     expect(stats.def).toBe(7)      // 4 + 1*3
     expect(stats.spd).toBe(7)      // 4 + 1*3
@@ -34,7 +34,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 5 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(5)
-    expect(stats.maxHp).toBe(1300) // (120 + 4*35) * 5
+    expect(stats.maxHp).toBe(260) // 120 + 4*35
     expect(stats.atk).toBe(26)     // 6 + 4*5
     expect(stats.def).toBe(16)     // 4 + 4*3
     expect(stats.spd).toBe(16)     // 4 + 4*3
@@ -42,7 +42,7 @@ describe('calcPlayerStats', () => {
 
   it('should calculate level 10 stats correctly (default hero)', () => {
     const stats = calcPlayerStats(10)
-    expect(stats.maxHp).toBe(2175) // (120 + 9*35) * 5
+    expect(stats.maxHp).toBe(435) // 120 + 9*35
     expect(stats.atk).toBe(51)     // 6 + 9*5
     expect(stats.def).toBe(31)     // 4 + 9*3
     expect(stats.spd).toBe(31)     // 4 + 9*3
@@ -50,12 +50,12 @@ describe('calcPlayerStats', () => {
 
   it('should use job-specific stats when jobClassId is provided', () => {
     const mageStats = calcPlayerStats(1, 'mage')
-    expect(mageStats.maxHp).toBe(400)  // (80 + 0*20) * 5
+    expect(mageStats.maxHp).toBe(80)
     expect(mageStats.atk).toBe(9)
     expect(mageStats.def).toBe(1)
 
     const tankStats = calcPlayerStats(1, 'tank')
-    expect(tankStats.maxHp).toBe(750)  // (150 + 0*45) * 5
+    expect(tankStats.maxHp).toBe(150)
     expect(tankStats.atk).toBe(4)
     expect(tankStats.def).toBe(7)
   })

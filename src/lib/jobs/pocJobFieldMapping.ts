@@ -1,7 +1,14 @@
 import type { JobClassConfig, JobRoleStats, PreferredRange } from './jobConfigTypes'
 
+/** Strip optional "Label (dataType)" suffix from Keco Studio exported headers. */
+export function parseHeaderLabel(raw: string): string {
+  const trimmed = raw.trim()
+  const match = trimmed.match(/^(.+?)\s*\(\w+(?:_\w+)*\)$/)
+  return match ? match[1].trim() : trimmed
+}
+
 export function normalizeHeaderToken(raw: string): string {
-  return raw.trim().toLowerCase().replace(/[\s_-]+/g, '')
+  return parseHeaderLabel(raw).trim().toLowerCase().replace(/[\s_-]+/g, '')
 }
 
 export type PocJobColumnMappingKey =
@@ -9,10 +16,10 @@ export type PocJobColumnMappingKey =
   | 'name'
   | 'description'
   | 'preferredRange'
-  | 'baseHp'
-  | 'baseAtk'
-  | 'baseDef'
-  | 'baseSpd'
+  | 'hp'
+  | 'atk'
+  | 'def'
+  | 'spd'
   | 'growthHp'
   | 'growthAtk'
   | 'growthDef'
@@ -37,15 +44,15 @@ export const POC_JOB_MAPPING_FIELDS: PocJobMappingFieldDef[] = [
     group: 'core',
     hint: 'melee | mid | ranged',
   },
-  { key: 'baseHp', label: 'Base HP (Lv.1)', group: 'stats' },
-  { key: 'baseAtk', label: 'Base ATK', group: 'stats' },
-  { key: 'baseDef', label: 'Base DEF', group: 'stats' },
-  { key: 'baseSpd', label: 'Base SPD', group: 'stats' },
+  { key: 'hp', label: 'HP (Lv.1)', group: 'stats' },
+  { key: 'atk', label: 'ATK (Lv.1)', group: 'stats' },
+  { key: 'def', label: 'DEF (Lv.1)', group: 'stats' },
+  { key: 'spd', label: 'SPD (Lv.1)', group: 'stats' },
   { key: 'growthHp', label: 'HP growth / level', group: 'stats' },
   { key: 'growthAtk', label: 'ATK growth / level', group: 'stats' },
   { key: 'growthDef', label: 'DEF growth / level', group: 'stats' },
   { key: 'growthSpd', label: 'SPD growth / level', group: 'stats' },
-  { key: 'hpMult', label: 'HP multiplier', group: 'stats', hint: 'maxHp uses (baseHp + growth*(lv-1)) * hpMult' },
+  { key: 'hpMult', label: 'HP multiplier', group: 'stats', hint: 'Reserved; maxHp currently ignores hpMult (see APPLY_ROLE_HP_MULT)' },
 ]
 
 export type PocJobFlatRow = Record<PocJobColumnMappingKey, string>
@@ -56,10 +63,10 @@ export function emptyPocJobFlatRow(): PocJobFlatRow {
     name: '',
     description: '',
     preferredRange: 'melee',
-    baseHp: '120',
-    baseAtk: '6',
-    baseDef: '4',
-    baseSpd: '4',
+    hp: '120',
+    atk: '6',
+    def: '4',
+    spd: '4',
     growthHp: '35',
     growthAtk: '5',
     growthDef: '3',
@@ -108,10 +115,10 @@ export function flatRowToJobClassConfig(flat: PocJobFlatRow): JobClassConfig | n
   const builtin = emptyPocJobFlatRow()
 
   const stats: JobRoleStats = {
-    baseHp: parsePositiveNumber(flat.baseHp, Number(builtin.baseHp)),
-    baseAtk: parsePositiveNumber(flat.baseAtk, Number(builtin.baseAtk)),
-    baseDef: parsePositiveNumber(flat.baseDef, Number(builtin.baseDef)),
-    baseSpd: parsePositiveNumber(flat.baseSpd, Number(builtin.baseSpd)),
+    hp: parsePositiveNumber(flat.hp, Number(builtin.hp)),
+    atk: parsePositiveNumber(flat.atk, Number(builtin.atk)),
+    def: parsePositiveNumber(flat.def, Number(builtin.def)),
+    spd: parsePositiveNumber(flat.spd, Number(builtin.spd)),
     growthHp: parsePositiveNumber(flat.growthHp, Number(builtin.growthHp)),
     growthAtk: parsePositiveNumber(flat.growthAtk, Number(builtin.growthAtk)),
     growthDef: parsePositiveNumber(flat.growthDef, Number(builtin.growthDef)),

@@ -206,16 +206,16 @@ export const JOB_PREFERRED_RANGE: Record<JobClassId, 'melee' | 'mid' | 'ranged'>
 
 /** Role-specific base & growth stats, aligned with DB seed (job_classes table). */
 export const ROLE_STATS: Record<JobClassId, {
-  baseHp: number; baseAtk: number; baseDef: number; baseSpd: number
+  hp: number; atk: number; def: number; spd: number
   growthHp: number; growthAtk: number; growthDef: number; growthSpd: number
   hpMult: number
 }> = {
-  hero:     { baseHp: 120, baseAtk: 6,  baseDef: 4, baseSpd: 4, growthHp: 35, growthAtk: 5, growthDef: 3, growthSpd: 3, hpMult: 5 },
-  tank:     { baseHp: 150, baseAtk: 4,  baseDef: 7, baseSpd: 2, growthHp: 45, growthAtk: 3, growthDef: 5, growthSpd: 1, hpMult: 5 },
-  archer:   { baseHp: 90,  baseAtk: 7,  baseDef: 2, baseSpd: 6, growthHp: 25, growthAtk: 6, growthDef: 2, growthSpd: 4, hpMult: 5 },
-  mage:     { baseHp: 80,  baseAtk: 9,  baseDef: 1, baseSpd: 4, growthHp: 20, growthAtk: 7, growthDef: 1, growthSpd: 3, hpMult: 5 },
-  healer:   { baseHp: 100, baseAtk: 4,  baseDef: 4, baseSpd: 5, growthHp: 28, growthAtk: 3, growthDef: 3, growthSpd: 3, hpMult: 5 },
-  assassin: { baseHp: 85,  baseAtk: 10, baseDef: 2, baseSpd: 8, growthHp: 22, growthAtk: 8, growthDef: 2, growthSpd: 5, hpMult: 5 },
+  hero:     { hp: 120, atk: 6,  def: 4, spd: 4, growthHp: 35, growthAtk: 5, growthDef: 3, growthSpd: 3, hpMult: 5 },
+  tank:     { hp: 150, atk: 4,  def: 7, spd: 2, growthHp: 45, growthAtk: 3, growthDef: 5, growthSpd: 1, hpMult: 5 },
+  archer:   { hp: 90,  atk: 7,  def: 2, spd: 6, growthHp: 25, growthAtk: 6, growthDef: 2, growthSpd: 4, hpMult: 5 },
+  mage:     { hp: 80,  atk: 9,  def: 1, spd: 4, growthHp: 20, growthAtk: 7, growthDef: 1, growthSpd: 3, hpMult: 5 },
+  healer:   { hp: 100, atk: 4,  def: 4, spd: 5, growthHp: 28, growthAtk: 3, growthDef: 3, growthSpd: 3, hpMult: 5 },
+  assassin: { hp: 85,  atk: 10, def: 2, spd: 8, growthHp: 22, growthAtk: 8, growthDef: 2, growthSpd: 5, hpMult: 5 },
 }
 
 // Player level/stat calculation (legacy flat constants kept for reference)
@@ -227,13 +227,18 @@ export const HP_MULTIPLIER = 5
 export const ENEMY_BASE_STATS = { hp: 120, atk: 6, def: 3, spd: 3 }
 export const ENEMY_LEVEL_UP = { hp: 36, atk: 6, def: 3, spd: 3 }
 
+/** Set true to multiply player maxHp by JobRoleStats.hpMult. Temporarily disabled. */
+export const APPLY_ROLE_HP_MULT = false
+
 export function calcPlayerStats(level: number, jobClassId: JobClassId | string = 'hero') {
   const s = getActiveRoleStats(jobClassId) ?? ROLE_STATS[jobClassId as JobClassId] ?? ROLE_STATS.hero
+  const baseMaxHp = s.hp + (level - 1) * s.growthHp
   return {
-    maxHp: (s.baseHp + (level - 1) * s.growthHp) * s.hpMult,
-    atk: s.baseAtk + (level - 1) * s.growthAtk,
-    def: s.baseDef + (level - 1) * s.growthDef,
-    spd: s.baseSpd + (level - 1) * s.growthSpd,
+    maxHp: APPLY_ROLE_HP_MULT ? baseMaxHp * s.hpMult : baseMaxHp,
+    // maxHp: baseMaxHp * s.hpMult,
+    atk: s.atk + (level - 1) * s.growthAtk,
+    def: s.def + (level - 1) * s.growthDef,
+    spd: s.spd + (level - 1) * s.growthSpd,
   }
 }
 

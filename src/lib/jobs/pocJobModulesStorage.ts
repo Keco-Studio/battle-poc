@@ -1,5 +1,6 @@
 import { getBuiltinJobClassConfigs } from './builtinJobCatalog'
 import type { JobClassConfig } from './jobConfigTypes'
+import { normalizeRoleStats } from './jobConfigTypes'
 
 export const POC_JOBS_UPDATED_EVENT = 'battle-poc-jobs-updated'
 
@@ -30,15 +31,16 @@ function cloneConfigs(configs: JobClassConfig[]): JobClassConfig[] {
 function isValidConfig(x: unknown): x is JobClassConfig {
   if (!x || typeof x !== 'object') return false
   const c = x as JobClassConfig
-  return (
-    typeof c.id === 'string' &&
-    c.id.length > 0 &&
-    typeof c.name === 'string' &&
-    c.name.length > 0 &&
-    typeof c.stats === 'object' &&
-    c.stats !== null &&
-    Number.isFinite(c.stats.baseHp)
-  )
+  if (typeof c.id !== 'string' || c.id.length === 0) return false
+  if (typeof c.name !== 'string' || c.name.length === 0) return false
+  if (typeof c.stats !== 'object' || c.stats === null) return false
+  return normalizeRoleStats(c.stats as Record<string, unknown>) !== null
+}
+
+function normalizeConfig(config: JobClassConfig): JobClassConfig {
+  const stats = normalizeRoleStats(config.stats as Record<string, unknown>)
+  if (!stats) return config
+  return { ...config, stats }
 }
 
 function createDefaultState(): PocJobModulesState {
@@ -75,7 +77,15 @@ function parseModulesJson(raw: string | null): PocJobModulesState | null {
   if (!raw) return null
   try {
     const data = JSON.parse(raw) as unknown
-    return isModulesState(data) ? data : null
+    return isModulesState(data)
+      ? {
+          ...data,
+          modules: data.modules.map((m) => ({
+            ...m,
+            configs: m.configs.map((c) => normalizeConfig(c)),
+          })),
+        }
+      : null
   } catch {
     return null
   }

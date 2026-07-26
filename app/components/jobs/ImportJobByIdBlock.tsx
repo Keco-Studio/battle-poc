@@ -247,7 +247,8 @@ export function ImportJobByIdBlock({
       <div className={styles.sectionCard}>
         <div className={styles.sectionTitle}>Import class by id</div>
         <p className={styles.sectionHint}>
-          Map Studio columns to base stats and per-level growth (baseHp, growthHp, hpMult, etc.).
+          Map Studio columns to Lv.1 stats and per-level growth (hp, growthHp, hpMult, etc.).
+          Max HP in battle = hp + growthHp × (level − 1). {/* hpMult temporarily disabled */}
           Validate &amp; apply to refresh live values.
         </p>
 

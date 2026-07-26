@@ -37,13 +37,29 @@ export function createEmptyJobDraft(): PocJobDraft {
   return { draftId: crypto.randomUUID(), fields: {} }
 }
 
+const LEGACY_DRAFT_FIELD_KEYS: Record<string, PocJobColumnMappingKey> = {
+  baseHp: 'hp',
+  baseAtk: 'atk',
+  baseDef: 'def',
+  baseSpd: 'spd',
+}
+
 function sanitizeFields(
   fields: unknown,
 ): Partial<Record<PocJobColumnMappingKey, LocalTableCellRef>> {
   if (!fields || typeof fields !== 'object') return {}
   const out: Partial<Record<PocJobColumnMappingKey, LocalTableCellRef>> = {}
+  const source = fields as Record<string, unknown>
   for (const f of POC_JOB_MAPPING_FIELDS) {
-    const ref = (fields as Record<string, unknown>)[f.key]
+    let ref = source[f.key]
+    if (!ref) {
+      for (const [legacyKey, mappedKey] of Object.entries(LEGACY_DRAFT_FIELD_KEYS)) {
+        if (mappedKey === f.key) {
+          ref = source[legacyKey]
+          break
+        }
+      }
+    }
     if (!ref || typeof ref !== 'object') continue
     const r = ref as LocalTableCellRef
     if (

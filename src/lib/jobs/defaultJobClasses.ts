@@ -34,10 +34,10 @@ export const JOB_PREFERRED_RANGE: Record<JobClassId, 'melee' | 'mid' | 'ranged'>
 export const ROLE_STATS: Record<
   JobClassId,
   {
-    baseHp: number
-    baseAtk: number
-    baseDef: number
-    baseSpd: number
+    hp: number
+    atk: number
+    def: number
+    spd: number
     growthHp: number
     growthAtk: number
     growthDef: number
@@ -46,10 +46,10 @@ export const ROLE_STATS: Record<
   }
 > = {
   hero: {
-    baseHp: 120,
-    baseAtk: 6,
-    baseDef: 4,
-    baseSpd: 4,
+    hp: 120,
+    atk: 6,
+    def: 4,
+    spd: 4,
     growthHp: 35,
     growthAtk: 5,
     growthDef: 3,
@@ -57,10 +57,10 @@ export const ROLE_STATS: Record<
     hpMult: 5,
   },
   tank: {
-    baseHp: 150,
-    baseAtk: 4,
-    baseDef: 7,
-    baseSpd: 2,
+    hp: 150,
+    atk: 4,
+    def: 7,
+    spd: 2,
     growthHp: 45,
     growthAtk: 3,
     growthDef: 5,
@@ -68,10 +68,10 @@ export const ROLE_STATS: Record<
     hpMult: 5,
   },
   archer: {
-    baseHp: 90,
-    baseAtk: 7,
-    baseDef: 2,
-    baseSpd: 6,
+    hp: 90,
+    atk: 7,
+    def: 2,
+    spd: 6,
     growthHp: 25,
     growthAtk: 6,
     growthDef: 2,
@@ -79,10 +79,10 @@ export const ROLE_STATS: Record<
     hpMult: 5,
   },
   mage: {
-    baseHp: 80,
-    baseAtk: 9,
-    baseDef: 1,
-    baseSpd: 4,
+    hp: 80,
+    atk: 9,
+    def: 1,
+    spd: 4,
     growthHp: 20,
     growthAtk: 7,
     growthDef: 1,
@@ -90,10 +90,10 @@ export const ROLE_STATS: Record<
     hpMult: 5,
   },
   healer: {
-    baseHp: 100,
-    baseAtk: 4,
-    baseDef: 4,
-    baseSpd: 5,
+    hp: 100,
+    atk: 4,
+    def: 4,
+    spd: 5,
     growthHp: 28,
     growthAtk: 3,
     growthDef: 3,
@@ -101,10 +101,10 @@ export const ROLE_STATS: Record<
     hpMult: 5,
   },
   assassin: {
-    baseHp: 85,
-    baseAtk: 10,
-    baseDef: 2,
-    baseSpd: 8,
+    hp: 85,
+    atk: 10,
+    def: 2,
+    spd: 8,
     growthHp: 22,
     growthAtk: 8,
     growthDef: 2,
