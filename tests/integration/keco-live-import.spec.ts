@@ -9,7 +9,7 @@ const OWNER_ID = '33b7f9c6-7310-4100-b51d-fff916e38ab2'
 const OWNER_EMAIL = 'ghjjy35786@gmail.com'
 const PROJECT_REF = 'lulrcirmwwvvnupmwqcq'
 const EVIDENCE_DIR = path.resolve('test-results/keco-live-import-2026-07-27')
-const SOURCE_PATH = path.join(EVIDENCE_DIR, 'source-readback.json')
+const SOURCE_PATH = path.resolve('tests/fixtures/keco-live-import/source-readback.json')
 
 const IMPORT_STORAGE_KEYS = [
   'battle-poc-skill-drafts-v1',

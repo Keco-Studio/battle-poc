@@ -63,6 +63,45 @@ describe('game config draft refresh', () => {
     expect(result.drafts[0]?.invalidReason).toContain('Live table unavailable')
   })
 
+  it('starts distinct Studio table refreshes concurrently', async () => {
+    const resolvers = new Map<
+      string,
+      (value: { columns: never[]; rows: Array<{ id: string; values: Record<string, string> }> }) => void
+    >()
+    const loadTable = vi.fn((_client: unknown, tableId: string) =>
+      new Promise<{ columns: never[]; rows: Array<{ id: string; values: Record<string, string> }> }>(
+        (resolve) => resolvers.set(tableId, resolve),
+      ),
+    )
+    const refresh = refreshPocGameConfigDraftsFromLiveTables({} as never, [
+      {
+        draftId: 'equipment-row',
+        kind: 'equipment',
+        sourceRowId: 'row-1',
+        fields: { id: { tableId: 'studio:equipment', columnKey: 'id-field', value: 'weapon' } },
+      },
+      {
+        draftId: 'loadout-row',
+        kind: 'loadout',
+        sourceRowId: 'row-2',
+        fields: { id: { tableId: 'studio:loadouts', columnKey: 'id-field', value: 'hero' } },
+      },
+    ], loadTable as never)
+
+    await vi.waitFor(() => expect(loadTable).toHaveBeenCalledTimes(2))
+    resolvers.get('studio:equipment')?.({
+      columns: [],
+      rows: [{ id: 'row-1', values: { 'id-field': 'weapon' } }],
+    })
+    resolvers.get('studio:loadouts')?.({
+      columns: [],
+      rows: [{ id: 'row-2', values: { 'id-field': 'hero' } }],
+    })
+
+    const result = await refresh
+    expect(result.drafts.every((draft) => draft.invalidReason === undefined)).toBe(true)
+  })
+
   it('does not hydrate a stale game-config module after live refresh is unavailable', async () => {
     const bundle = createDefaultGameConfigBundle()
     savePocGameConfigModulesState({
