@@ -4,6 +4,7 @@ import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSupabase } from '@/src/lib/SupabaseContext'
 import { resolvePostLoginRedirect } from '@/src/lib/authPostLoginRedirect'
+import { waitForAuthCallbackSession } from '@/src/lib/auth/auth-callback-session'
 
 function AuthCallbackContent() {
   const router = useRouter()
@@ -11,33 +12,31 @@ function AuthCallbackContent() {
   const supabase = useSupabase()
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const code = searchParams.get('code')
-
-      if (code) {
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-
-          if (error) {
-            console.error('Error exchanging code for session:', error)
-            router.push('/?error=auth_error')
-            return
-          }
-
-          const target = resolvePostLoginRedirect({
-            explicitRedirect: searchParams.get('redirect'),
-          })
-          router.push(target)
-        } catch (err) {
-          console.error('Auth callback error:', err)
-          router.push('/?error=auth_error')
-        }
-      } else {
-        router.push('/?error=auth_error')
-      }
+    const controller = new AbortController()
+    if (searchParams.get('error')) {
+      router.replace('/?error=auth_error')
+      return () => controller.abort()
     }
 
-    void handleCallback()
+    void waitForAuthCallbackSession(supabase.auth, {
+      hasCode: Boolean(searchParams.get('code')),
+      signal: controller.signal,
+    }).then((result) => {
+      if (result === 'aborted') return
+      if (result === 'authenticated') {
+        router.replace(
+          resolvePostLoginRedirect({
+            explicitRedirect: searchParams.get('redirect'),
+          }),
+        )
+        return
+      }
+
+      console.error(`Auth callback failed: ${result}`)
+      router.replace('/?error=auth_error')
+    })
+
+    return () => controller.abort()
   }, [searchParams, supabase, router])
 
   return (

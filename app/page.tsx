@@ -6,12 +6,19 @@ import EquipmentPanel from './components/EquipmentPanel'
 import SkillsPanel from './components/SkillsPanel'
 import GameMap from './components/GameMap'
 import StudioImportModal from './components/studioImport/StudioImportModal'
+import AuthErrorNotice from './components/AuthErrorNotice'
 
 export default function HomePage() {
   const game = useGameState()
 
   return (
     <>
+      <AuthErrorNotice
+        onRetry={() => {
+          game.setShowJobSelect(false)
+          game.setDockPanel('character_login')
+        }}
+      />
       {/* Map always rendered; character/equipment/skill panels overlay on top, keeping map visible as background */}
       <GameMap game={game} />
       {game.showCharacter && <CharacterPanel game={game} />}

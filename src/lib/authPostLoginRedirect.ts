@@ -3,7 +3,14 @@ export const BATTLE_DEFAULT_POST_LOGIN_PATH = '/'
 
 function isSafeRelativePath(path: string): boolean {
   const trimmed = path.trim()
-  return trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.includes('://')
+  if (!trimmed.startsWith('/')) return false
+
+  const base = new URL('https://battle.invalid')
+  try {
+    return new URL(trimmed, base).origin === base.origin
+  } catch {
+    return false
+  }
 }
 
 function normalizePathForCompare(path: string): string {
