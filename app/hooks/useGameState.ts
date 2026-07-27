@@ -4,11 +4,11 @@ import { useState, useCallback, useEffect, useLayoutEffect } from 'react'
 import {
   EquipmentType,
   calcPlayerStats,
+  calcPlayerStatsWithEquipment,
   calcEnemyStats,
   createEnemyEncounter,
   expForLevel,
   getAllSkills,
-  equipmentTypes,
   initialEnemies,
   PLAYER_START,
   EnemyCombatStats,
@@ -17,6 +17,7 @@ import {
   sanitizeCarriedSkillIds,
   JOB_DISPLAY_NAMES,
 } from '../constants'
+import { getEquipmentTypes } from '@/src/lib/gameConfig/gameConfigRegistry'
 import { POC_SKILLS_UPDATED_EVENT } from '@/src/lib/skills/pocSkillModulesStorage'
 import type { JobClassId } from '../constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
@@ -183,6 +184,16 @@ function clearSharedBrowserGamePersistence(): void {
     window.localStorage.removeItem(ENEMY_CHAT_THREADS_STORAGE_KEY)
     window.localStorage.removeItem(PVP_PLAYERS_CACHE_KEY)
     window.localStorage.removeItem(JOB_SELECTED_KEY)
+    for (const key of [
+      'battle-poc-skill-drafts-v1',
+      'battle-poc-skill-modules-v1',
+      'battle-poc-job-drafts-v1',
+      'battle-poc-job-modules-v1',
+      'battle-poc-game-config-drafts-v1',
+      'battle-poc-game-config-modules-v1',
+    ]) {
+      window.localStorage.removeItem(key)
+    }
     clearLongTermBtPersisted()
   } catch (e) {
     console.warn('Failed to clear browser game persistence:', e)
@@ -364,21 +375,11 @@ export function useGameState() {
 
   // Base stats
   const playerStats = calcPlayerStats(playerLevel, jobClassId)
+  const equipmentTypes = getEquipmentTypes()
 
   // Stats after equipment bonus
   const getTotalStats = useCallback((): TotalStats => {
-    const base = calcPlayerStats(playerLevel, jobClassId)
-    let atkBonus = 0, defBonus = 0, spdBonus = 0, maxHpBonus = 0
-    if (equippedGear.weapon) atkBonus = playerLevel * equipmentTypes.weapon.bonus
-    if (equippedGear.ring) maxHpBonus = playerLevel * equipmentTypes.ring.bonus
-    if (equippedGear.armor) defBonus = playerLevel * equipmentTypes.armor.bonus
-    if (equippedGear.shoes) spdBonus = playerLevel * equipmentTypes.shoes.bonus
-    return {
-      maxHp: base.maxHp + maxHpBonus,
-      atk: base.atk + atkBonus,
-      def: base.def + defBonus,
-      spd: base.spd + spdBonus,
-    }
+    return calcPlayerStatsWithEquipment(playerLevel, jobClassId, equippedGear)
   }, [playerLevel, equippedGear, jobClassId])
 
   const totalStats = getTotalStats()
@@ -402,9 +403,7 @@ export function useGameState() {
       setInventory(Array.isArray(saved.inventory) ? saved.inventory : [])
       setPlayerPos(saved.playerPos ?? { ...PLAYER_START })
       setJobClassId(job)
-      const maxForLevel = calcPlayerStats(lv, job).maxHp
-      const ringBonus = saved.equippedGear?.ring ? lv * equipmentTypes.ring.bonus : 0
-      const maxHp = maxForLevel + ringBonus
+      const maxHp = calcPlayerStatsWithEquipment(lv, job, saved.equippedGear ?? {}).maxHp
       const hp = typeof saved.playerHP === 'number' ? saved.playerHP : maxHp
       setPlayerHP(Math.min(Math.max(0, hp), maxHp))
       const maxMp = Math.floor(maxHp / 2)
@@ -482,7 +481,7 @@ export function useGameState() {
     setInventory(Array.isArray(save.inventory) ? (save.inventory as InventoryItem[]) : [])
     setPlayerPos({ x: save.pos_x, y: save.pos_y })
     setJobClassId(job)
-    const maxHp = calcPlayerStats(lv, job).maxHp + (gear.ring ? lv * equipmentTypes.ring.bonus : 0)
+    const maxHp = calcPlayerStatsWithEquipment(lv, job, gear).maxHp
     const hp = save.current_hp ?? maxHp
     setPlayerHP(Math.min(Math.max(0, hp), maxHp))
     const maxMp = Math.floor(maxHp / 2)
@@ -682,14 +681,14 @@ export function useGameState() {
 
     if (newLevel > playerLevel) {
       setPlayerLevel(newLevel)
-      const stats = calcPlayerStats(newLevel, jobClassId)
+      const stats = calcPlayerStatsWithEquipment(newLevel, jobClassId, equippedGear)
       setPlayerHP(stats.maxHp)
       const nextMaxMp = Math.floor(stats.maxHp / 2)
       setPlayerMaxMp(nextMaxMp)
       setPlayerMP(nextMaxMp)
     }
     return { exp: newExp, level: newLevel }
-  }, [playerLevel])
+  }, [playerLevel, jobClassId, equippedGear])
 
   // Equip item
   const equipItem = useCallback((item: InventoryItem, itemIndex: number) => {
@@ -709,7 +708,7 @@ export function useGameState() {
       setInventory(prev => [...prev, { type, name: equipmentTypes[type].name, icon: equipmentTypes[type].icon }])
       setEquippedGear(prev => ({ ...prev, [type]: null }))
     }
-  }, [equippedGear])
+  }, [equippedGear, equipmentTypes])
 
   // Sell equipment
   const sellItem = useCallback((itemIndex: number) => {
@@ -894,6 +893,7 @@ export function useGameState() {
       authedUserId,
       battleRound,
       enemyLevel,
+      equipmentTypes,
       nearbyEnemy,
       playerExp,
       playerLevel,

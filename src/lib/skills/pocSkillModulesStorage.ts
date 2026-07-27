@@ -21,6 +21,8 @@ export type PocSkillModule = {
   id: string
   label: string
   source: PocSkillModuleSource
+  /** Module that a drafts module extends. */
+  baseModuleId?: string
   /** Set when source=studio */
   studioLibraryId?: string
   /** Raw definitions (pre engine CD scaling), persisted for offline fallback */
@@ -53,7 +55,8 @@ function isValidDefinition(x: unknown): x is BattleSkillDefinition {
     typeof d.range === 'number' &&
     Number.isFinite(d.range) &&
     typeof d.cooldownTicks === 'number' &&
-    Number.isFinite(d.cooldownTicks)
+    Number.isFinite(d.cooldownTicks) &&
+    (d.cooldownUnit === undefined || d.cooldownUnit === 'turns' || d.cooldownUnit === 'ticks')
   )
 }
 
@@ -82,6 +85,7 @@ function isModulesState(x: unknown): x is PocSkillModulesState {
     if (typeof mod.id !== 'string' || typeof mod.label !== 'string' || !Array.isArray(mod.definitions)) {
       return false
     }
+    if (mod.baseModuleId !== undefined && typeof mod.baseModuleId !== 'string') return false
     if (!mod.definitions.every(isValidDefinition)) return false
   }
   return o.modules.length > 0
@@ -190,11 +194,22 @@ export function upsertDraftModule(
   label: string,
   definitions: BattleSkillDefinition[],
 ): PocSkillModulesState {
+  const active = getActiveModule(state)
+  const existingDraft = state.modules.find((m) => m.id === DRAFT_SKILL_MODULE_ID)
+  const baseModuleId = active.id === DRAFT_SKILL_MODULE_ID
+    ? (existingDraft?.baseModuleId ?? DEFAULT_POC_SKILL_MODULE_ID)
+    : active.id
+  const mergeBase = state.modules.find((m) => m.id === baseModuleId)
+    ?? state.modules.find((m) => m.id === DEFAULT_POC_SKILL_MODULE_ID)
+    ?? active
+  const activeDefinitions = mergeBase.definitions
+  const merged = mergeSkillDefinitions(activeDefinitions, definitions)
   const mod: PocSkillModule = {
     id: DRAFT_SKILL_MODULE_ID,
     label,
     source: 'drafts',
-    definitions: cloneDefinitions(definitions),
+    baseModuleId: mergeBase.id,
+    definitions: cloneDefinitions(merged),
   }
   const idx = state.modules.findIndex((m) => m.id === DRAFT_SKILL_MODULE_ID)
   const modules =
@@ -249,6 +264,14 @@ export function clearSimulationSyncModule(state: PocSkillModulesState): PocSkill
     ...state,
     modules: state.modules.filter((m) => m.id !== SIMULATION_SYNC_MODULE_ID),
   }
+}
+
+export function clearDraftSkillModule(state: PocSkillModulesState): PocSkillModulesState {
+  const modules = state.modules.filter((m) => m.source !== 'drafts' && m.source !== 'studio')
+  const activeModuleId = modules.some((m) => m.id === state.activeModuleId)
+    ? state.activeModuleId
+    : DEFAULT_POC_SKILL_MODULE_ID
+  return { ...state, modules, activeModuleId }
 }
 
 export function setActiveModuleId(

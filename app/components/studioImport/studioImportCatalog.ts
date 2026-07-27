@@ -27,7 +27,7 @@ export const STUDIO_IMPORT_CATALOG: StudioImportCatalogEntry[] = [
   {
     id: 'job_classes',
     title: 'Class stats',
-    description: 'Base/growth HP, ATK, DEF, SPD, hpMult.',
+    description: 'Lv.1 HP, ATK, DEF, SPD, growth, hpMult.',
   },
   {
     id: 'equipment',

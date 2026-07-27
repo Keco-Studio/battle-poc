@@ -24,6 +24,7 @@ import {
   applyPocJobDrafts,
   bootstrapPocJobsFromPersistence,
   hydratePocJobs,
+  resetPocJobsRuntimeToBuiltin,
 } from './pocJobsStorage'
 
 type BattleJobsContextValue = {
@@ -61,7 +62,9 @@ export function BattleJobsProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load class stats'
       setHydrateError(msg)
-      setSnapshot(bootstrapPocJobsFromPersistence())
+      const fallback = resetPocJobsRuntimeToBuiltin()
+      setModulesState(fallback.state)
+      setSnapshot(fallback.snapshot)
     } finally {
       setIsHydrating(false)
     }

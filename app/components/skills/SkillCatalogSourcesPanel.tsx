@@ -13,6 +13,7 @@ import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
 import {
   loadPocSkillDrafts,
   savePocSkillDrafts,
+  upsertPocSkillDrafts,
   type PocSkillDraft,
   draftImportDisplayId,
 } from '@/src/lib/skills/pocSkillDrafts'
@@ -69,7 +70,7 @@ export function SkillCatalogSourcesPanel({ embedded = false }: Props) {
   const handleImportDraft = useCallback(
     (incoming: PocSkillDraft | PocSkillDraft[]) => {
       const list = Array.isArray(incoming) ? incoming : [incoming]
-      persistDrafts([...drafts, ...list])
+      persistDrafts(upsertPocSkillDrafts(drafts, list))
     },
     [drafts, persistDrafts],
   )

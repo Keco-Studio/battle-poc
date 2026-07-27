@@ -28,7 +28,7 @@ export function detectIdColumnKey(columns: StudioTableColumn[], kind: GameConfig
     const nKey = normalizeHeaderToken(c.key)
     return tokens.some((t) => nLabel === t || nKey === t)
   })
-  return hit?.key ?? columns.find((c) => c.key === ASSET_NAME_COLUMN_KEY)?.key
+  return hit?.key
 }
 
 export function findRowByIdCell(
@@ -38,11 +38,11 @@ export function findRowByIdCell(
 ): StudioTableRow | null {
   const want = idValue.trim().toLowerCase()
   if (!want) return null
-  for (const row of rows) {
+  const matches = rows.filter((row) => {
     const cell = cellValueToString(row.values[idColumnKey]).trim().toLowerCase()
-    if (cell === want) return row
-  }
-  return null
+    return cell === want
+  })
+  return matches.length === 1 ? matches[0]! : null
 }
 
 export function extractIdOptionsFromRows(
@@ -63,9 +63,12 @@ export function extractIdOptionsFromRows(
   return options
 }
 
-function parseNum(raw: string, fallback: number): number {
-  const n = Number(String(raw).trim())
-  return Number.isFinite(n) ? n : fallback
+function parseNum(raw: string, field: string, fallback?: number): number {
+  const value = String(raw).trim()
+  if (!value && fallback !== undefined) return fallback
+  const n = Number(value)
+  if (!Number.isFinite(n)) throw new Error(`${field} must be a finite number`)
+  return n
 }
 
 function cell(row: StudioTableRow, colKey: string | undefined): string {
@@ -99,7 +102,7 @@ export function buildDraftFromTableRow(args: {
     const ck = colByAliases(columns, aliases)
     if (!ck) return
     const v = cell(row, ck)
-    if (v) fields[key] = { tableId, columnKey: ck, value: v }
+    fields[key] = { tableId, columnKey: ck, value: v }
   }
 
   if (kind === 'equipment') {
@@ -137,8 +140,7 @@ function applyBalanceScalar(bundle: GameConfigBundle, key: string, value: string
   const token = normalizeHeaderToken(key)
   const resolved = BALANCE_SCALAR_KEYS.find((k) => normalizeHeaderToken(k) === token)
   if (!resolved) return
-  const v = parseNum(value, NaN)
-  if (!Number.isFinite(v)) return
+  const v = parseNum(value, key)
 
   switch (resolved) {
     case 'exp_per_level':
@@ -207,13 +209,17 @@ export function applyDraftToBundle(
   if (draft.kind === 'equipment') {
     if (!isEquipmentType(id)) return `Unknown equipment slot "${id}" (use weapon|ring|armor|shoes)`
     const statRaw = (draft.fields.stat?.value ?? 'atk').trim().toLowerCase()
+    if (!['atk', 'maxhp', 'hp', 'def', 'spd'].includes(statRaw)) {
+      return `Unknown equipment stat "${statRaw}" (use atk|maxHp|def|spd)`
+    }
     const stat =
       statRaw === 'maxhp' || statRaw === 'hp' ? 'maxHp' : statRaw === 'def' ? 'def' : statRaw === 'spd' ? 'spd' : 'atk'
+    const bonus = parseNum(draft.fields.bonus?.value ?? '', 'bonus', bundle.equipment[id].bonus)
     bundle.equipment[id] = {
       name: draft.fields.name?.value?.trim() || bundle.equipment[id].name,
       icon: draft.fields.icon?.value?.trim() || bundle.equipment[id].icon,
       stat: stat as 'atk' | 'maxHp' | 'def' | 'spd',
-      bonus: parseNum(draft.fields.bonus?.value ?? '', bundle.equipment[id].bonus),
+      bonus,
     }
     return null
   }
@@ -228,10 +234,15 @@ export function applyDraftToBundle(
   if (draft.kind === 'basic_attack') {
     if (id !== 'basic_attack') return 'basic_attack row id must be "basic_attack"'
     const def = bundle.basicAttack
-    def.name = draft.fields.name?.value?.trim() || def.name
-    def.icon = draft.fields.icon?.value?.trim() || def.icon
-    def.multiplier = parseNum(draft.fields.multiplier?.value ?? '', def.multiplier)
-    def.desc = draft.fields.desc?.value?.trim() || def.desc
+    const multiplier = parseNum(draft.fields.multiplier?.value ?? '', 'multiplier', def.multiplier)
+    const next = {
+      ...def,
+      name: draft.fields.name?.value?.trim() || def.name,
+      icon: draft.fields.icon?.value?.trim() || def.icon,
+      multiplier,
+      desc: draft.fields.desc?.value?.trim() || def.desc,
+    }
+    bundle.basicAttack = next
     return null
   }
 
@@ -240,7 +251,11 @@ export function applyDraftToBundle(
     if (!BALANCE_SCALAR_KEYS.some((k) => normalizeHeaderToken(k) === keyNorm)) {
       return `Unknown balance key "${id}"`
     }
-    applyBalanceScalar(bundle, id, draft.fields.value?.value ?? '')
+    try {
+      applyBalanceScalar(bundle, id, draft.fields.value?.value ?? '')
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Invalid balance value'
+    }
     return null
   }
 
@@ -254,8 +269,15 @@ export function mergeDraftsIntoBundle(
   const bundle = JSON.parse(JSON.stringify(base ?? createDefaultGameConfigBundle())) as GameConfigBundle
   const errors: { draftId: string; error: string }[] = []
   for (const draft of drafts) {
-    const err = applyDraftToBundle(bundle, draft)
-    if (err) errors.push({ draftId: draft.draftId, error: err })
+    try {
+      const err = applyDraftToBundle(bundle, draft)
+      if (err) errors.push({ draftId: draft.draftId, error: err })
+    } catch (error) {
+      errors.push({
+        draftId: draft.draftId,
+        error: error instanceof Error ? error.message : 'Invalid game config value',
+      })
+    }
   }
   return { bundle, errors }
 }

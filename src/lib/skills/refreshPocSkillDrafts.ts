@@ -13,6 +13,8 @@ import type { PocSkillDraft, SkillDraftValidationResult } from './pocSkillDrafts
 import { savePocSkillDrafts, validatePocSkillDrafts } from './pocSkillDrafts'
 import { findRowByIdCell } from './importPocSkillFromTable'
 import { loadStudioTableRows } from './studioSkillPicker'
+import type { PocSkillKecoExtraFields } from './pocSkillFieldMapping'
+import { findDuplicateStudioRowIds } from '@/src/lib/studio/validateStudioTableImport'
 
 export type DraftRefreshWarning = {
   draftId: string
@@ -46,7 +48,11 @@ function anchorTableId(draft: PocSkillDraft): string | null {
 function findRowForDraft(draft: PocSkillDraft, rows: StudioTableRow[]): StudioTableRow | null {
   if (draft.sourceRowId) {
     const byId = rows.find((r) => r.id === draft.sourceRowId)
-    if (byId) return byId
+    const idRef = draft.fields.id
+    if (byId && idRef?.columnKey) {
+      const liveId = cellValueToString(byId.values[idRef.columnKey]).trim()
+      return findRowByIdCell(rows, idRef.columnKey, liveId)
+    }
   }
   const idRef = draft.fields.id
   if (!idRef?.columnKey || !idRef.value?.trim()) return null
@@ -65,6 +71,15 @@ function applyRowToDraft(
     const live = cellValueToString(row.values[ref.columnKey]).trim()
     fields[f.key] = { ...ref, value: live }
   }
+  const extraKeys: Array<keyof PocSkillKecoExtraFields> = [
+    'skillType', 'attachElement', 'attachStrength', 'attachTurns', 'dotDamage', 'dotTurns',
+    'freezeTurns', 'specialEffect', 'specialEffectValue', 'specialEffectDuration', 'reactionTriggersJson',
+  ]
+  for (const key of extraKeys) {
+    const ref = fields[key]
+    if (!ref || ref.tableId !== tableId || !ref.columnKey) continue
+    fields[key] = { ...ref, value: cellValueToString(row.values[ref.columnKey]).trim() }
+  }
   return { ...draft, sourceRowId: row.id, fields }
 }
 
@@ -80,14 +95,40 @@ export async function refreshPocSkillDraftsFromLiveTables(
     const draft = drafts[i]!
     const tableId = anchorTableId(draft)
     if (!tableId) {
-      next.push(draft)
+      next.push({ ...draft, invalidReason: 'Studio source binding is missing; rebind this draft before applying.' })
       continue
     }
 
     let rows = rowCache.get(tableId)
     if (rows === undefined) {
-      rows = (await loadRows(tableId)) ?? []
+      try {
+        rows = (await loadRows(tableId)) ?? []
+      } catch (error) {
+        warnings.push({
+          draftId: draft.draftId,
+          label: draftLabel(draft, i),
+          warning: `Source table unavailable: ${error instanceof Error ? error.message : 'load failed'}`,
+        })
+        next.push({ ...draft, invalidReason: 'Source table unavailable; rebind this draft before applying.' })
+        rowCache.set(tableId, [])
+        continue
+      }
       rowCache.set(tableId, rows)
+    }
+
+    const idColumnKey = draft.fields.id?.columnKey
+    const duplicateIds = idColumnKey
+      ? findDuplicateStudioRowIds(rows, idColumnKey, 'skills')
+      : []
+    if (duplicateIds.length > 0) {
+      const invalidReason = `Source table has duplicate skill id(s): ${duplicateIds.join(', ')}`
+      warnings.push({
+        draftId: draft.draftId,
+        label: draftLabel(draft, i),
+        warning: invalidReason,
+      })
+      next.push({ ...draft, invalidReason })
+      continue
     }
 
     const row = findRowForDraft(draft, rows)
@@ -95,14 +136,13 @@ export async function refreshPocSkillDraftsFromLiveTables(
       warnings.push({
         draftId: draft.draftId,
         label: draftLabel(draft, i),
-        warning:
-          'Source table row not found (id may have changed). Using last saved field values.',
+        warning: 'Source table row not found (id may have changed). Draft is disabled until rebound.',
       })
-      next.push(draft)
+      next.push({ ...draft, invalidReason: 'Source table row not found; rebind this draft before applying.' })
       continue
     }
 
-    next.push(applyRowToDraft(draft, row, tableId))
+    next.push({ ...applyRowToDraft(draft, row, tableId), invalidReason: undefined })
   }
 
   return { drafts: next, warnings }

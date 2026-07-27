@@ -1,6 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { snapPositionToWalkable } from '@/src/map-battle/walkability'
-import { BASIC_ATTACK } from '@/app/constants'
+import { getBasicAttack } from '@/src/lib/gameConfig/gameConfigRegistry'
 
 export function prepareMapBattleStep(params: {
   controller: any
@@ -80,7 +80,7 @@ export function prepareMapBattleStep(params: {
     pendingFleeSource,
     onClearQueuedSkill: () => setNextAttackSkillId(null),
     onSkillCooldown: (skillId: string, ms: number) => {
-      if (skillId === BASIC_ATTACK.id || ms <= 0) return
+      if (skillId === getBasicAttack().id || ms <= 0) return
       setSkillCooldownEndAt((prev) => ({ ...prev, [skillId]: Date.now() + ms }))
     },
   })

@@ -1,6 +1,8 @@
 import { BattleSession } from '../domain/entities/battle-session'
 import { processBattleCommands, type BattleCommandWalkContext } from './command-processor'
 import { tickStatusEffects } from './effect-processor'
+import { appendEvent } from './session-helpers'
+import { tickKecoOverlay } from '@/src/keco/tickKecoOverlay'
 
 export type TickEngineResult = {
   session: BattleSession
@@ -20,12 +22,21 @@ export class BattleTickEngine {
     }
     const processed = processBattleCommands(advancedSession, walk)
     const withEffects = tickStatusEffects(processed.session)
-    const withRecovery = recoverPassiveResources(withEffects)
+    const withKeco = tickKecoOverlay(withEffects)
+    const withRecovery = recoverPassiveResources(withKeco)
+    const withResult = resolveEffectVictory(withRecovery)
     return {
-      session: withRecovery,
+      session: withResult,
       appliedCommandCount: processed.appliedCommandCount
     }
   }
+}
+
+function resolveEffectVictory(session: BattleSession): BattleSession {
+  if (session.result !== 'ongoing') return session
+  if (session.left.alive && session.right.alive) return session
+  const result = session.left.alive ? 'left_win' : session.right.alive ? 'right_win' : 'draw'
+  return appendEvent({ ...session, result }, 'battle_ended', { result, reason: 'status_effect' })
 }
 
 function recoverPassiveResources(session: BattleSession): BattleSession {
@@ -51,4 +62,3 @@ function recoverPassiveResources(session: BattleSession): BattleSession {
     right: recoverEntity(session.right)
   }
 }
-

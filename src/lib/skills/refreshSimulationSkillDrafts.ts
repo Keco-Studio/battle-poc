@@ -12,6 +12,7 @@ import {
 } from '@/src/lib/studio/studioLibraryService'
 import { findRowByIdCell } from './importPocSkillFromTable'
 import { loadStudioTableRows } from './studioSkillPicker'
+import { findDuplicateStudioRowIds } from '@/src/lib/studio/validateStudioTableImport'
 import {
   SIMULATION_SKILL_MAPPING_FIELD_KEYS,
   type SimulationLocalTableCellRef,
@@ -66,8 +67,7 @@ function attributeBindingsFromDraftFields(
 
 function detectIdColumnKey(columns: TableColumnInfo[]): string | null {
   const idCol = columns.find((c) => c.key === 'id' || c.label.toLowerCase() === 'id')
-  if (idCol) return idCol.key
-  return columns[0]?.key ?? null
+  return idCol?.key ?? null
 }
 
 function resolveIdColumnKeyForTable(
@@ -76,12 +76,7 @@ function resolveIdColumnKeyForTable(
   columns: TableColumnInfo[],
 ): string | null {
   if (anchorIdBinding.tableId === tableId) return anchorIdBinding.columnKey
-  const detected = detectIdColumnKey(columns)
-  if (detected) return detected
-  if (columns.some((c) => c.key === anchorIdBinding.columnKey)) {
-    return anchorIdBinding.columnKey
-  }
-  return null
+  return detectIdColumnKey(columns)
 }
 
 function readCell(row: StudioTableRow, columnKey: string): string {
@@ -99,7 +94,10 @@ function findRowForSkillIdInTable(args: {
   const { tableId, skillIdValue, anchorIdBinding, rows, columns, preferredRowId } = args
   if (tableId === anchorIdBinding.tableId && preferredRowId) {
     const byStableId = rows.find((r) => r.id === preferredRowId)
-    if (byStableId) return byStableId
+    if (byStableId) {
+      const liveId = readCell(byStableId, anchorIdBinding.columnKey)
+      return findRowByIdCell(rows, anchorIdBinding.columnKey, liveId)
+    }
   }
   const idColumnKey = resolveIdColumnKeyForTable(tableId, anchorIdBinding, columns)
   if (!idColumnKey) return null
@@ -206,9 +204,13 @@ export async function refreshSimulationSkillDraftsFromLiveTables(
 
   for (let i = 0; i < drafts.length; i++) {
     const draft = drafts[i]!
+    const anchorIdBinding = attributeBindingsFromDraftFields(draft.fields).id
     const tableIds = collectTableIds(draft)
     if (tableIds.length === 0) {
-      next.push(draft)
+      next.push({
+        ...draft,
+        invalidReason: 'Studio source binding is missing; rebind this draft before syncing.',
+      })
       continue
     }
 
@@ -218,11 +220,64 @@ export async function refreshSimulationSkillDraftsFromLiveTables(
     for (const tableId of tableIds) {
       let snapshot = tableCache.get(tableId)
       if (snapshot === undefined) {
-        snapshot = (await loadTable(tableId)) ?? { rows: [], columns: [] }
+        try {
+          snapshot = (await loadTable(tableId)) ?? { rows: [], columns: [] }
+        } catch (error) {
+          warnings.push({
+            draftId: draft.draftId,
+            label: draftLabel(draft, i),
+            warning: `Source table unavailable: ${error instanceof Error ? error.message : 'load failed'}`,
+          })
+          next.push({ ...draft, invalidReason: 'Source table unavailable; rebind this draft before syncing.' })
+          snapshot = { rows: [], columns: [] }
+          tableCache.set(tableId, snapshot)
+          break
+        }
         tableCache.set(tableId, snapshot)
       }
       rowsByTable.set(tableId, snapshot.rows)
       columnsByTable.set(tableId, snapshot.columns)
+    }
+    if (next[next.length - 1]?.draftId === draft.draftId && next[next.length - 1]?.invalidReason) continue
+
+    const tableWithoutExplicitId = tableIds.find(
+      (tableId) =>
+        tableId !== anchorIdBinding?.tableId &&
+        !detectIdColumnKey(columnsByTable.get(tableId) ?? []),
+    )
+    if (tableWithoutExplicitId) {
+      const invalidReason = `Cross-table source ${tableWithoutExplicitId} has no explicit id column; rebind this draft before syncing.`
+      warnings.push({
+        draftId: draft.draftId,
+        label: draftLabel(draft, i),
+        warning: invalidReason,
+      })
+      next.push({ ...draft, invalidReason })
+      continue
+    }
+
+    const duplicateSource = tableIds
+      .map((tableId) => {
+        const columns = columnsByTable.get(tableId) ?? []
+        const idColumnKey = resolveIdColumnKeyForTable(tableId, anchorIdBinding!, columns)
+        if (!idColumnKey) return null
+        const duplicateIds = findDuplicateStudioRowIds(
+          rowsByTable.get(tableId) ?? [],
+          idColumnKey,
+          'skills',
+        )
+        return duplicateIds.length > 0 ? { tableId, duplicateIds } : null
+      })
+      .find((item) => item !== null)
+    if (duplicateSource) {
+      const invalidReason = `Source table ${duplicateSource.tableId} has duplicate skill id(s): ${duplicateSource.duplicateIds.join(', ')}`
+      warnings.push({
+        draftId: draft.draftId,
+        label: draftLabel(draft, i),
+        warning: invalidReason,
+      })
+      next.push({ ...draft, invalidReason })
+      continue
     }
 
     const refreshed = refreshDraftFromLiveTables(draft, rowsByTable, columnsByTable)
@@ -231,13 +286,13 @@ export async function refreshSimulationSkillDraftsFromLiveTables(
         draftId: draft.draftId,
         label: draftLabel(draft, i),
         warning:
-          'Source table row not found (id may have changed). Using last saved field values.',
+          'Source table row not found (id may have changed). Draft is disabled until rebound.',
       })
-      next.push(draft)
+      next.push({ ...draft, invalidReason: 'Source table row not found; rebind this draft before syncing.' })
       continue
     }
 
-    next.push(refreshed.draft)
+    next.push({ ...refreshed.draft, invalidReason: undefined })
   }
 
   return { drafts: next, warnings }

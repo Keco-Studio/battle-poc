@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
+import { cellValueToString } from '@/src/lib/studio/cellDisplayValue'
 import type { PocSkillDraft, DraftImportReject } from '@/src/lib/skills/pocSkillDrafts'
 import { partitionDraftsBySkillId } from '@/src/lib/skills/pocSkillDrafts'
 import type { PocSkillColumnMappingKey } from '@/src/lib/skills/pocSkillFieldMapping'
@@ -16,6 +17,10 @@ import {
 } from '@/src/lib/skills/importPocSkillFromTable'
 import { loadStudioTableRows, type SelectableStudioTable } from '@/src/lib/skills/studioSkillPicker'
 import type { StudioTableColumn, StudioTableRow } from '@/src/lib/studio/studioLibraryService'
+import {
+  findDuplicateStudioRowIds,
+  validateStudioTableForImport,
+} from '@/src/lib/studio/validateStudioTableImport'
 import { ImportSkillHeaderMappingModal } from './ImportSkillHeaderMappingModal'
 import { SkillSourceSelect } from './SkillSourceSelect'
 import styles from './SkillSourcePanel.module.css'
@@ -93,8 +98,22 @@ export function ImportSkillByIdBlock({
           return
         }
         setLoadedTable(res)
+        const validation = validateStudioTableForImport(res.columns, 'skills')
+        if (!validation.ok) {
+          setIdColumnKey('')
+          setTableLoadError(validation.errors.join(' '))
+          return
+        }
         const detected = detectIdColumnKey(res.columns)
-        setIdColumnKey(detected ?? res.columns[0]!.key)
+        const duplicateIds = detected
+          ? findDuplicateStudioRowIds(res.rows, detected, 'skills')
+          : []
+        if (duplicateIds.length > 0) {
+          setIdColumnKey('')
+          setTableLoadError(`Duplicate skill id(s) in Studio table: ${duplicateIds.join(', ')}`)
+          return
+        }
+        setIdColumnKey(detected ?? '')
       })
       .catch((err) => {
         if (seq !== loadSeqRef.current) return
@@ -107,7 +126,7 @@ export function ImportSkillByIdBlock({
       })
   }, [tableId, supabase, supabaseReady])
 
-  const columns = loadedTable?.columns ?? []
+  const columns = useMemo(() => loadedTable?.columns ?? [], [loadedTable])
 
   const idOptions = useMemo(() => {
     if (!loadedTable || !idColumnKey || tableLoading) return []
@@ -151,6 +170,16 @@ export function ImportSkillByIdBlock({
         onError?.('Failed to load table')
         return
       }
+      const validation = validateStudioTableForImport(loaded.columns, 'skills')
+      if (!validation.ok) {
+        onError?.(validation.errors.join(' '))
+        return
+      }
+      const duplicateIds = findDuplicateStudioRowIds(loaded.rows, idColumnKey, 'skills')
+      if (duplicateIds.length > 0) {
+        onError?.(`Duplicate skill id(s) in Studio table: ${duplicateIds.join(', ')}`)
+        return
+      }
       const plan = planImportColumnMapping(loaded.columns, resolutions)
       if (plan.ambiguities.length > 0) {
         setPendingAmbiguities(plan.ambiguities)
@@ -160,10 +189,15 @@ export function ImportSkillByIdBlock({
 
       const drafts: PocSkillDraft[] = []
       const missing: string[] = []
+      const ambiguous: string[] = []
       for (const skillId of selectedIds) {
         const row = findRowByIdCell(loaded.rows, idColumnKey, skillId)
         if (!row) {
-          missing.push(skillId)
+          if (loaded.rows.some((candidate) => cellValueToString(candidate.values[idColumnKey]).trim().toLowerCase() === skillId.trim().toLowerCase())) {
+            ambiguous.push(skillId)
+          } else {
+            missing.push(skillId)
+          }
           continue
         }
         drafts.push(
@@ -173,8 +207,14 @@ export function ImportSkillByIdBlock({
             columnToField: plan.columnToField,
             idColumnKey,
             skillIdValue: skillId,
+            columns,
           }),
         )
+      }
+
+      if (ambiguous.length > 0) {
+        onError?.(`Duplicate skill id(s) in Studio table: ${ambiguous.join(', ')}`)
+        return
       }
 
       if (missing.length > 0) {
@@ -185,17 +225,18 @@ export function ImportSkillByIdBlock({
         return
       }
 
-      const { accepted, rejected } = partitionDraftsBySkillId(drafts, existingDrafts)
+      const { accepted, rejected, updated } = partitionDraftsBySkillId(drafts, existingDrafts)
       reportImportRejections(rejected)
 
       if (accepted.length === 0) return
 
       onImportDraft(accepted.length === 1 ? accepted[0]! : accepted)
-      onSuccess?.(
-        accepted.length === 1
+      const addedCount = accepted.length - updated.length
+      onSuccess?.(updated.length > 0
+        ? `Updated ${updated.length} and imported ${addedCount} skill draft(s)`
+        : accepted.length === 1
           ? `Imported draft "${accepted[0]!.fields.id?.value ?? selectedIds[0]}"`
-          : `Imported ${accepted.length} skill drafts`,
-      )
+          : `Imported ${accepted.length} skill drafts`)
       setSkillIdValues([])
       setPendingAmbiguities(null)
     },
@@ -203,6 +244,7 @@ export function ImportSkillByIdBlock({
       tableId,
       idColumnKey,
       selectedIds,
+      columns,
       loadedTable,
       supabase,
       supabaseReady,

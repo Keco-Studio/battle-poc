@@ -3,8 +3,9 @@
 import Image from 'next/image'
 import { X, User, Swords, Shield, Heart, Zap, Sparkles } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
-import { EquipmentType, equipmentTypes, expForLevel } from '../constants'
+import { EquipmentType, expForLevel } from '../constants'
 import { useBattleJobs } from '@/src/lib/jobs/BattleJobsProvider'
+import { getEquipmentTypes } from '@/src/lib/gameConfig/gameConfigRegistry'
 
 interface Props {
   game: GameState
@@ -12,6 +13,7 @@ interface Props {
 
 export default function CharacterPanel({ game }: Props) {
   const { displayNames } = useBattleJobs()
+  const equipmentTypes = getEquipmentTypes()
   const {
     playerLevel,
     playerExp,

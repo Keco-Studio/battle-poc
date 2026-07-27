@@ -1,5 +1,6 @@
 import { getBuiltinJobClassConfigs } from './builtinJobCatalog'
 import type { JobClassConfig } from './jobConfigTypes'
+import { normalizeRoleStats } from './jobConfigTypes'
 
 export const POC_JOBS_UPDATED_EVENT = 'battle-poc-jobs-updated'
 
@@ -12,6 +13,8 @@ export type PocJobModule = {
   id: string
   label: string
   source: PocJobModuleSource
+  /** Module that a drafts module extends. */
+  baseModuleId?: string
   studioLibraryId?: string
   configs: JobClassConfig[]
 }
@@ -30,15 +33,16 @@ function cloneConfigs(configs: JobClassConfig[]): JobClassConfig[] {
 function isValidConfig(x: unknown): x is JobClassConfig {
   if (!x || typeof x !== 'object') return false
   const c = x as JobClassConfig
-  return (
-    typeof c.id === 'string' &&
-    c.id.length > 0 &&
-    typeof c.name === 'string' &&
-    c.name.length > 0 &&
-    typeof c.stats === 'object' &&
-    c.stats !== null &&
-    Number.isFinite(c.stats.baseHp)
-  )
+  if (typeof c.id !== 'string' || c.id.length === 0) return false
+  if (typeof c.name !== 'string' || c.name.length === 0) return false
+  if (typeof c.stats !== 'object' || c.stats === null) return false
+  return normalizeRoleStats(c.stats as Record<string, unknown>) !== null
+}
+
+function normalizeConfig(config: JobClassConfig): JobClassConfig {
+  const stats = normalizeRoleStats(config.stats as Record<string, unknown>)
+  if (!stats) return config
+  return { ...config, stats }
 }
 
 function createDefaultState(): PocJobModulesState {
@@ -66,6 +70,7 @@ function isModulesState(x: unknown): x is PocJobModulesState {
     if (typeof mod.id !== 'string' || typeof mod.label !== 'string' || !Array.isArray(mod.configs)) {
       return false
     }
+    if (mod.baseModuleId !== undefined && typeof mod.baseModuleId !== 'string') return false
     if (!mod.configs.every(isValidConfig)) return false
   }
   return o.modules.length > 0
@@ -75,7 +80,15 @@ function parseModulesJson(raw: string | null): PocJobModulesState | null {
   if (!raw) return null
   try {
     const data = JSON.parse(raw) as unknown
-    return isModulesState(data) ? data : null
+    return isModulesState(data)
+      ? {
+          ...data,
+          modules: data.modules.map((m) => ({
+            ...m,
+            configs: m.configs.map((c) => normalizeConfig(c)),
+          })),
+        }
+      : null
   } catch {
     return null
   }
@@ -123,11 +136,23 @@ export function upsertDraftModule(
   label: string,
   configs: JobClassConfig[],
 ): PocJobModulesState {
+  const active = getActiveModule(state)
+  const existingDraft = state.modules.find((m) => m.id === DRAFT_JOB_MODULE_ID)
+  const baseModuleId = active.id === DRAFT_JOB_MODULE_ID
+    ? (existingDraft?.baseModuleId ?? DEFAULT_POC_JOB_MODULE_ID)
+    : active.id
+  const mergeBase = state.modules.find((m) => m.id === baseModuleId)
+    ?? state.modules.find((m) => m.id === DEFAULT_POC_JOB_MODULE_ID)
+    ?? active
+  const existing = mergeBase.configs
+  const byId = new Map(existing.map((config) => [config.id, config]))
+  for (const config of configs) byId.set(config.id, config)
   const mod: PocJobModule = {
     id: DRAFT_JOB_MODULE_ID,
     label,
     source: 'drafts',
-    configs: cloneConfigs(configs),
+    baseModuleId: mergeBase.id,
+    configs: cloneConfigs([...byId.values()]),
   }
   const idx = state.modules.findIndex((m) => m.id === DRAFT_JOB_MODULE_ID)
   const modules =
@@ -177,4 +202,12 @@ export function resetModuleToBuiltin(state: PocJobModulesState): PocJobModulesSt
       ? state.modules.map((m, i) => (i === idx ? builtinMod : m))
       : [builtinMod, ...state.modules]
   return { ...state, modules, activeModuleId: DEFAULT_POC_JOB_MODULE_ID }
+}
+
+export function clearDraftJobModule(state: PocJobModulesState): PocJobModulesState {
+  const modules = state.modules.filter((m) => m.source !== 'drafts' && m.source !== 'studio')
+  const activeModuleId = modules.some((m) => m.id === state.activeModuleId)
+    ? state.activeModuleId
+    : DEFAULT_POC_JOB_MODULE_ID
+  return { ...state, modules, activeModuleId }
 }

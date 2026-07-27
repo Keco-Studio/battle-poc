@@ -14,19 +14,14 @@ const BattlePhaserCanvas = dynamic(
 )
 import { GameState } from '../hooks/useGameState'
 import {
-  equipmentTypes,
   EquipmentType,
   Skill,
-  BASIC_ATTACK,
   getSkillById,
   attackIntervalMsFromSpd,
   mitigatedPhysicalDamage,
-  BASIC_DAMAGE_MULTIPLIER,
-  SKILL_DAMAGE_MULTIPLIER,
-  DEFEND_DAMAGE_REDUCTION,
-  DEFEND_SKILL_REDUCTION,
   getBattleRewards,
 } from '../constants'
+import { getBasicAttack, getBattleFormulas, getEquipmentTypes } from '@/src/lib/gameConfig/gameConfigRegistry'
 
 interface Props {
   game: GameState
@@ -83,6 +78,9 @@ type BattleSnap = {
 }
 
 export default function BattlePanel({ game }: Props) {
+  const basicAttack = getBasicAttack()
+  const battleFormulas = getBattleFormulas()
+  const equipmentTypes = getEquipmentTypes()
   const [hoveredSkill, setHoveredSkill] = useState<Skill | null>(null)
   const [droppedEquipment, setDroppedEquipment] = useState<{ name: string; icon: string } | null>(null)
   const [battleFx, setBattleFx] = useState<BattleFxKind>('none')
@@ -255,6 +253,7 @@ export default function BattlePanel({ game }: Props) {
     },
     [
       enemyLevel,
+      equipmentTypes,
       playerExp,
       playerLevel,
       setBattleLog,
@@ -271,10 +270,10 @@ export default function BattlePanel({ game }: Props) {
 
   const beginSkillCooldown = useCallback(
     (skillId: string, ms: number) => {
-      if (skillId === BASIC_ATTACK.id || ms <= 0) return
+      if (skillId === basicAttack.id || ms <= 0) return
       setSkillCooldownEndAt((prev) => ({ ...prev, [skillId]: Date.now() + ms }))
     },
-    [setSkillCooldownEndAt],
+    [basicAttack.id, setSkillCooldownEndAt],
   )
 
   useEffect(() => {
@@ -307,7 +306,7 @@ export default function BattlePanel({ game }: Props) {
       if (t >= nextPlayerAtkAtRef.current) {
         nextPlayerAtkAtRef.current = t + playerAttackIntervalMs(s.totalStats.spd)
 
-        let skill: Skill = BASIC_ATTACK
+        let skill: Skill = basicAttack
         if (s.nextAttackSkillId !== null) {
           const q = getSkillById(s.nextAttackSkillId)
           const cd = skillCooldownRemaining(s.skillCooldownEndAt, s.nextAttackSkillId)
@@ -321,16 +320,16 @@ export default function BattlePanel({ game }: Props) {
         const hits = skill.hits || 1
 
         if (skill.type === 'damage' || skill.type === 'counter') {
-          flashFx(skill.id === BASIC_ATTACK.id ? 'enemy-hit' : 'player-skill-offense')
+          flashFx(skill.id === basicAttack.id ? 'enemy-hit' : 'player-skill-offense')
           const enemyDef = enemyCombatStats.def
           let totalDamage = 0
           for (let i = 0; i < hits; i++) {
             const raw =
-              skill.id === BASIC_ATTACK.id
-                ? (s.totalStats.atk - enemyDef * 0.5 + Math.random() * 2) * BASIC_DAMAGE_MULTIPLIER
+              skill.id === basicAttack.id
+                ? (s.totalStats.atk - enemyDef * 0.5 + Math.random() * 2) * battleFormulas.basicDamageMultiplier * basicAttack.multiplier
                 : (s.totalStats.atk * Math.max(0.5, skill.multiplier) - enemyDef * 0.45 + Math.random() * 2.5) *
-                SKILL_DAMAGE_MULTIPLIER
-            const defendingReduction = skill.id === BASIC_ATTACK.id ? DEFEND_DAMAGE_REDUCTION : DEFEND_SKILL_REDUCTION
+                battleFormulas.skillDamageMultiplier
+            const defendingReduction = skill.id === basicAttack.id ? battleFormulas.defendDamageReduction : battleFormulas.defendSkillReduction
             const reduced = s.isDefending ? raw * defendingReduction : raw
             totalDamage += mitigatedPhysicalDamage(Math.floor(reduced), enemyDef)
           }
@@ -361,7 +360,7 @@ export default function BattlePanel({ game }: Props) {
         }
 
         setBattleLog((prev) => [...prev, log])
-        if (skill.id !== BASIC_ATTACK.id && skill.cooldownMs) {
+        if (skill.id !== basicAttack.id && skill.cooldownMs) {
           beginSkillCooldown(skill.id, skill.cooldownMs)
         }
       }
@@ -370,7 +369,7 @@ export default function BattlePanel({ game }: Props) {
         const enemyCombat = enemyCombatStats
         nextEnemyAtkAtRef.current = t + enemyAttackIntervalMs(enemyCombat.spd)
 
-        const rawEnemyHit = (enemyCombat.atk - snapRef.current.totalStats.def * 0.5 + Math.random() * 2) * BASIC_DAMAGE_MULTIPLIER
+        const rawEnemyHit = (enemyCombat.atk - snapRef.current.totalStats.def * 0.5 + Math.random() * 2) * battleFormulas.basicDamageMultiplier * basicAttack.multiplier
         let damage = mitigatedPhysicalDamage(rawEnemyHit, snapRef.current.totalStats.def)
         let logMsg = `Enemy attacks!`
         if (defendingRef.current) {
@@ -393,6 +392,11 @@ export default function BattlePanel({ game }: Props) {
   }, [
     showBattle,
     isGameOver,
+    basicAttack,
+    battleFormulas.basicDamageMultiplier,
+    battleFormulas.skillDamageMultiplier,
+    battleFormulas.defendDamageReduction,
+    battleFormulas.defendSkillReduction,
     enemyCombatStats,
     beginSkillCooldown,
     flashFx,

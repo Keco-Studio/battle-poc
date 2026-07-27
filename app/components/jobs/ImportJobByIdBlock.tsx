@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
+import { cellValueToString } from '@/src/lib/studio/cellDisplayValue'
 import type { PocJobDraft } from '@/src/lib/jobs/pocJobDrafts'
 import { partitionDraftsByJobId, type DraftImportReject } from '@/src/lib/jobs/pocJobDrafts'
 import type { PocJobColumnMappingKey } from '@/src/lib/jobs/pocJobFieldMapping'
@@ -16,6 +17,10 @@ import {
 } from '@/src/lib/jobs/importPocJobFromTable'
 import { loadStudioTableRows, type SelectableStudioTable } from '@/src/lib/jobs/studioJobPicker'
 import type { StudioTableColumn, StudioTableRow } from '@/src/lib/studio/studioLibraryService'
+import {
+  findDuplicateStudioRowIds,
+  validateStudioTableForImport,
+} from '@/src/lib/studio/validateStudioTableImport'
 import { ImportJobHeaderMappingModal } from './ImportJobHeaderMappingModal'
 import { SkillSourceSelect } from '../skills/SkillSourceSelect'
 import styles from '../skills/SkillSourcePanel.module.css'
@@ -91,8 +96,22 @@ export function ImportJobByIdBlock({
           return
         }
         setLoadedTable(res)
+        const validation = validateStudioTableForImport(res.columns, 'job_classes')
+        if (!validation.ok) {
+          setIdColumnKey('')
+          setTableLoadError(validation.errors.join(' '))
+          return
+        }
         const detected = detectIdColumnKey(res.columns)
-        setIdColumnKey(detected ?? res.columns[0]!.key)
+        const duplicateIds = detected
+          ? findDuplicateStudioRowIds(res.rows, detected, 'job_classes')
+          : []
+        if (duplicateIds.length > 0) {
+          setIdColumnKey('')
+          setTableLoadError(`Duplicate class id(s) in Studio table: ${duplicateIds.join(', ')}`)
+          return
+        }
+        setIdColumnKey(detected ?? '')
       })
       .catch((err) => {
         if (seq !== loadSeqRef.current) return
@@ -105,7 +124,7 @@ export function ImportJobByIdBlock({
       })
   }, [tableId, supabase, supabaseReady])
 
-  const columns = loadedTable?.columns ?? []
+  const columns = useMemo(() => loadedTable?.columns ?? [], [loadedTable])
 
   const idOptions = useMemo(() => {
     if (!loadedTable || !idColumnKey || tableLoading) return []
@@ -148,6 +167,16 @@ export function ImportJobByIdBlock({
         onError?.('Failed to load table')
         return
       }
+      const validation = validateStudioTableForImport(loaded.columns, 'job_classes')
+      if (!validation.ok) {
+        onError?.(validation.errors.join(' '))
+        return
+      }
+      const duplicateIds = findDuplicateStudioRowIds(loaded.rows, idColumnKey, 'job_classes')
+      if (duplicateIds.length > 0) {
+        onError?.(`Duplicate class id(s) in Studio table: ${duplicateIds.join(', ')}`)
+        return
+      }
       const plan = planImportColumnMapping(loaded.columns, resolutions)
       if (plan.ambiguities.length > 0) {
         setPendingAmbiguities(plan.ambiguities)
@@ -157,10 +186,15 @@ export function ImportJobByIdBlock({
 
       const drafts: PocJobDraft[] = []
       const missing: string[] = []
+      const ambiguous: string[] = []
       for (const jobId of selectedIds) {
         const row = findRowByIdCell(loaded.rows, idColumnKey, jobId)
         if (!row) {
-          missing.push(jobId)
+          if (loaded.rows.some((candidate) => cellValueToString(candidate.values[idColumnKey]).trim().toLowerCase() === jobId.trim().toLowerCase())) {
+            ambiguous.push(jobId)
+          } else {
+            missing.push(jobId)
+          }
           continue
         }
         drafts.push(
@@ -174,6 +208,11 @@ export function ImportJobByIdBlock({
         )
       }
 
+      if (ambiguous.length > 0) {
+        onError?.(`Duplicate class id(s) in Studio table: ${ambiguous.join(', ')}`)
+        return
+      }
+
       if (missing.length > 0) {
         onError?.(`Skipped ${missing.length} id(s) not found in table`)
       }
@@ -182,17 +221,18 @@ export function ImportJobByIdBlock({
         return
       }
 
-      const { accepted, rejected } = partitionDraftsByJobId(drafts, existingDrafts)
+      const { accepted, rejected, updated } = partitionDraftsByJobId(drafts, existingDrafts)
       reportImportRejections(rejected)
 
       if (accepted.length === 0) return
 
       onImportDraft(accepted.length === 1 ? accepted[0]! : accepted)
-      onSuccess?.(
-        accepted.length === 1
+      const addedCount = accepted.length - updated.length
+      onSuccess?.(updated.length > 0
+        ? `Updated ${updated.length} and imported ${addedCount} class draft(s)`
+        : accepted.length === 1
           ? `Imported draft "${accepted[0]!.fields.id?.value ?? selectedIds[0]}"`
-          : `Imported ${accepted.length} class drafts`,
-      )
+          : `Imported ${accepted.length} class drafts`)
       setJobIdValues([])
       setPendingAmbiguities(null)
     },
@@ -247,7 +287,8 @@ export function ImportJobByIdBlock({
       <div className={styles.sectionCard}>
         <div className={styles.sectionTitle}>Import class by id</div>
         <p className={styles.sectionHint}>
-          Map Studio columns to base stats and per-level growth (baseHp, growthHp, hpMult, etc.).
+          Map Studio columns to Lv.1 stats and per-level growth (hp, growthHp, hpMult, etc.).
+          Max HP in battle = hp + growthHp × (level − 1). {/* hpMult temporarily disabled */}
           Validate &amp; apply to refresh live values.
         </p>
 

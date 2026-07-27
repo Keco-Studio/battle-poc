@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { snapshotFromConfigs } from './builtinJobCatalog'
+import { getBuiltinJobClassConfigs, snapshotFromConfigs } from './builtinJobCatalog'
 import type { JobCatalogSnapshot } from './jobConfigTypes'
 import { applyRoleStatsRegistry } from './jobConfigRegistry'
 import {
   getActiveModule,
+  clearDraftJobModule,
   loadPocJobModulesState,
   notifyPocJobsUpdated,
   savePocJobModulesState,
@@ -27,6 +28,11 @@ export async function hydratePocJobs(
   supabase: SupabaseClient | null,
 ): Promise<{ state: PocJobModulesState; snapshot: JobCatalogSnapshot }> {
   const drafts = loadPocJobDrafts()
+  if (drafts.length === 0) {
+    const state = clearDraftJobModule(loadPocJobModulesState())
+    savePocJobModulesState(state, { notify: false })
+    return { state, snapshot: applyModuleToRegistry(getActiveModule(state)) }
+  }
   if (drafts.length > 0) {
     const draftResult = await validatePocJobDraftsFromLiveTables(supabase, drafts)
     if (draftResult.ok && draftResult.configs.length > 0) {
@@ -36,6 +42,11 @@ export async function hydratePocJobs(
       const snapshot = applyModuleToRegistry(getActiveModule(state))
       return { state, snapshot }
     }
+    if (drafts.length > 0 && draftResult.draftErrors.length > 0) {
+      let state = loadPocJobModulesState()
+      state = clearDraftJobModule(state)
+      savePocJobModulesState(state, { notify: false })
+    }
   }
 
   const state = loadPocJobModulesState()
@@ -44,8 +55,21 @@ export async function hydratePocJobs(
 }
 
 export function bootstrapPocJobsFromPersistence(): JobCatalogSnapshot {
-  const state = loadPocJobModulesState()
-  return applyModuleToRegistry(getActiveModule(state))
+  return applyModuleToRegistry({
+    id: 'builtin',
+    label: 'Default classes',
+    source: 'builtin',
+    configs: getBuiltinJobClassConfigs(),
+  })
+}
+
+export function resetPocJobsRuntimeToBuiltin(): {
+  state: PocJobModulesState
+  snapshot: JobCatalogSnapshot
+} {
+  const state = clearDraftJobModule(loadPocJobModulesState())
+  savePocJobModulesState(state, { notify: false })
+  return { state, snapshot: applyModuleToRegistry(getActiveModule(state)) }
 }
 
 export function activateJobModule(moduleId: string): {
@@ -67,11 +91,26 @@ export async function applyPocJobDrafts(
   errors: string[]
 }> {
   const drafts = loadPocJobDrafts()
+  if (drafts.length === 0) {
+    let state = loadPocJobModulesState()
+    state = clearDraftJobModule(state)
+    savePocJobModulesState(state, { notify: false })
+    return {
+      state,
+      snapshot: applyModuleToRegistry(getActiveModule(state)),
+      errors: ['No Studio class drafts to apply.'],
+    }
+  }
   const result = await validatePocJobDraftsFromLiveTables(supabase, drafts)
   if (!result.ok) {
+    let state = loadPocJobModulesState()
+    if (drafts.length > 0 && result.draftErrors.length > 0) {
+      state = clearDraftJobModule(state)
+      savePocJobModulesState(state, { notify: false })
+    }
     return {
-      state: loadPocJobModulesState(),
-      snapshot: applyModuleToRegistry(getActiveModule(loadPocJobModulesState())),
+      state,
+      snapshot: applyModuleToRegistry(getActiveModule(state)),
       errors: result.draftErrors.map((e) => `${e.label}: ${e.error}`),
     }
   }

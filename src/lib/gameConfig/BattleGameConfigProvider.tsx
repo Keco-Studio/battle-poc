@@ -6,12 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
-import { createDefaultGameConfigBundle } from './defaultGameConfig'
 import type { GameConfigBundle } from './gameConfigTypes'
 import {
   DEFAULT_POC_GAME_CONFIG_MODULE_ID,
@@ -24,6 +24,7 @@ import {
   applyPocGameConfigDrafts,
   bootstrapPocGameConfigFromPersistence,
   hydratePocGameConfig,
+  resetPocGameConfigRuntimeToBuiltin,
 } from './pocGameConfigStorage'
 
 type BattleGameConfigContextValue = {
@@ -47,6 +48,7 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
   const [configRevision, setConfigRevision] = useState(0)
   const [isHydrating, setIsHydrating] = useState(true)
   const [hydrateError, setHydrateError] = useState<string | null>(null)
+  const applyingDraftsRef = useRef(false)
 
   const bump = useCallback(() => setConfigRevision((n) => n + 1), [])
 
@@ -61,8 +63,9 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
       bump()
     } catch (err) {
       setHydrateError(err instanceof Error ? err.message : 'Failed to load game config')
-      const fallback = createDefaultGameConfigBundle()
-      setBundle(fallback)
+      const fallback = resetPocGameConfigRuntimeToBuiltin()
+      setModulesState(fallback.state)
+      setBundle(fallback.bundle)
       bump()
     } finally {
       setIsHydrating(false)
@@ -74,7 +77,9 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
   }, [runHydrate])
 
   useEffect(() => {
-    const onUpdated = () => void runHydrate()
+    const onUpdated = () => {
+      if (!applyingDraftsRef.current) void runHydrate()
+    }
     window.addEventListener(POC_GAME_CONFIG_UPDATED_EVENT, onUpdated)
     return () => window.removeEventListener(POC_GAME_CONFIG_UPDATED_EVENT, onUpdated)
   }, [runHydrate])
@@ -90,12 +95,17 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
   )
 
   const applyConfigDrafts = useCallback(async () => {
-    const client = supabase && isAuthenticated ? supabase : null
-    const { state, errors } = await applyPocGameConfigDrafts(client)
-    setModulesState(state)
-    setBundle(bootstrapPocGameConfigFromPersistence())
-    bump()
-    return { errors }
+    applyingDraftsRef.current = true
+    try {
+      const client = supabase && isAuthenticated ? supabase : null
+      const { state, bundle: next, errors } = await applyPocGameConfigDrafts(client)
+      setModulesState(state)
+      setBundle(next)
+      bump()
+      return { errors }
+    } finally {
+      applyingDraftsRef.current = false
+    }
   }, [supabase, isAuthenticated, bump])
 
   const value = useMemo<BattleGameConfigContextValue>(

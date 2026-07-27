@@ -74,6 +74,12 @@ function removeCookie(name: string): void {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
 }
 
+export function extractSupabaseSessionBaseKey(key: string): string | null {
+  const candidate = key.split('_')[0]
+  if (!candidate.startsWith('sb-') || !candidate.endsWith('-auth-token')) return null
+  return candidate
+}
+
 function detectBaseStorageKey(): string {
   if (typeof window === 'undefined') {
     return 'sb-auth-token'
@@ -81,19 +87,23 @@ function detectBaseStorageKey(): string {
 
   for (let i = 0; i < sessionStorage.length; i++) {
     const key = sessionStorage.key(i)
-    if (key && /^sb-.*-auth-token/.test(key)) {
-      return key.split('_')[0]
-    }
+    const baseKey = key ? extractSupabaseSessionBaseKey(key) : null
+    if (baseKey) return baseKey
   }
 
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
-    if (key && /^sb-.*-auth-token/.test(key)) {
-      return key.split('_')[0]
-    }
+    const baseKey = key ? extractSupabaseSessionBaseKey(key) : null
+    if (baseKey) return baseKey
   }
 
   return 'sb-auth-token'
+}
+
+export function resolveHybridStorageKey(key: string, baseKey: string, tabScopedKey: string): string {
+  const isSessionTokenKey =
+    key === baseKey || (key.startsWith('sb-') && key.endsWith('-auth-token'))
+  return isSessionTokenKey ? tabScopedKey : key
 }
 
 export function createHybridStorageAdapter(): SupportedStorage {
@@ -123,8 +133,7 @@ export function createHybridStorageAdapter(): SupportedStorage {
       }
 
       try {
-        const actualKey =
-          key === baseKey || (key.startsWith('sb-') && key.includes('auth-token')) ? storageKey : key
+        const actualKey = resolveHybridStorageKey(key, baseKey, storageKey)
 
         let value = sessionStorage.getItem(actualKey)
 
@@ -164,8 +173,7 @@ export function createHybridStorageAdapter(): SupportedStorage {
       }
 
       try {
-        const actualKey =
-          key === baseKey || (key.startsWith('sb-') && key.includes('auth-token')) ? storageKey : key
+        const actualKey = resolveHybridStorageKey(key, baseKey, storageKey)
 
         sessionStorage.setItem(actualKey, value)
 
@@ -183,8 +191,7 @@ export function createHybridStorageAdapter(): SupportedStorage {
       }
 
       try {
-        const actualKey =
-          key === baseKey || (key.startsWith('sb-') && key.includes('auth-token')) ? storageKey : key
+        const actualKey = resolveHybridStorageKey(key, baseKey, storageKey)
 
         sessionStorage.removeItem(actualKey)
 

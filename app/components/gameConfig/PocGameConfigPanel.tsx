@@ -14,6 +14,7 @@ import {
   draftLabel,
   loadPocGameConfigDrafts,
   savePocGameConfigDrafts,
+  upsertPocGameConfigDrafts,
   type PocGameConfigDraft,
 } from '@/src/lib/gameConfig/pocGameConfigDrafts'
 import type { GameConfigImportKind } from '@/src/lib/gameConfig/gameConfigTypes'
@@ -128,7 +129,7 @@ export function PocGameConfigPanel({ importKind, embedded = false }: Props) {
             tablesLoading={tablesLoading}
             supabaseReady={supabaseReady}
             existingDrafts={drafts}
-            onImportDraft={(d) => persistDrafts([...drafts, ...(Array.isArray(d) ? d : [d])])}
+            onImportDraft={(d) => persistDrafts(upsertPocGameConfigDrafts(drafts, Array.isArray(d) ? d : [d]))}
             onError={setImportError}
             onSuccess={setStatusMessage}
             fixedKind={importKind}

@@ -14,6 +14,7 @@ import {
   draftImportDisplayId,
   loadPocJobDrafts,
   savePocJobDrafts,
+  upsertPocJobDrafts,
   type PocJobDraft,
 } from '@/src/lib/jobs/pocJobDrafts'
 import { listSelectableStudioTables } from '@/src/lib/jobs/studioJobPicker'
@@ -65,7 +66,7 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
   const handleImportDraft = useCallback(
     (incoming: PocJobDraft | PocJobDraft[]) => {
       const list = Array.isArray(incoming) ? incoming : [incoming]
-      persistDrafts([...drafts, ...list])
+      persistDrafts(upsertPocJobDrafts(drafts, list))
     },
     [drafts, persistDrafts],
   )

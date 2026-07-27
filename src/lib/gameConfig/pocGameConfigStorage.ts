@@ -3,6 +3,7 @@ import { applyGameConfigBundle } from './gameConfigRegistry'
 import type { GameConfigBundle } from './gameConfigTypes'
 import {
   getActiveModule,
+  clearDraftGameConfigModule,
   loadPocGameConfigModulesState,
   notifyPocGameConfigUpdated,
   savePocGameConfigModulesState,
@@ -11,6 +12,7 @@ import {
 } from './pocGameConfigModulesStorage'
 import { loadPocGameConfigDrafts, validateDraftsToBundle } from './pocGameConfigDrafts'
 import { refreshPocGameConfigDraftsFromLiveTables } from './refreshPocGameConfigDrafts'
+import { createDefaultGameConfigBundle } from './defaultGameConfig'
 
 const DRAFT_MODULE_LABEL = 'Studio game config drafts'
 
@@ -23,6 +25,11 @@ export async function hydratePocGameConfig(
   supabase: SupabaseClient | null,
 ): Promise<{ state: PocGameConfigModulesState; bundle: GameConfigBundle }> {
   const drafts = loadPocGameConfigDrafts()
+  if (drafts.length === 0) {
+    const state = clearDraftGameConfigModule(loadPocGameConfigModulesState())
+    savePocGameConfigModulesState(state, { notify: false })
+    return { state, bundle: applyModule(getActiveModule(state)) }
+  }
   if (drafts.length > 0) {
     const refreshed = await refreshPocGameConfigDraftsFromLiveTables(supabase, drafts)
     const validated = validateDraftsToBundle(refreshed.drafts)
@@ -33,6 +40,11 @@ export async function hydratePocGameConfig(
       const bundle = applyModule(getActiveModule(state))
       return { state, bundle }
     }
+    if (drafts.length > 0 && validated.draftErrors.length > 0) {
+      let state = loadPocGameConfigModulesState()
+      state = clearDraftGameConfigModule(state)
+      savePocGameConfigModulesState(state, { notify: false })
+    }
   }
 
   const state = loadPocGameConfigModulesState()
@@ -41,8 +53,16 @@ export async function hydratePocGameConfig(
 }
 
 export function bootstrapPocGameConfigFromPersistence(): GameConfigBundle {
-  const state = loadPocGameConfigModulesState()
-  return applyModule(getActiveModule(state))
+  return applyModule({ bundle: createDefaultGameConfigBundle() })
+}
+
+export function resetPocGameConfigRuntimeToBuiltin(): {
+  state: PocGameConfigModulesState
+  bundle: GameConfigBundle
+} {
+  const state = clearDraftGameConfigModule(loadPocGameConfigModulesState())
+  savePocGameConfigModulesState(state, { notify: false })
+  return { state, bundle: applyModule(getActiveModule(state)) }
 }
 
 export function activateGameConfigModule(moduleId: string): {
@@ -59,13 +79,28 @@ export function activateGameConfigModule(moduleId: string): {
 
 export async function applyPocGameConfigDrafts(
   supabase: SupabaseClient | null,
-): Promise<{ state: PocGameConfigModulesState; errors: string[] }> {
+): Promise<{ state: PocGameConfigModulesState; bundle: GameConfigBundle; errors: string[] }> {
   const drafts = loadPocGameConfigDrafts()
+  if (drafts.length === 0) {
+    let state = loadPocGameConfigModulesState()
+    state = clearDraftGameConfigModule(state)
+    savePocGameConfigModulesState(state, { notify: false })
+    const bundle = applyModule(getActiveModule(state))
+    return { state, bundle, errors: ['No Studio game config drafts to apply.'] }
+  }
   const refreshed = await refreshPocGameConfigDraftsFromLiveTables(supabase, drafts)
   const validated = validateDraftsToBundle(refreshed.drafts)
   if (!validated.ok) {
+    let state = loadPocGameConfigModulesState()
+    if (drafts.length > 0 && validated.draftErrors.length > 0) {
+      state = clearDraftGameConfigModule(state)
+      savePocGameConfigModulesState(state, { notify: false })
+      applyModule(getActiveModule(state))
+    }
+    const bundle = applyModule(getActiveModule(state))
     return {
-      state: loadPocGameConfigModulesState(),
+      state,
+      bundle,
       errors: validated.draftErrors.map((e) => `${e.label}: ${e.error}`),
     }
   }
@@ -73,7 +108,7 @@ export async function applyPocGameConfigDrafts(
   let state = loadPocGameConfigModulesState()
   state = upsertDraftModule(state, DRAFT_MODULE_LABEL, validated.bundle)
   savePocGameConfigModulesState(state)
-  applyModule(getActiveModule(state))
+  const bundle = applyModule(getActiveModule(state))
   notifyPocGameConfigUpdated()
-  return { state, errors: [] }
+  return { state, bundle, errors: [] }
 }

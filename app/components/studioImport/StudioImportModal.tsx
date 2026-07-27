@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { ArrowLeft, Download, X, ChevronRight } from 'lucide-react'
 import type { GameState } from '@/app/hooks/useGameState'
 import { SkillCatalogSourcesPanel } from '../skills/SkillCatalogSourcesPanel'
@@ -44,20 +43,16 @@ export default function StudioImportModal({ game }: Props) {
   const configModuleLabel =
     configModules.find((m) => m.id === activeConfigModuleId)?.label ?? activeConfigModuleId
 
-  const catalogRows = useMemo(
-    () =>
-      STUDIO_IMPORT_CATALOG.map((entry) => ({
-        ...entry,
-        draftCount: draftCountForCategory(entry.id),
-        activeLabel: activeModuleLabel(
-          entry.id,
-          skillModuleLabel,
-          jobModuleLabel,
-          configModuleLabel,
-        ),
-      })),
-    [skillModuleLabel, jobModuleLabel, configModuleLabel],
-  )
+  const catalogRows = STUDIO_IMPORT_CATALOG.map((entry) => ({
+    ...entry,
+    draftCount: draftCountForCategory(entry.id),
+    activeLabel: activeModuleLabel(
+      entry.id,
+      skillModuleLabel,
+      jobModuleLabel,
+      configModuleLabel,
+    ),
+  }))
 
   if (!showStudioImport) return null
 

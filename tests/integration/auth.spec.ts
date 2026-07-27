@@ -25,6 +25,12 @@ async function fillSignUpForm(page: Page, email: string, password: string, confi
 }
 
 async function openProfilePanel(page: Page) {
+  await page.evaluate(() => window.localStorage.setItem('battle-job-selected', '1'))
+  const blockingDialog = page.getByRole('dialog')
+  if (await blockingDialog.isVisible().catch(() => false)) {
+    await blockingDialog.getByRole('button', { name: 'Close' }).click()
+    await expect(blockingDialog).not.toBeVisible()
+  }
   await page.getByRole('button', { name: 'Profile' }).click()
   await expect(page.getByText('Battle Arena', { exact: true })).toBeVisible()
 }
@@ -100,6 +106,63 @@ async function cleanupCreatedAuthUserByEmail(email: string) {
 test.describe('Auth flow', () => {
   test.describe.configure({ timeout: 120000 })
   test.skip(!isRealSupabase, 'Requires real Supabase credentials from .env.local')
+
+  test('shows Google login only in sign-in mode', async ({ page }) => {
+    await page.goto('/')
+    await openProfilePanel(page)
+
+    await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+    await switchToSignUp(page)
+    await expect(page.getByRole('button', { name: 'Continue with Google' })).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Sign up and enter' })).toBeVisible()
+  })
+
+  test('starts Google OAuth with the battle callback and PKCE', async ({ page }) => {
+    await page.goto('/')
+    await openProfilePanel(page)
+
+    const authorizeRequest = page.waitForRequest((request) =>
+      request.url().includes('/auth/v1/authorize'),
+    )
+    const authorizeResponse = page.waitForResponse((response) =>
+      response.url().includes('/auth/v1/authorize'),
+    )
+    await page.getByRole('button', { name: 'Continue with Google' }).click({
+      noWaitAfter: true,
+    })
+
+    const requestUrl = new URL((await authorizeRequest).url())
+    expect(requestUrl.searchParams.get('provider')).toBe('google')
+    expect(requestUrl.searchParams.get('redirect_to')).toBe(
+      'http://localhost:3002/auth/callback',
+    )
+    expect(requestUrl.searchParams.get('code_challenge')).toBeTruthy()
+    expect(requestUrl.searchParams.get('code_challenge_method')).toBe('s256')
+    expect(requestUrl.searchParams.get('access_type')).toBe('offline')
+    expect(requestUrl.searchParams.get('prompt')).toBe('consent')
+
+    const providerResponse = await authorizeResponse
+    expect([302, 303]).toContain(providerResponse.status())
+    expect(providerResponse.headers().location).toContain('accounts.google.com')
+  })
+
+  test('returns provider callback errors to the battle auth error state', async ({ page }) => {
+    await page.goto('/auth/callback?error=access_denied')
+    await expect(page).toHaveURL('/?error=auth_error')
+    await expect(page.getByRole('alert', { name: 'Authentication error' })).toContainText(
+      'Google sign-in could not be completed',
+    )
+
+    await page.getByRole('button', { name: 'Try again' }).click()
+
+    await expect(page).toHaveURL('/')
+    await expect(page.getByText('Battle Arena', { exact: true })).toBeVisible()
+  })
+
+  test('rejects a callback without a code or existing session', async ({ page }) => {
+    await page.goto('/auth/callback')
+    await expect(page).toHaveURL('/?error=auth_error')
+  })
 
   test('sign in and keep authenticated session', async ({ page }) => {
     await page.goto('/')

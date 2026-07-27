@@ -97,8 +97,8 @@ export function createDefaultGameConfigBundle(): GameConfigBundle {
     },
     battleFormulas: {
       armorK: 50,
-      basicDamageMultiplier: 1.24,
-      skillDamageMultiplier: 1.82,
+      basicDamageMultiplier: 0.72,
+      skillDamageMultiplier: 0.82,
       defendDamageReduction: 0.6,
       defendSkillReduction: 0.62,
     },
