@@ -6,7 +6,8 @@ import type { Skill } from '@keco/battle-engine'
 import type { BattleSkillDefinition } from '@/src/battle-core/domain/types/skill-types'
 import { kecoSkillToBattleCoreDefinition } from '@/src/keco/kecoSkillBridge'
 import { flatRowToKecoSkillFromRow } from './kecoSkillTableCodec'
-import { emptyPocSkillFlatRow, resolveSkillId, type PocSkillFlatRow } from './pocSkillFieldMapping'
+import { parseStrengthKey } from './elementLabelCodec'
+import { emptyPocSkillFlatRow, parseBattleSkillRow, resolveSkillId, type PocSkillFlatRow } from './pocSkillFieldMapping'
 import {
   SIMULATION_SKILL_DRAFTS_REQUIRED_KEYS,
   SIMULATION_SKILL_MAPPING_FIELD_KEYS,
@@ -77,6 +78,10 @@ export function validateSimulationSkillDrafts(
       draft.fields.name?.value?.trim() ||
       draft.fields.id?.value?.trim() ||
       `Skill ${index + 1}`
+    if (draft.invalidReason) {
+      draftErrors.push({ draftId: draft.draftId, label, error: draft.invalidReason })
+      return
+    }
 
     const missingRequired = SIMULATION_SKILL_DRAFTS_REQUIRED_KEYS.filter(
       (key) => !draft.fields[key]?.value?.trim(),
@@ -108,6 +113,42 @@ export function validateSimulationSkillDrafts(
       return
     }
 
+    const parsed = parseBattleSkillRow(flat)
+    if (parsed.error || !parsed.definition) {
+      draftErrors.push({
+        draftId: draft.draftId,
+        label,
+        error: parsed.error ?? 'Invalid skill field values.',
+      })
+      return
+    }
+    const skillType = flat.skillType.trim().toLowerCase()
+    if (skillType && skillType !== 'attack' && skillType !== 'heal') {
+      draftErrors.push({
+        draftId: draft.draftId,
+        label,
+        error: `skillType "${flat.skillType}" is not supported.`,
+      })
+      return
+    }
+    if (flat.attachElement.trim() && flat.attachStrength.trim() && !parseStrengthKey(flat.attachStrength)) {
+      draftErrors.push({
+        draftId: draft.draftId,
+        label,
+        error: `attachStrength "${flat.attachStrength}" is invalid.`,
+      })
+      return
+    }
+    const specialType = String(parsed.definition.params?.specialEffect ?? '').trim()
+    if (specialType && !['atk_debuff', 'def_debuff', 'heal'].includes(specialType)) {
+      draftErrors.push({
+        draftId: draft.draftId,
+        label,
+        error: 'Unsupported specialEffect "' + specialType + '"; supported values are atk_debuff, def_debuff, heal.',
+      })
+      return
+    }
+
     const keco = flatRowToKecoSkillFromRow(flat)
     if (!keco) {
       draftErrors.push({
@@ -115,6 +156,14 @@ export function validateSimulationSkillDrafts(
         label,
         error: 'Could not convert draft to skill.',
       })
+      return
+    }
+    if (flat.attachElement.trim() && !keco.attachElement) {
+      draftErrors.push({ draftId: draft.draftId, label, error: 'attachElement is invalid.' })
+      return
+    }
+    if (flat.reactionTriggersJson.trim() && !keco.reactionTrigger?.length) {
+      draftErrors.push({ draftId: draft.draftId, label, error: 'reactionTriggersJson contains no valid reaction trigger.' })
       return
     }
 
@@ -129,7 +178,16 @@ export function validateSimulationSkillDrafts(
     seenIds.add(keco.id)
 
     kecoSkills.push(keco)
-    definitions.push(kecoSkillToBattleCoreDefinition(keco))
+    const kecoDefinition = kecoSkillToBattleCoreDefinition(keco)
+    definitions.push({
+      ...kecoDefinition,
+      ratio: parsed.definition.ratio,
+      mpCost: parsed.definition.mpCost,
+      range: parsed.definition.range,
+      description: parsed.definition.description,
+      params: parsed.definition.params,
+      applyFreezeTicks: parsed.definition.applyFreezeTicks ?? kecoDefinition.applyFreezeTicks,
+    })
   })
 
   return {

@@ -1,6 +1,7 @@
 import {
   emptyPocSkillFlatRow,
   flatRowToBattleSkillDefinition,
+  parseBattleSkillRow,
   normalizeHeaderToken,
   POC_SKILL_MAPPING_FIELDS,
   type PocSkillColumnMappingKey,
@@ -18,6 +19,7 @@ import {
   type StudioTableRow,
 } from '@/src/lib/studio/studioLibraryService'
 import type { BattleSkillDefinition } from '@/src/battle-core/domain/types/skill-types'
+import { upsertBattleSkillDefinitions } from '@/src/battle-core/content/skills/basic-skill-catalog'
 
 /** Studio / sheet header aliases → battle-poc skill fields. */
 const HEADER_SKILL_CANDIDATES: Record<string, PocSkillColumnMappingKey[]> = {
@@ -144,7 +146,7 @@ export function detectIdColumnKey(columns: StudioTableColumn[]): string | undefi
     const nKey = normalizeHeaderToken(c.key)
     return nLabel === 'id' || nKey === 'id' || nLabel === 'skillid' || nKey === 'skillid'
   })
-  return hit?.key ?? columns.find((c) => c.key === ASSET_NAME_COLUMN_KEY)?.key
+  return hit?.key
 }
 
 export function extractIdOptionsFromRows(
@@ -172,11 +174,11 @@ export function findRowByIdCell(
 ): StudioTableRow | null {
   const want = idValue.trim().toLowerCase()
   if (!want) return null
-  for (const row of rows) {
+  const matches = rows.filter((row) => {
     const cell = cellValueToString(row.values[idColumnKey]).trim().toLowerCase()
-    if (cell === want) return row
-  }
-  return null
+    return cell === want
+  })
+  return matches.length === 1 ? matches[0]! : null
 }
 
 export function buildDraftFromTableRow(args: {
@@ -185,8 +187,9 @@ export function buildDraftFromTableRow(args: {
   columnToField: Map<string, PocSkillColumnMappingKey>
   idColumnKey: string
   skillIdValue: string
+  columns?: StudioTableColumn[]
 }): PocSkillDraft {
-  const { tableId, row, columnToField, idColumnKey, skillIdValue } = args
+  const { tableId, row, columnToField, idColumnKey, skillIdValue, columns = [] } = args
   const fields: PocSkillDraft['fields'] = {}
 
   const idFromRow = cellValueToString(row.values[idColumnKey]).trim()
@@ -196,8 +199,25 @@ export function buildDraftFromTableRow(args: {
   for (const [columnKey, skillKey] of columnToField) {
     if (skillKey === 'id') continue
     const value = cellValueToString(row.values[columnKey]).trim()
-    if (!value) continue
     fields[skillKey] = { tableId, columnKey, value }
+  }
+
+  const extraAliases: Record<string, keyof PocSkillKecoExtraFields> = {
+    type: 'skillType', skilltype: 'skillType', attachelement: 'attachElement', element: 'attachElement',
+    attachstrength: 'attachStrength', strength: 'attachStrength', attachturns: 'attachTurns', attachduration: 'attachTurns',
+    dotdamage: 'dotDamage', dotturns: 'dotTurns', dotduration: 'dotTurns', freezeturns: 'freezeTurns',
+    freezeduration: 'freezeTurns', freeze: 'freezeTurns', special: 'specialEffect', specialeffect: 'specialEffect',
+    specialtype: 'specialEffect', specialeffectvalue: 'specialEffectValue', specialvalue: 'specialEffectValue',
+    specialeffectduration: 'specialEffectDuration', specialduration: 'specialEffectDuration',
+    reactiontriggers: 'reactionTriggersJson', reactiontriggersjson: 'reactionTriggersJson', reactions: 'reactionTriggersJson',
+  }
+  for (const column of columns) {
+    const col = column.key
+    const token = normalizeHeaderToken(column.label || col)
+    const key = extraAliases[token]
+    if (!key || fields[key]) continue
+    const value = cellValueToString(row.values[col]).trim()
+    fields[key] = { tableId, columnKey: col, value }
   }
 
   if (!fields.name?.value?.trim()) {
@@ -303,7 +323,8 @@ export function importBattleSkillsFromTableRows(args: {
   if (plan.ambiguities.length > 0) {
     throw new Error('Column mapping has unresolved ambiguities')
   }
-  const idColumnKey = detectIdColumnKey(columns) ?? ASSET_NAME_COLUMN_KEY
+  const idColumnKey = detectIdColumnKey(columns)
+  if (!idColumnKey) throw new Error('Skill table is missing an explicit id column')
   const seen = new Set<string>()
   const out: BattleSkillDefinition[] = []
 
@@ -313,8 +334,15 @@ export function importBattleSkillsFromTableRows(args: {
     const flat = rowToFlatSkill(row, plan.columnToField, idColumnKey, columns)
     if (!flat.id.trim() && !flat.name.trim()) continue
     if (!flat.id.trim()) flat.id = flat.name
-    const def = flatRowToBattleSkillDefinition(flat)
-    if (!def || seen.has(def.id)) continue
+    const parsed = parseBattleSkillRow(flat)
+    if (parsed.error) {
+      throw new Error(`Skill row ${rows.indexOf(row) + 1} field value: ${parsed.error}`)
+    }
+    const def = parsed.definition
+    if (!def) continue
+    if (seen.has(def.id)) {
+      throw new Error(`Skill row ${rows.indexOf(row) + 1}: duplicate skill id "${def.id}"`)
+    }
     seen.add(def.id)
     out.push(def)
     const keco = flatRowToKecoSkillFromRow(flat)
@@ -323,6 +351,9 @@ export function importBattleSkillsFromTableRows(args: {
 
   if (kecoSkills.length > 0) {
     setKecoSkillsRecord(registerKecoSkills(kecoSkills))
+    // Keco registration provides the legacy engine view; restore the lossless
+    // battle-core definitions after it so range/params are not overwritten.
+    upsertBattleSkillDefinitions(out)
   }
 
   return out

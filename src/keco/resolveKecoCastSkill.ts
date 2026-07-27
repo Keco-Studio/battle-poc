@@ -4,8 +4,9 @@ import type { BattleSession } from '../battle-core/domain/entities/battle-sessio
 import type { BattleEntity } from '../battle-core/domain/entities/battle-entity'
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
 import { appendEvent, updateEntity } from '../battle-core/engine/session-helpers'
+import { applyDebuffToEntity, applyFreezeToEntity } from '../battle-core/engine/effect-processor'
 import type { KecoCombatExtension } from './types'
-import { applyKecoUnitToEntity, entityToKecoUnit } from './entitySync'
+import { applyKecoUnitToEntity, syncEntityToKecoUnit } from './entitySync'
 
 function pseudoBattleState(keco: KecoCombatExtension, turn: number): BattleState {
   const units = Object.values(keco.units)
@@ -43,9 +44,7 @@ export function resolveKecoCastSkill(input: {
   let keco = input.keco
 
   const pocDef = getBattleSkillDefinition(input.skillId)
-  const kecoSkill: Skill | undefined =
-    keco.skillById[input.skillId] ??
-    (pocDef ? keco.skillById[Object.keys(keco.skillById)[0]] : undefined)
+  const kecoSkill: Skill | undefined = keco.skillById[input.skillId]
 
   if (!kecoSkill) {
     return { session, damage: 0, applied: false, keco }
@@ -55,8 +54,8 @@ export function resolveKecoCastSkill(input: {
     return { session, damage: 0, applied: false, keco }
   }
 
-  let attacker = keco.units[actor.id] ?? entityToKecoUnit(actor)
-  let defender = keco.units[target.id] ?? entityToKecoUnit(target)
+  let attacker = syncEntityToKecoUnit(actor, keco.units[actor.id])
+  let defender = syncEntityToKecoUnit(target, keco.units[target.id])
 
   const pseudo = pseudoBattleState(keco, keco.turn)
   const result = executeSkill(pseudo, attacker, defender, kecoSkill, [...keco.logs])
@@ -98,6 +97,30 @@ export function resolveKecoCastSkill(input: {
 
   let nextSession = updateEntity(session, nextActor)
   nextSession = updateEntity(nextSession, nextTarget)
+  if (defender.control?.type === 'freeze' && defender.control.remainingTurns > 0) {
+    const currentTarget = nextSession.right.id === nextTarget.id ? nextSession.right : nextSession.left
+    nextSession = applyFreezeToEntity(
+      nextSession,
+      currentTarget,
+      actor.id,
+      defender.control.remainingTurns,
+    )
+  }
+  const debuff = defender.buffs.find(
+    (buff): buff is typeof buff & { type: 'atk_debuff' | 'def_debuff' } =>
+      buff.type === 'atk_debuff' || buff.type === 'def_debuff',
+  )
+  if (debuff && debuff.value > 0 && debuff.remainingTurns > 0) {
+    const currentTarget = nextSession.right.id === nextTarget.id ? nextSession.right : nextSession.left
+    nextSession = applyDebuffToEntity(
+      nextSession,
+      currentTarget,
+      actor.id,
+      debuff.type,
+      debuff.value,
+      debuff.remainingTurns,
+    )
+  }
 
   const leftUnit = keco.units[nextSession.left.id] ?? attacker
   const rightUnit = keco.units[nextSession.right.id] ?? defender
@@ -133,6 +156,15 @@ export function resolveKecoCastSkill(input: {
     skillId: kecoSkill.id,
     skillName: kecoSkill.name,
   })
+
+  if (result.triggeredReaction) {
+    nextSession = appendEvent(nextSession, 'combo_triggered', {
+      actorId: actor.id,
+      targetId: target.id,
+      comboId: `keco:${result.triggeredReaction}`,
+      skillId: kecoSkill.id,
+    })
+  }
 
   return { session: nextSession, damage, applied: true, keco }
 }

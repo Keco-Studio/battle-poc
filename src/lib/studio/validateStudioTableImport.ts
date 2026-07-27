@@ -1,9 +1,10 @@
-import type { StudioTableColumn } from '@/src/lib/studio/studioLibraryService'
+import { cellValueToString } from '@/src/lib/studio/cellDisplayValue'
+import type { StudioTableColumn, StudioTableRow } from '@/src/lib/studio/studioLibraryService'
 import { normalizeHeaderToken } from '@/src/lib/jobs/pocJobFieldMapping'
 import { planImportColumnMapping as planSkillColumns } from '@/src/lib/skills/importPocSkillFromTable'
-import { POC_SKILL_MAPPING_FIELDS } from '@/src/lib/skills/pocSkillFieldMapping'
+import { normalizeSkillId, POC_SKILL_MAPPING_FIELDS } from '@/src/lib/skills/pocSkillFieldMapping'
 import { planImportColumnMapping as planJobColumns } from '@/src/lib/jobs/importPocJobFromTable'
-import { POC_JOB_MAPPING_FIELDS } from '@/src/lib/jobs/pocJobFieldMapping'
+import { normalizeJobId, POC_JOB_MAPPING_FIELDS } from '@/src/lib/jobs/pocJobFieldMapping'
 import { detectIdColumnKey as detectSkillIdColumn } from '@/src/lib/skills/importPocSkillFromTable'
 import { detectIdColumnKey as detectJobIdColumn } from '@/src/lib/jobs/importPocJobFromTable'
 import { detectIdColumnKey as detectGameConfigIdColumn } from '@/src/lib/gameConfig/importPocGameConfig'
@@ -27,6 +28,33 @@ export type StudioTableValidation = {
   matchedFields: string[]
   /** When headers look like another import type. */
   suspectedKind?: StudioImportKind
+}
+
+function normalizeStudioRowId(value: string, kind: StudioImportKind): string {
+  if (kind === 'skills') return normalizeSkillId(value).toLowerCase()
+  if (kind === 'job_classes') return normalizeJobId(value)
+  return value.trim().toLowerCase()
+}
+
+export function findDuplicateStudioRowIds(
+  rows: StudioTableRow[],
+  idColumnKey: string,
+  kind: StudioImportKind,
+): string[] {
+  const byNormalizedId = new Map<string, { displayId: string; count: number }>()
+  for (const row of rows) {
+    const displayId = cellValueToString(row.values[idColumnKey]).trim()
+    const normalizedId = normalizeStudioRowId(displayId, kind)
+    if (!normalizedId) continue
+    const current = byNormalizedId.get(normalizedId)
+    byNormalizedId.set(normalizedId, {
+      displayId: current?.displayId ?? displayId,
+      count: (current?.count ?? 0) + 1,
+    })
+  }
+  return [...byNormalizedId.values()]
+    .filter((entry) => entry.count > 1)
+    .map((entry) => entry.displayId)
 }
 
 const JOB_HEADER_TOKENS = new Set([

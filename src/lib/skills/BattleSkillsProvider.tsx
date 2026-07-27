@@ -12,7 +12,7 @@ import {
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
 import type { Skill } from '@/app/constants'
-import { refreshAllSkillsFromCatalog, setAllSkills } from '@/app/constants'
+import { setAllSkills } from '@/app/constants'
 import {
   DEFAULT_POC_SKILL_MODULE_ID,
   POC_SKILLS_UPDATED_EVENT,
@@ -24,10 +24,10 @@ import {
   bootstrapPocSkillsFromPersistence,
   hydratePocSkills,
   applyPocSkillDrafts,
+  resetPocSkillsRuntimeToBuiltin,
 } from '@/src/lib/skills/pocSkillsStorage'
 
 import {
-  clearSimulationSyncFromRuntime,
   syncSimulationSkillsFromRemote,
 } from '@/src/lib/skills/simulationSkillSync'
 
@@ -58,7 +58,7 @@ function syncGlobals(skills: Skill[]): void {
 export function BattleSkillsProvider({ children }: { children: ReactNode }) {
   const supabase = useSupabaseOptional()
   const { userProfile, isAuthenticated } = useAuth()
-  const initial = bootstrapPocSkillsFromPersistence()
+  const [initial] = useState(() => bootstrapPocSkillsFromPersistence())
   const [skills, setSkills] = useState<Skill[]>(() => {
     syncGlobals(initial.skills)
     return initial.skills
@@ -87,27 +87,28 @@ export function BattleSkillsProvider({ children }: { children: ReactNode }) {
     try {
       const client = supabase && isAuthenticated ? supabase : null
       if (!client) {
-        const cleared = clearSimulationSyncFromRuntime()
+        const cleared = await hydratePocSkills(null, { includeSimulationSync: false })
         setModulesState(cleared.state)
         applyRuntime(cleared)
         return
       }
       const { state, skills: next, baseSkills: nextBase, simulationSyncSkills: nextSim } =
-        await hydratePocSkills(client, { includeSimulationSync: true })
+        await hydratePocSkills(client, {
+          includeSimulationSync: true,
+          userId: userProfile?.id,
+        })
       setModulesState(state)
       applyRuntime({ skills: next, baseSkills: nextBase, simulationSyncSkills: nextSim })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load skills'
       setHydrateError(msg)
-      const fallback = refreshAllSkillsFromCatalog()
-      setSkills(fallback)
-      setBaseSkills(fallback)
-      setSimulationSyncSkills([])
-      syncGlobals(fallback)
+      const fallback = resetPocSkillsRuntimeToBuiltin()
+      setModulesState(fallback.state)
+      applyRuntime(fallback)
     } finally {
       setIsHydrating(false)
     }
-  }, [supabase, isAuthenticated, applyRuntime])
+  }, [supabase, isAuthenticated, userProfile?.id, applyRuntime])
 
   useEffect(() => {
     void runHydrate()

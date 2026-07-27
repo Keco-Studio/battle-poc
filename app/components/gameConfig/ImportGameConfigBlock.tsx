@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download } from 'lucide-react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
+import { cellValueToString } from '@/src/lib/studio/cellDisplayValue'
 import type { PocGameConfigDraft } from '@/src/lib/gameConfig/pocGameConfigDrafts'
-import { draftLabel } from '@/src/lib/gameConfig/pocGameConfigDrafts'
+import { draftLabel, pocGameConfigDraftIdentity } from '@/src/lib/gameConfig/pocGameConfigDrafts'
 import type { GameConfigImportKind } from '@/src/lib/gameConfig/gameConfigTypes'
 import {
   buildDraftFromTableRow,
@@ -14,6 +15,10 @@ import {
 } from '@/src/lib/gameConfig/importPocGameConfig'
 import { loadStudioTableRows, type SelectableStudioTable } from '@/src/lib/jobs/studioJobPicker'
 import { SkillSourceSelect } from '../skills/SkillSourceSelect'
+import {
+  findDuplicateStudioRowIds,
+  validateStudioTableForImport,
+} from '@/src/lib/studio/validateStudioTableImport'
 import styles from '../skills/SkillSourcePanel.module.css'
 
 const KIND_OPTIONS: { value: GameConfigImportKind; label: string }[] = [
@@ -68,17 +73,46 @@ export function ImportGameConfigBlock({
     }
     const seq = ++loadSeq.current
     setLoading(true)
+    setLoaded(null)
+    setIdColumnKey('')
+    setSelectedIds([])
     void loadStudioTableRows(supabase, tableId)
       .then((res) => {
         if (seq !== loadSeq.current) return
+        if (!res || res.columns.length === 0) {
+          setLoaded(null)
+          setIdColumnKey('')
+          onError?.('Failed to load table')
+          return
+        }
         setLoaded(res)
-        setIdColumnKey(res ? detectIdColumnKey(res.columns, effectiveKind) ?? res.columns[0]?.key ?? '' : '')
+        const validation = validateStudioTableForImport(res.columns, effectiveKind)
+        const detected = validation.ok
+          ? detectIdColumnKey(res.columns, effectiveKind)
+          : undefined
+        const duplicateIds = detected
+          ? findDuplicateStudioRowIds(res.rows, detected, effectiveKind)
+          : []
+        if (duplicateIds.length > 0) {
+          setIdColumnKey('')
+          onError?.(`Duplicate config id(s) in Studio table: ${duplicateIds.join(', ')}`)
+          return
+        }
+        setIdColumnKey(detected ?? '')
+        if (!validation.ok) onError?.(validation.errors.join(' '))
         setSelectedIds([])
+      })
+      .catch((error) => {
+        if (seq !== loadSeq.current) return
+        setLoaded(null)
+        setIdColumnKey('')
+        setSelectedIds([])
+        onError?.(error instanceof Error ? error.message : 'Failed to load table')
       })
       .finally(() => {
         if (seq === loadSeq.current) setLoading(false)
       })
-  }, [tableId, supabase, supabaseReady, effectiveKind])
+  }, [tableId, supabase, supabaseReady, effectiveKind, onError])
 
   const idOptions = useMemo(() => {
     if (!loaded || !idColumnKey) return []
@@ -90,10 +124,26 @@ export function ImportGameConfigBlock({
       onError?.('Select table, id column, and at least one row id')
       return
     }
+    const validation = validateStudioTableForImport(loaded.columns, effectiveKind)
+    if (!validation.ok) {
+      onError?.(validation.errors.join(' '))
+      return
+    }
+    const duplicateIds = findDuplicateStudioRowIds(loaded.rows, idColumnKey, effectiveKind)
+    if (duplicateIds.length > 0) {
+      onError?.(`Duplicate config id(s) in Studio table: ${duplicateIds.join(', ')}`)
+      return
+    }
     const drafts: PocGameConfigDraft[] = []
+    const ambiguous: string[] = []
     for (const id of selectedIds) {
       const row = findRowByIdCell(loaded.rows, idColumnKey, id)
-      if (!row) continue
+      if (!row) {
+        if (loaded.rows.some((candidate) => cellValueToString(candidate.values[idColumnKey]).trim().toLowerCase() === id.trim().toLowerCase())) {
+          ambiguous.push(id)
+        }
+        continue
+      }
       drafts.push(
         buildDraftFromTableRow({
           kind: effectiveKind,
@@ -105,23 +155,35 @@ export function ImportGameConfigBlock({
         }),
       )
     }
+    if (ambiguous.length > 0) {
+      onError?.(`Duplicate config id(s) in Studio table: ${ambiguous.join(', ')}`)
+      return
+    }
     if (drafts.length === 0) {
       onError?.('No matching rows')
       return
     }
-    const seen = new Set(existingDrafts.map((d) => `${d.kind}:${d.fields.id?.value?.toLowerCase()}`))
-    const accepted = drafts.filter((d) => {
-      const key = `${d.kind}:${d.fields.id?.value?.toLowerCase()}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
+    const seenIncoming = new Set<string>()
+    const accepted = drafts.filter((draft) => {
+      const identity = pocGameConfigDraftIdentity(draft)
+      if (!identity || !seenIncoming.has(identity)) {
+        if (identity) seenIncoming.add(identity)
+        return true
+      }
+      return false
     })
+    if (accepted.length !== drafts.length) {
+      onError?.('Duplicate config id in this import')
+    }
     if (accepted.length === 0) {
-      onError?.('Duplicate draft (same kind + id already imported)')
       return
     }
+    const existingIdentities = new Set(existingDrafts.map(pocGameConfigDraftIdentity))
+    const updatedCount = accepted.filter((draft) => existingIdentities.has(pocGameConfigDraftIdentity(draft))).length
     onImportDraft(accepted.length === 1 ? accepted[0]! : accepted)
-    onSuccess?.(`Imported ${accepted.length} config draft(s)`)
+    onSuccess?.(updatedCount > 0
+      ? `Updated ${updatedCount} and imported ${accepted.length - updatedCount} config draft(s)`
+      : `Imported ${accepted.length} config draft(s)`)
     setSelectedIds([])
   }, [loaded, idColumnKey, selectedIds, effectiveKind, tableId, existingDrafts, onImportDraft, onError, onSuccess])
 

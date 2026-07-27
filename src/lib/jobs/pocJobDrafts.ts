@@ -1,6 +1,6 @@
 import {
   emptyPocJobFlatRow,
-  flatRowToJobClassConfig,
+  parseJobClassRow,
   POC_JOB_MAPPING_FIELDS,
   resolveJobId,
   type PocJobColumnMappingKey,
@@ -19,6 +19,7 @@ export type LocalTableCellRef = {
 export type PocJobDraft = {
   draftId: string
   sourceRowId?: string
+  invalidReason?: string
   fields: Partial<Record<PocJobColumnMappingKey, LocalTableCellRef>>
 }
 
@@ -90,6 +91,8 @@ export function loadPocJobDrafts(): PocJobDraft[] {
         draftId: d.draftId,
         sourceRowId:
           typeof d.sourceRowId === 'string' && d.sourceRowId.trim() ? d.sourceRowId : undefined,
+        invalidReason:
+          typeof d.invalidReason === 'string' && d.invalidReason.trim() ? d.invalidReason : undefined,
         fields: sanitizeFields(d.fields),
       }))
   } catch {
@@ -134,12 +137,17 @@ export function validatePocJobDrafts(drafts: PocJobDraft[]): JobDraftValidationR
 
   drafts.forEach((draft, index) => {
     const label = draftImportDisplayId(draft)
-    const flat = flatFromDraftFields(draft)
-    const def = flatRowToJobClassConfig(flat)
-    if (!def) {
-      draftErrors.push({ draftId: draft.draftId, label, error: 'Invalid or missing class id' })
+    if (draft.invalidReason) {
+      draftErrors.push({ draftId: draft.draftId, label, error: draft.invalidReason })
       return
     }
+    const flat = flatFromDraftFields(draft)
+    const parsed = parseJobClassRow(flat)
+    if (!parsed.config) {
+      draftErrors.push({ draftId: draft.draftId, label, error: parsed.error ?? 'Invalid or missing class id' })
+      return
+    }
+    const def = parsed.config
     if (seen.has(def.id)) {
       draftErrors.push({ draftId: draft.draftId, label, error: `Duplicate class id "${def.id}"` })
       return
@@ -156,13 +164,15 @@ export type DraftImportReject = { draftId: string; reason: string }
 export function partitionDraftsByJobId(
   incoming: PocJobDraft | PocJobDraft[],
   existing: PocJobDraft[],
-): { accepted: PocJobDraft[]; rejected: DraftImportReject[] } {
+): { accepted: PocJobDraft[]; rejected: DraftImportReject[]; updated: PocJobDraft[] } {
   const list = Array.isArray(incoming) ? incoming : [incoming]
   const rejected: DraftImportReject[] = []
   const accepted: PocJobDraft[] = []
+  const updated: PocJobDraft[] = []
   const existingIds = new Set(
     existing.map((d) => resolvedDraftJobId(d)).filter((id): id is string => Boolean(id)),
   )
+  const seenIncoming = new Set<string>()
 
   for (const draft of list) {
     const id = resolvedDraftJobId(draft)
@@ -170,13 +180,28 @@ export function partitionDraftsByJobId(
       rejected.push({ draftId: draft.draftId, reason: 'Missing valid class id' })
       continue
     }
-    if (existingIds.has(id)) {
-      rejected.push({ draftId: draft.draftId, reason: `Class "${id}" already in drafts` })
+    if (seenIncoming.has(id)) {
+      rejected.push({ draftId: draft.draftId, reason: `Duplicate class id "${id}" in this import` })
       continue
     }
-    existingIds.add(id)
+    seenIncoming.add(id)
     accepted.push(draft)
+    if (existingIds.has(id)) updated.push(draft)
   }
 
-  return { accepted, rejected }
+  return { accepted, rejected, updated }
+}
+
+export function upsertPocJobDrafts(
+  existing: PocJobDraft[],
+  incoming: PocJobDraft[],
+): PocJobDraft[] {
+  const next = [...existing]
+  for (const draft of incoming) {
+    const id = resolvedDraftJobId(draft)
+    const index = id ? next.findIndex((item) => resolvedDraftJobId(item) === id) : -1
+    if (index >= 0) next[index] = draft
+    else next.push(draft)
+  }
+  return next
 }

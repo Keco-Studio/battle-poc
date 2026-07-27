@@ -1,8 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   applyMergedModulesToRuntime,
+  clearDraftSkillModule,
   getActiveModule,
   getSimulationSyncModule,
+  clearSimulationSyncModule,
   loadPocSkillModulesState,
   notifyPocSkillsUpdated,
   savePocSkillModulesState,
@@ -12,9 +14,20 @@ import {
   type PocSkillModulesState,
 } from './pocSkillModulesStorage'
 import type { Skill } from '@/app/constants'
+import { getBuiltinBattleSkillDefinitions } from '@/src/battle-core/content/skills/basic-skill-catalog'
 import { loadPocSkillDrafts } from './pocSkillDrafts'
 import { validatePocSkillDraftsFromLiveTables } from './refreshPocSkillDrafts'
-import { clearSimulationSyncFromRuntime, readMergedSkillsFromPersistence } from './simulationSkillSync'
+import {
+  clearSimulationSyncFromRuntime,
+  syncSimulationSkillsFromRemote,
+} from './simulationSkillSync'
+import { registerKecoSkills } from '@/src/keco/kecoSkillBridge'
+import {
+  clearBaseKecoSkillsRecord,
+  clearKecoSkillsRecord,
+  clearSimulationKecoSkillsRecord,
+  setKecoSkillsRecord,
+} from './kecoSkillRegistry'
 
 const DRAFT_MODULE_LABEL = 'Studio drafts'
 
@@ -28,40 +41,52 @@ function applyRuntimeFromState(state: PocSkillModulesState): {
 
 export async function hydratePocSkills(
   supabase: SupabaseClient | null,
-  options?: { includeSimulationSync?: boolean },
+  options?: { includeSimulationSync?: boolean; userId?: string },
 ): Promise<{
   state: PocSkillModulesState
   skills: Skill[]
   baseSkills: Skill[]
   simulationSyncSkills: Skill[]
 }> {
-  const includeSimulationSync = options?.includeSimulationSync !== false
+  clearSimulationKecoSkillsRecord()
+
+  const applySimulationHydrate = async (state: PocSkillModulesState) => {
+    if (supabase && options?.includeSimulationSync && options.userId?.trim()) {
+      return syncSimulationSkillsFromRemote(supabase as never, options.userId.trim())
+    }
+    return { state, ...applyRuntimeFromState(state) }
+  }
 
   const drafts = loadPocSkillDrafts()
+  if (drafts.length === 0) {
+    clearBaseKecoSkillsRecord()
+    let state = clearDraftSkillModule(loadPocSkillModulesState())
+    state = clearSimulationSyncModule(state)
+    savePocSkillModulesState(state, { notify: false })
+    return applySimulationHydrate(state)
+  }
   if (drafts.length > 0) {
     const draftResult = await validatePocSkillDraftsFromLiveTables(supabase, drafts)
     if (draftResult.ok && draftResult.definitions.length > 0) {
+      setKecoSkillsRecord(registerKecoSkills(draftResult.kecoSkills))
       let state = loadPocSkillModulesState()
       state = upsertDraftModule(state, DRAFT_MODULE_LABEL, draftResult.definitions)
+      state = clearSimulationSyncModule(state)
       savePocSkillModulesState(state, { notify: false })
-      if (!includeSimulationSync) {
-        state = {
-          ...state,
-          modules: state.modules.filter((m) => m.source !== 'simulation-sync'),
-        }
-      }
-      return { state, ...applyRuntimeFromState(state) }
+      return applySimulationHydrate(state)
+    }
+    if (drafts.length > 0 && draftResult.draftErrors.length > 0) {
+      clearKecoSkillsRecord()
+      let state = loadPocSkillModulesState()
+      state = clearDraftSkillModule(state)
+      state = clearSimulationSyncModule(state)
+      savePocSkillModulesState(state, { notify: false })
     }
   }
 
   let state = loadPocSkillModulesState()
-  if (!includeSimulationSync) {
-    state = {
-      ...state,
-      modules: state.modules.filter((m) => m.source !== 'simulation-sync'),
-    }
-  }
-  return { state, ...applyRuntimeFromState(state) }
+  state = clearSimulationSyncModule(state)
+  return applySimulationHydrate(state)
 }
 
 /** Sync battle-core catalog + return UI skills from persisted modules (no network). */
@@ -70,8 +95,28 @@ export function bootstrapPocSkillsFromPersistence(): {
   baseSkills: Skill[]
   simulationSyncSkills: Skill[]
 } {
-  const { skills, baseSkills, simulationSyncSkills } = readMergedSkillsFromPersistence()
-  return { skills, baseSkills, simulationSyncSkills }
+  clearKecoSkillsRecord()
+  const builtin: PocSkillModule = {
+    id: 'builtin',
+    label: 'Default skills',
+    source: 'builtin',
+    definitions: getBuiltinBattleSkillDefinitions(),
+  }
+  const state: PocSkillModulesState = { activeModuleId: builtin.id, modules: [builtin] }
+  return applyRuntimeFromState(state)
+}
+
+export function resetPocSkillsRuntimeToBuiltin(): {
+  state: PocSkillModulesState
+  skills: Skill[]
+  baseSkills: Skill[]
+  simulationSyncSkills: Skill[]
+} {
+  clearKecoSkillsRecord()
+  let state = clearDraftSkillModule(loadPocSkillModulesState())
+  state = clearSimulationSyncModule(state)
+  savePocSkillModulesState(state, { notify: false })
+  return { state, ...applyRuntimeFromState(state) }
 }
 
 export function readPocSkillsForInitialRender(): Skill[] {
@@ -104,9 +149,25 @@ export async function applyPocSkillDrafts(
   errors: string[]
 }> {
   const drafts = loadPocSkillDrafts()
+  if (drafts.length === 0) {
+    clearKecoSkillsRecord()
+    let state = loadPocSkillModulesState()
+    state = clearDraftSkillModule(state)
+    savePocSkillModulesState(state, { notify: false })
+    return {
+      state,
+      ...applyRuntimeFromState(state),
+      errors: ['No Studio skill drafts to apply.'],
+    }
+  }
   const result = await validatePocSkillDraftsFromLiveTables(supabase, drafts)
   if (!result.ok) {
-    const state = loadPocSkillModulesState()
+    clearBaseKecoSkillsRecord()
+    let state = loadPocSkillModulesState()
+    if (drafts.length > 0 && result.draftErrors.length > 0) {
+      state = clearDraftSkillModule(state)
+      savePocSkillModulesState(state, { notify: false })
+    }
     return {
       state,
       ...applyRuntimeFromState(state),
@@ -115,6 +176,7 @@ export async function applyPocSkillDrafts(
   }
 
   let state = loadPocSkillModulesState()
+  setKecoSkillsRecord(registerKecoSkills(result.kecoSkills))
   state = upsertDraftModule(state, DRAFT_MODULE_LABEL, result.definitions)
   savePocSkillModulesState(state)
   notifyPocSkillsUpdated()

@@ -5,7 +5,8 @@ import type { BattleEntity } from '../battle-core/domain/entities/battle-entity'
 import type { BattleSession } from '../battle-core/domain/entities/battle-session'
 import { createMapBattleSession, newCommandId, type MapBattleStartConfig } from './createMapBattleSession'
 import { getPocBattleUiOutcome } from './battleOutcome'
-import { cooldownMsFromTicks, getSkillById, BASIC_ATTACK } from '../../app/constants'
+import { cooldownMsFromTicks, getSkillById } from '../../app/constants'
+import { getBasicAttack } from '../lib/gameConfig/gameConfigRegistry'
 import { getBattleSkillDefinition } from '../battle-core/content/skills/basic-skill-catalog'
 import { BATTLE_BALANCE } from '../battle-core/config/battle-balance'
 import { BattleCoreOrchestrator, type RawSequenceData } from '../battle-core/service/ai/battle-core-orchestrator'
@@ -539,8 +540,9 @@ export class MapBattleController {
     if (!actor.alive || !target.alive) return
 
     const skillId = input.nextAttackSkillId
-    const chosen = skillId !== null && skillId !== BASIC_ATTACK.id ? skillId : BASIC_ATTACK.id
-    const selectedSkill = chosen === BASIC_ATTACK.id ? BASIC_ATTACK : getSkillById(chosen)
+    const basicAttack = getBasicAttack()
+    const chosen = skillId !== null && skillId !== basicAttack.id ? skillId : basicAttack.id
+    const selectedSkill = chosen === basicAttack.id ? basicAttack : getSkillById(chosen)
     const skillAction = selectedSkill?.action
 
     const readySkills = buildReadySkills(actor, executeAtTick, dist)
@@ -550,7 +552,7 @@ export class MapBattleController {
     this.intentStore.updateSnapshot(actor.id, executeAtTick, ctx.actorHpRatio)
 
     if (mode === 'retreat') {
-      if (chosen !== BASIC_ATTACK.id) {
+      if (chosen !== basicAttack.id) {
         input.onClearQueuedSkill?.()
       }
       if (executeAtTick < this.nextPlayerDue) return
@@ -569,7 +571,7 @@ export class MapBattleController {
     if (executeAtTick < this.nextPlayerDue) return
     this.nextPlayerDue = executeAtTick + this.playerInterval
 
-    if (chosen !== BASIC_ATTACK.id && skillAction && selectedSkill) {
+    if (chosen !== basicAttack.id && skillAction && selectedSkill) {
       const playerAction = this.resolvePlayerManualAction(ctx, selectedSkill, chosen, dist)
       if (playerAction) {
         const recentActions = this.intentStore.getRecentActionKeys(actor.id, 4)

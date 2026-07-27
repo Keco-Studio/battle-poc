@@ -6,6 +6,14 @@ import { getActiveRoleStats } from '@/src/lib/jobs/jobConfigRegistry'
 import {
   buildSkillFromDefinition,
 } from '../src/lib/skills/pocSkillUi'
+import {
+  getBasicAttack as getActiveBasicAttack,
+  getBattleFormulas as getActiveBattleFormulas,
+  getBattleRewards as getActiveBattleRewards,
+  getEnemyFormula as getActiveEnemyFormula,
+  getEquipmentTypes as getActiveEquipmentTypes,
+  getExpForLevel as getActiveExpForLevel,
+} from '@/src/lib/gameConfig/gameConfigRegistry'
 
 // Equipment types
 export type EquipmentType = 'weapon' | 'ring' | 'armor' | 'shoes'
@@ -136,7 +144,7 @@ export function refreshAllSkillsFromCatalog(): Skill[] {
 }
 
 export function getSkillById(id: string): Skill | undefined {
-  if (id === BASIC_ATTACK.id) return BASIC_ATTACK
+  if (id === BASIC_ATTACK.id) return getActiveBasicAttack()
   return getAllSkills().find(s => s.id === id)
 }
 
@@ -242,6 +250,21 @@ export function calcPlayerStats(level: number, jobClassId: JobClassId | string =
   }
 }
 
+export function calcPlayerStatsWithEquipment(
+  level: number,
+  jobClassId: JobClassId | string,
+  equipped: Partial<Record<EquipmentType, unknown>>,
+) {
+  const stats = calcPlayerStats(level, jobClassId)
+  const equipment = getActiveEquipmentTypes()
+  for (const type of Object.keys(equipment) as EquipmentType[]) {
+    if (!equipped[type]) continue
+    const info = equipment[type]
+    stats[info.stat] += level * info.bonus
+  }
+  return stats
+}
+
 export const BASIC_DAMAGE_MULTIPLIER = 1.24
 export const SKILL_DAMAGE_MULTIPLIER = 1.82
 export const DEFEND_DAMAGE_REDUCTION = 0.6
@@ -256,11 +279,12 @@ export interface EnemyCombatStats {
 
 /** Get enemy four stats by level: uses independent base values and growth values */
 export function calcEnemyStats(level: number): EnemyCombatStats {
+  const formula = getActiveEnemyFormula()
   return {
-    maxHp: (ENEMY_BASE_STATS.hp + (level - 1) * ENEMY_LEVEL_UP.hp) * HP_MULTIPLIER,
-    atk: ENEMY_BASE_STATS.atk + (level - 1) * ENEMY_LEVEL_UP.atk,
-    def: ENEMY_BASE_STATS.def + (level - 1) * ENEMY_LEVEL_UP.def,
-    spd: ENEMY_BASE_STATS.spd + (level - 1) * ENEMY_LEVEL_UP.spd,
+    maxHp: (formula.base.hp + (level - 1) * formula.growth.hp) * formula.hpMultiplier,
+    atk: formula.base.atk + (level - 1) * formula.growth.atk,
+    def: formula.base.def + (level - 1) * formula.growth.def,
+    spd: formula.base.spd + (level - 1) * formula.growth.spd,
   }
 }
 
@@ -314,7 +338,7 @@ export const BATTLE_ARMOR_K = 50
 export function mitigatedPhysicalDamage(
   raw: number,
   armor: number,
-  k: number = BATTLE_ARMOR_K,
+  k: number = getActiveBattleFormulas().armorK,
 ): number {
   if (raw <= 0) return 1
   const a = Math.max(0, armor)
@@ -322,13 +346,10 @@ export function mitigatedPhysicalDamage(
   return Math.max(1, Math.floor(mitigated))
 }
 
-export const expForLevel = (level: number) => level * 10
+export const expForLevel = (level: number) => getActiveExpForLevel(level)
 
 export function getBattleRewards(enemyLevel: number): { exp: number; gold: number } {
-  return {
-    exp: enemyLevel,
-    gold: enemyLevel * 2,
-  }
+  return getActiveBattleRewards(enemyLevel)
 }
 
 /** Random display names for wild monster respawn with same id (keeps id stable, only changes skin and stats) */

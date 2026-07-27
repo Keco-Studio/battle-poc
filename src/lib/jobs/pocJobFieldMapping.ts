@@ -94,43 +94,50 @@ export function resolveJobId(raw: string): { id: string } | { error: string } {
   return { id }
 }
 
-function parsePreferredRange(raw: string): PreferredRange {
+function parsePreferredRange(raw: string): PreferredRange | undefined {
   const n = normalizeHeaderToken(raw)
   if (n === 'ranged' || n === 'range') return 'ranged'
   if (n === 'mid' || n === 'medium') return 'mid'
-  return 'melee'
+  if (n === 'melee' || n === '') return 'melee'
+  return undefined
 }
 
-function parsePositiveNumber(raw: string, fallback: number): number {
+function parsePositiveNumber(raw: string, fallback: number, field: string): number {
+  if (!String(raw).trim()) return fallback
   const n = Number(String(raw).trim())
-  return Number.isFinite(n) && n >= 0 ? n : fallback
+  if (!Number.isFinite(n) || n < 0) throw new Error(field + ' must be a non-negative number')
+  return n
+}
+
+export function parseJobClassRow(flat: PocJobFlatRow): { config: JobClassConfig | null; error?: string } {
+  try {
+    const idRaw = flat.id.trim() || flat.name.trim()
+    const resolved = resolveJobId(idRaw)
+    if ('error' in resolved) return { config: null, error: resolved.error }
+
+    const name = flat.name.trim() || resolved.id
+    const builtin = emptyPocJobFlatRow()
+    const preferredRange = parsePreferredRange(flat.preferredRange)
+    if (!preferredRange) return { config: null, error: 'preferredRange must be melee, mid, or ranged' }
+    const stats: JobRoleStats = {
+      hp: parsePositiveNumber(flat.hp, Number(builtin.hp), 'hp'),
+      atk: parsePositiveNumber(flat.atk, Number(builtin.atk), 'atk'),
+      def: parsePositiveNumber(flat.def, Number(builtin.def), 'def'),
+      spd: parsePositiveNumber(flat.spd, Number(builtin.spd), 'spd'),
+      growthHp: parsePositiveNumber(flat.growthHp, Number(builtin.growthHp), 'growthHp'),
+      growthAtk: parsePositiveNumber(flat.growthAtk, Number(builtin.growthAtk), 'growthAtk'),
+      growthDef: parsePositiveNumber(flat.growthDef, Number(builtin.growthDef), 'growthDef'),
+      growthSpd: parsePositiveNumber(flat.growthSpd, Number(builtin.growthSpd), 'growthSpd'),
+      hpMult: Math.max(0.1, parsePositiveNumber(flat.hpMult, Number(builtin.hpMult), 'hpMult')),
+    }
+    return {
+      config: { id: resolved.id, name, description: flat.description.trim() || name, preferredRange, stats },
+    }
+  } catch (error) {
+    return { config: null, error: error instanceof Error ? error.message : 'invalid job field value' }
+  }
 }
 
 export function flatRowToJobClassConfig(flat: PocJobFlatRow): JobClassConfig | null {
-  const idRaw = flat.id.trim() || flat.name.trim()
-  const resolved = resolveJobId(idRaw)
-  if ('error' in resolved) return null
-
-  const name = flat.name.trim() || resolved.id
-  const builtin = emptyPocJobFlatRow()
-
-  const stats: JobRoleStats = {
-    hp: parsePositiveNumber(flat.hp, Number(builtin.hp)),
-    atk: parsePositiveNumber(flat.atk, Number(builtin.atk)),
-    def: parsePositiveNumber(flat.def, Number(builtin.def)),
-    spd: parsePositiveNumber(flat.spd, Number(builtin.spd)),
-    growthHp: parsePositiveNumber(flat.growthHp, Number(builtin.growthHp)),
-    growthAtk: parsePositiveNumber(flat.growthAtk, Number(builtin.growthAtk)),
-    growthDef: parsePositiveNumber(flat.growthDef, Number(builtin.growthDef)),
-    growthSpd: parsePositiveNumber(flat.growthSpd, Number(builtin.growthSpd)),
-    hpMult: Math.max(0.1, parsePositiveNumber(flat.hpMult, Number(builtin.hpMult))),
-  }
-
-  return {
-    id: resolved.id,
-    name,
-    description: flat.description.trim() || name,
-    preferredRange: parsePreferredRange(flat.preferredRange),
-    stats,
-  }
+  return parseJobClassRow(flat).config
 }

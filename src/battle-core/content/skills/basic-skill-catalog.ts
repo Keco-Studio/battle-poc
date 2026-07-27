@@ -537,6 +537,7 @@ function withScaledCooldown(skill: BattleSkillDefinition): BattleSkillDefinition
   return {
     ...skill,
     cooldownTicks: Math.max(0, Math.floor(Number(skill.cooldownTicks || 0))) * SKILL_COOLDOWN_MULTIPLIER,
+    cooldownUnit: 'ticks',
   }
 }
 
@@ -599,6 +600,7 @@ export function replaceSkillCatalog(definitions: BattleSkillDefinition[]): void 
 }
 
 export function upsertBattleSkillDefinition(skill: BattleSkillDefinition): BattleSkillDefinition {
+  const cooldownTicks = Math.max(0, Math.floor(Number(skill.cooldownTicks || 0)))
   const normalized: BattleSkillDefinition = {
     ...skill,
     id: String(skill.id || '').trim(),
@@ -607,7 +609,8 @@ export function upsertBattleSkillDefinition(skill: BattleSkillDefinition): Battl
     mpCost: Math.max(0, Number(skill.mpCost || 0)),
     range: Math.max(0.5, Number(skill.range || 1)),
     cooldownTicks:
-      Math.max(0, Math.floor(Number(skill.cooldownTicks || 0))) * SKILL_COOLDOWN_MULTIPLIER,
+      skill.cooldownUnit === 'ticks' ? cooldownTicks : cooldownTicks * SKILL_COOLDOWN_MULTIPLIER,
+    cooldownUnit: 'ticks',
     applyFreezeTicks:
       typeof skill.applyFreezeTicks === 'number'
         ? Math.max(0, Math.floor(Number(skill.applyFreezeTicks)))
@@ -615,7 +618,8 @@ export function upsertBattleSkillDefinition(skill: BattleSkillDefinition): Battl
     shatterBonusRatio:
       typeof skill.shatterBonusRatio === 'number' ? Number(skill.shatterBonusRatio) : undefined,
     consumeFreezeOnHit:
-      typeof skill.consumeFreezeOnHit === 'boolean' ? skill.consumeFreezeOnHit : undefined
+      typeof skill.consumeFreezeOnHit === 'boolean' ? skill.consumeFreezeOnHit : undefined,
+    params: skill.params ? { ...skill.params } : undefined,
   }
   SKILL_MAP.set(normalized.id, normalized)
   return normalized
@@ -637,4 +641,3 @@ export function getRoleSkillLoadout(role: string): string[] {
 export function getBattleSkillRoleSignatures(): Array<readonly [string, readonly string[]]> {
   return Object.entries(ROLE_SKILL_SIGNATURES)
 }
-

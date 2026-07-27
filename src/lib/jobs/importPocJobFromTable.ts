@@ -1,6 +1,6 @@
 import {
   emptyPocJobFlatRow,
-  flatRowToJobClassConfig,
+  parseJobClassRow,
   normalizeHeaderToken,
   POC_JOB_MAPPING_FIELDS,
   type PocJobColumnMappingKey,
@@ -145,7 +145,7 @@ export function detectIdColumnKey(columns: StudioTableColumn[]): string | undefi
     const nKey = normalizeHeaderToken(c.key)
     return nLabel === 'id' || nKey === 'id' || nLabel === 'classid' || nKey === 'jobid'
   })
-  return hit?.key ?? columns.find((c) => c.key === ASSET_NAME_COLUMN_KEY)?.key
+  return hit?.key
 }
 
 export function extractIdOptionsFromRows(
@@ -173,11 +173,11 @@ export function findRowByIdCell(
 ): StudioTableRow | null {
   const want = idValue.trim().toLowerCase()
   if (!want) return null
-  for (const row of rows) {
+  const matches = rows.filter((row) => {
     const cell = cellValueToString(row.values[idColumnKey]).trim().toLowerCase()
-    if (cell === want) return row
-  }
-  return null
+    return cell === want
+  })
+  return matches.length === 1 ? matches[0]! : null
 }
 
 export function buildDraftFromTableRow(args: {
@@ -197,7 +197,6 @@ export function buildDraftFromTableRow(args: {
   for (const [columnKey, jobKey] of columnToField) {
     if (jobKey === 'id') continue
     const value = cellValueToString(row.values[columnKey]).trim()
-    if (!value) continue
     fields[jobKey] = { tableId, columnKey, value }
   }
 
@@ -260,15 +259,22 @@ export function importBattleJobsFromTableRows(args: {
   if (plan.ambiguities.length > 0) {
     throw new Error('Column mapping has unresolved ambiguities')
   }
-  const idColumnKey = detectIdColumnKey(columns) ?? ASSET_NAME_COLUMN_KEY
+  const idColumnKey = detectIdColumnKey(columns)
+  if (!idColumnKey) throw new Error('Job table is missing an explicit id column')
   const seen = new Set<string>()
   const out: JobClassConfig[] = []
 
   for (const row of rows) {
     const flat = rowToFlatJob(row, plan.columnToField, idColumnKey)
     if (!flat.id.trim() && !flat.name.trim()) continue
-    const def = flatRowToJobClassConfig(flat)
-    if (!def || seen.has(def.id)) continue
+    const parsed = parseJobClassRow(flat)
+    if (parsed.error || !parsed.config) {
+      throw new Error('Job row ' + (rows.indexOf(row) + 1) + ': ' + (parsed.error ?? 'invalid job row'))
+    }
+    const def = parsed.config
+    if (seen.has(def.id)) {
+      throw new Error('Job row ' + (rows.indexOf(row) + 1) + ': duplicate job id "' + def.id + '"')
+    }
     seen.add(def.id)
     out.push(def)
   }

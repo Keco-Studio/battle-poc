@@ -48,6 +48,77 @@ export function applyFreezeToEntity(
   })
 }
 
+export function applyDotToEntity(
+  session: BattleSession,
+  owner: BattleEntity,
+  sourceId: string,
+  damage: number,
+  durationTick: number,
+): BattleSession {
+  const safeDuration = Math.max(1, Math.floor(durationTick))
+  const safeDamage = Math.max(1, Math.floor(damage))
+  const nextEffects: BattleStatusEffect[] = [
+    ...owner.effects.filter((effect) => effect.effectType !== 'dot'),
+    {
+      instanceId: uuidv4(),
+      effectType: 'dot',
+      sourceId,
+      ownerId: owner.id,
+      appliedTick: session.tick,
+      durationTick: safeDuration,
+      remainingTick: safeDuration,
+      stackRule: 'replace',
+      tags: ['damage-over-time'],
+      params: { damage: safeDamage },
+    },
+  ]
+  return appendEvent(updateEntity(session, { ...owner, effects: nextEffects }), 'effect_applied', {
+    effectType: 'dot',
+    ownerId: owner.id,
+    sourceId,
+    durationTick: safeDuration,
+    damage: safeDamage,
+  })
+}
+
+export function applyDebuffToEntity(
+  session: BattleSession,
+  owner: BattleEntity,
+  sourceId: string,
+  kind: 'atk_debuff' | 'def_debuff',
+  value: number,
+  durationTick: number,
+): BattleSession {
+  const safeDuration = Math.max(1, Math.floor(durationTick))
+  const effect: BattleStatusEffect = {
+    instanceId: uuidv4(),
+    effectType: 'debuff',
+    sourceId,
+    ownerId: owner.id,
+    appliedTick: session.tick,
+    durationTick: safeDuration,
+    remainingTick: safeDuration,
+    stackRule: 'replace',
+    tags: [kind],
+    params: { value },
+  }
+  return appendEvent(
+    updateEntity(session, {
+      ...owner,
+      effects: [...owner.effects.filter((item) => !item.tags?.includes(kind)), effect],
+    }),
+    'effect_applied',
+    {
+      effectType: 'debuff',
+      ownerId: owner.id,
+      sourceId,
+      durationTick: safeDuration,
+      kind,
+      value,
+    },
+  )
+}
+
 function tickEntityEffects(
   session: BattleSession,
   entity: BattleEntity
@@ -59,6 +130,22 @@ function tickEntityEffects(
   let nextSession = session
 
   entity.effects.forEach((effect) => {
+    let currentEntity = getEntityById(nextSession, entity.id) ?? entity
+    if (effect.effectType === 'dot') {
+      const damage = Math.max(0, Math.floor(Number(effect.params?.damage ?? 0)))
+      if (damage > 0) {
+        const nextHp = Math.max(0, currentEntity.resources.hp - damage)
+        const damaged = { ...currentEntity, resources: { ...currentEntity.resources, hp: nextHp }, alive: nextHp > 0 }
+        nextSession = updateEntity(nextSession, damaged)
+        currentEntity = damaged
+        nextSession = appendEvent(nextSession, 'damage_applied', {
+          sourceId: effect.sourceId,
+          targetId: entity.id,
+          damage,
+          effectType: 'dot',
+        })
+      }
+    }
     const nextRemain = Math.max(0, effect.remainingTick - 1)
     if (nextRemain <= 0) {
       nextSession = appendEvent(nextSession, 'effect_expired', {
@@ -76,7 +163,7 @@ function tickEntityEffects(
   })
 
   const updatedEntity: BattleEntity = {
-    ...entity,
+    ...(getEntityById(nextSession, entity.id) ?? entity),
     effects: remaining
   }
   return {
@@ -92,6 +179,12 @@ function updateEntity(session: BattleSession, entity: BattleEntity): BattleSessi
     return { ...session, right: entity }
   }
   return session
+}
+
+function getEntityById(session: BattleSession, entityId: string): BattleEntity | undefined {
+  if (session.left.id === entityId) return session.left
+  if (session.right.id === entityId) return session.right
+  return undefined
 }
 
 function appendEvent(
@@ -112,4 +205,3 @@ function appendEvent(
     events: [...session.events, event]
   }
 }
-

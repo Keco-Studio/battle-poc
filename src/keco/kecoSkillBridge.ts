@@ -23,7 +23,7 @@ export function kecoSkillToBattleCoreDefinition(skill: Skill): BattleSkillDefini
   const freezeTicks =
     skill.crowdControl?.type === 'freeze' ? skill.crowdControl.duration : undefined
 
-  return upsertBattleSkillDefinition({
+  const definition: BattleSkillDefinition = {
     id: skill.id,
     name: skill.name,
     description: skill.description,
@@ -33,7 +33,17 @@ export function kecoSkillToBattleCoreDefinition(skill: Skill): BattleSkillDefini
     range: KECO_SKILL_CAST_RANGE,
     cooldownTicks: Math.max(0, skill.maxCooldown),
     applyFreezeTicks: freezeTicks,
-  })
+    params: {
+      ...(skill.dot ? { dotDamage: skill.dot.damage, dotTurns: skill.dot.duration } : {}),
+      ...(skill.specialEffect ? {
+        specialEffect: skill.specialEffect.type,
+        specialEffectValue: skill.specialEffect.value,
+        specialEffectDuration: skill.specialEffect.duration,
+      } : {}),
+      ...(skill.reactionTrigger ? { reactionTriggers: skill.reactionTrigger } : {}),
+    },
+  }
+  return upsertBattleSkillDefinition(definition)
 }
 
 export function registerKecoSkills(skills: Skill[]): Record<string, Skill> {

@@ -11,7 +11,6 @@ import {
 } from 'react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
-import { createDefaultGameConfigBundle } from './defaultGameConfig'
 import type { GameConfigBundle } from './gameConfigTypes'
 import {
   DEFAULT_POC_GAME_CONFIG_MODULE_ID,
@@ -24,6 +23,7 @@ import {
   applyPocGameConfigDrafts,
   bootstrapPocGameConfigFromPersistence,
   hydratePocGameConfig,
+  resetPocGameConfigRuntimeToBuiltin,
 } from './pocGameConfigStorage'
 
 type BattleGameConfigContextValue = {
@@ -61,8 +61,9 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
       bump()
     } catch (err) {
       setHydrateError(err instanceof Error ? err.message : 'Failed to load game config')
-      const fallback = createDefaultGameConfigBundle()
-      setBundle(fallback)
+      const fallback = resetPocGameConfigRuntimeToBuiltin()
+      setModulesState(fallback.state)
+      setBundle(fallback.bundle)
       bump()
     } finally {
       setIsHydrating(false)
@@ -91,9 +92,9 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
 
   const applyConfigDrafts = useCallback(async () => {
     const client = supabase && isAuthenticated ? supabase : null
-    const { state, errors } = await applyPocGameConfigDrafts(client)
+    const { state, bundle: next, errors } = await applyPocGameConfigDrafts(client)
     setModulesState(state)
-    setBundle(bootstrapPocGameConfigFromPersistence())
+    setBundle(next)
     bump()
     return { errors }
   }, [supabase, isAuthenticated, bump])

@@ -2,15 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/src/lib/db/types'
 import { fetchSimulationSkillDraftsForUser } from '@/src/lib/db/simulation-skill-drafts'
 import { registerKecoSkills } from '@/src/keco/kecoSkillBridge'
-import { setKecoSkillsRecord } from './kecoSkillRegistry'
+import {
+  clearSimulationKecoSkillsRecord,
+  setSimulationKecoSkillsRecord,
+} from './kecoSkillRegistry'
 import {
   applyMergedModulesToRuntime,
   getActiveModule,
   getSimulationSyncModule,
   loadPocSkillModulesState,
-  notifyPocSkillsUpdated,
   savePocSkillModulesState,
-  SIMULATION_SYNC_MODULE_ID,
   upsertSimulationSyncModule,
   clearSimulationSyncModule,
   type PocSkillModulesState,
@@ -39,6 +40,13 @@ function applyStateToRuntime(state: PocSkillModulesState): {
   return applyMergedModulesToRuntime(baseModule, simulationModule ?? null)
 }
 
+function clearSimulationSyncState(): PocSkillModulesState {
+  const state = clearSimulationSyncModule(loadPocSkillModulesState())
+  savePocSkillModulesState(state, { notify: false })
+  clearSimulationKecoSkillsRecord()
+  return state
+}
+
 export function readMergedSkillsFromPersistence(): {
   state: PocSkillModulesState
   skills: Skill[]
@@ -54,14 +62,22 @@ export async function syncSimulationSkillsFromRemote(
   supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<SimulationSkillSyncResult> {
-  const remoteDrafts = await fetchSimulationSkillDraftsForUser(supabase, userId)
-  if (remoteDrafts.length === 0) {
-    let state = loadPocSkillModulesState()
-    state = {
-      ...state,
-      modules: state.modules.filter((m) => m.id !== SIMULATION_SYNC_MODULE_ID),
+  let remoteDrafts
+  try {
+    remoteDrafts = await fetchSimulationSkillDraftsForUser(supabase, userId)
+  } catch (error) {
+    const state = clearSimulationSyncState()
+    const runtime = applyStateToRuntime(state)
+    return {
+      state,
+      ...runtime,
+      errors: [`Failed to load simulation skill drafts: ${error instanceof Error ? error.message : 'request failed'}`],
+      warnings: [],
+      syncedCount: 0,
     }
-    savePocSkillModulesState(state, { notify: false })
+  }
+  if (remoteDrafts.length === 0) {
+    const state = clearSimulationSyncState()
     const runtime = applyStateToRuntime(state)
     return {
       state,
@@ -83,7 +99,7 @@ export async function syncSimulationSkillsFromRemote(
   const validation = validateSimulationSkillDrafts(refreshed)
 
   if (!validation.ok) {
-    const state = loadPocSkillModulesState()
+    const state = clearSimulationSyncState()
     const runtime = applyStateToRuntime(state)
     return {
       state,
@@ -95,13 +111,12 @@ export async function syncSimulationSkillsFromRemote(
   }
 
   if (validation.kecoSkills.length > 0) {
-    setKecoSkillsRecord(registerKecoSkills(validation.kecoSkills))
+    setSimulationKecoSkillsRecord(registerKecoSkills(validation.kecoSkills))
   }
 
   let state = loadPocSkillModulesState()
   state = upsertSimulationSyncModule(state, validation.definitions)
-  savePocSkillModulesState(state)
-  notifyPocSkillsUpdated()
+  savePocSkillModulesState(state, { notify: false })
 
   const runtime = applyStateToRuntime(state)
   return {
@@ -119,9 +134,7 @@ export function clearSimulationSyncFromRuntime(): {
   baseSkills: Skill[]
   simulationSyncSkills: Skill[]
 } {
-  let state = loadPocSkillModulesState()
-  state = clearSimulationSyncModule(state)
-  savePocSkillModulesState(state, { notify: false })
+  const state = clearSimulationSyncState()
   const runtime = applyStateToRuntime(state)
   return { state, ...runtime }
 }

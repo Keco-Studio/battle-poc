@@ -98,3 +98,9 @@ export function setActiveModuleId(
   if (!state.modules.some((m) => m.id === moduleId)) return state
   return { ...state, activeModuleId: moduleId }
 }
+
+export function clearDraftGameConfigModule(state: PocGameConfigModulesState): PocGameConfigModulesState {
+  const modules = state.modules.filter((m) => m.id !== DRAFT_GAME_CONFIG_MODULE_ID)
+  const activeModuleId = state.activeModuleId === DRAFT_GAME_CONFIG_MODULE_ID ? DEFAULT_POC_GAME_CONFIG_MODULE_ID : state.activeModuleId
+  return { ...state, modules, activeModuleId }
+}

@@ -15,6 +15,7 @@ export type PocGameConfigDraft = {
   draftId: string
   kind: GameConfigImportKind
   sourceRowId?: string
+  invalidReason?: string
   fields: Record<string, LocalTableCellRef>
 }
 
@@ -40,7 +41,8 @@ function isDraft(x: unknown): x is PocGameConfigDraft {
       d.kind === 'loadout' ||
       d.kind === 'balance_scalar' ||
       d.kind === 'basic_attack') &&
-    typeof d.fields === 'object'
+    typeof d.fields === 'object' &&
+    (d.invalidReason === undefined || typeof d.invalidReason === 'string')
   )
 }
 
@@ -54,12 +56,38 @@ export function draftLabel(draft: PocGameConfigDraft): string {
   return `${draft.kind}: ${id}`
 }
 
+export function pocGameConfigDraftIdentity(draft: PocGameConfigDraft): string | null {
+  const id = draft.fields.id?.value?.trim().toLowerCase()
+  return id ? `${draft.kind}:${id}` : null
+}
+
+export function upsertPocGameConfigDrafts(
+  existing: PocGameConfigDraft[],
+  incoming: PocGameConfigDraft[],
+): PocGameConfigDraft[] {
+  const next = [...existing]
+  for (const draft of incoming) {
+    const identity = pocGameConfigDraftIdentity(draft)
+    const index = identity
+      ? next.findIndex((item) => pocGameConfigDraftIdentity(item) === identity)
+      : -1
+    if (index >= 0) next[index] = draft
+    else next.push(draft)
+  }
+  return next
+}
+
 export function validateDraftsToBundle(drafts: PocGameConfigDraft[]): {
   ok: boolean
   bundle: GameConfigBundle
   draftErrors: { draftId: string; label: string; error: string }[]
 } {
   const { bundle, errors } = mergeDraftsIntoBundle(drafts, createDefaultGameConfigBundle())
+  for (const draft of drafts) {
+    if (draft.invalidReason) {
+      errors.push({ draftId: draft.draftId, error: draft.invalidReason })
+    }
+  }
   const draftErrors = errors.map((e) => {
     const draft = drafts.find((d) => d.draftId === e.draftId)
     return {

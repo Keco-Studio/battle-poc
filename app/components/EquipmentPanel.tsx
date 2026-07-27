@@ -2,13 +2,15 @@
 
 import { X, Swords, ArrowLeft } from 'lucide-react'
 import { GameState } from '../hooks/useGameState'
-import { EquipmentType, equipmentTypes } from '../constants'
+import { EquipmentType } from '../constants'
+import { getEquipmentTypes } from '@/src/lib/gameConfig/gameConfigRegistry'
 
 interface Props {
   game: GameState
 }
 
 export default function EquipmentPanel({ game }: Props) {
+  const equipmentTypes = getEquipmentTypes()
   const {
     playerLevel,
     equippedGear,

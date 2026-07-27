@@ -20,6 +20,21 @@ export function entityToKecoUnit(entity: BattleEntity): BattleUnit {
   }
 }
 
+export function syncEntityToKecoUnit(
+  entity: BattleEntity,
+  existing?: BattleUnit,
+): BattleUnit {
+  const current = entityToKecoUnit(entity)
+  if (!existing) return current
+  return {
+    ...current,
+    element: existing.element,
+    dot: existing.dot,
+    buffs: [...existing.buffs],
+    control: existing.control,
+  }
+}
+
 export function applyKecoUnitToEntity(entity: BattleEntity, unit: BattleUnit): BattleEntity {
   return {
     ...entity,

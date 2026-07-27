@@ -31,6 +31,7 @@ export type SimulationLocalTableCellRef = {
 export type SimulationSkillDraft = {
   draftId: string
   sourceRowId?: string
+  invalidReason?: string
   fields: Partial<Record<SimulationSkillColumnMappingKey, SimulationLocalTableCellRef>>
 }
 

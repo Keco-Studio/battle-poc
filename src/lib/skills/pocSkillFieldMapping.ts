@@ -111,6 +111,30 @@ function parseIntNonNeg(s: string, fallback: number): number {
   return n
 }
 
+function parseOptionalNumber(raw: string, field: string): number | undefined {
+  const value = raw.trim()
+  if (!value) return undefined
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) throw new Error(`${field} must be a finite number`)
+  return parsed
+}
+
+function parseOptionalNonNegativeNumber(raw: string, field: string): number | undefined {
+  const parsed = parseOptionalNumber(raw, field)
+  if (parsed !== undefined && parsed < 0) throw new Error(`${field} must be non-negative`)
+  return parsed
+}
+
+function parseRequiredNonNegativeInteger(raw: string, field: string): number {
+  const value = raw.trim()
+  if (!value) return 0
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${field} must be a non-negative integer`)
+  }
+  return parsed
+}
+
 const VALID_CATEGORIES = new Set<NonNullable<BattleSkillDefinition['category']>>([
   'burst',
   'control',
@@ -122,36 +146,83 @@ const VALID_CATEGORIES = new Set<NonNullable<BattleSkillDefinition['category']>>
 
 function parseCategory(raw: string): BattleSkillDefinition['category'] {
   const v = raw.trim().toLowerCase()
+  if (!v) return 'burst'
   if (VALID_CATEGORIES.has(v as NonNullable<BattleSkillDefinition['category']>)) {
     return v as NonNullable<BattleSkillDefinition['category']>
   }
   if (v === 'heal' || v === 'support') return 'sustain'
   if (v === 'attack' || v === 'damage') return 'burst'
   if (v === 'freeze' || v === 'cc') return 'control'
-  return 'burst'
+  throw new Error(`category "${raw.trim()}" is not supported`)
+}
+
+export function parseBattleSkillRow(row: PocSkillFlatRow): {
+  definition: BattleSkillDefinition | null
+  error?: string
+} {
+  const idResolved = resolveSkillId(row.id)
+  if ('error' in idResolved) return { definition: null, error: idResolved.error }
+  const name = row.name.trim() || idResolved.id
+
+  try {
+    const ratio = parseOptionalNonNegativeNumber(row.power, 'power') ?? 1
+    const range = parseOptionalNonNegativeNumber(row.range, 'range') ?? KECO_SKILL_CAST_RANGE
+    const mpCost = parseRequiredNonNegativeInteger(row.mpCost, 'mpCost')
+    const cooldownTicks = parseRequiredNonNegativeInteger(row.maxCooldown, 'maxCooldown')
+    const def: BattleSkillDefinition = {
+      id: idResolved.id,
+      name,
+      description: row.description.trim() || undefined,
+      category: parseCategory(row.category),
+      ratio,
+      mpCost,
+      range,
+      cooldownTicks,
+    }
+
+    const params: Record<string, unknown> = { skillType: row.skillType.trim() || 'attack' }
+    const advanced = [
+      ['attachElement', row.attachElement, 'string'],
+      ['attachStrength', row.attachStrength, 'string'],
+      ['attachTurns', row.attachTurns, 'number'],
+      ['dotDamage', row.dotDamage, 'number'],
+      ['dotTurns', row.dotTurns, 'number'],
+      ['freezeTurns', row.freezeTurns, 'number'],
+      ['specialEffect', row.specialEffect, 'string'],
+      ['specialEffectValue', row.specialEffectValue, 'number'],
+      ['specialEffectDuration', row.specialEffectDuration, 'number'],
+    ] as const
+    for (const [key, value, kind] of advanced) {
+      if (!value.trim()) continue
+      params[key] = kind === 'number' ? parseOptionalNonNegativeNumber(value, key) : value.trim()
+    }
+    if (row.reactionTriggersJson.trim()) {
+      try {
+        const parsed = JSON.parse(row.reactionTriggersJson)
+        if (!Array.isArray(parsed)) throw new Error('must be a JSON array')
+        params.reactionTriggers = parsed
+      } catch (error) {
+        throw new Error(`reactionTriggersJson must be valid JSON: ${error instanceof Error ? error.message : 'invalid value'}`)
+      }
+    }
+    if (Object.keys(params).length > 0) def.params = params
+
+    const freeze = parseOptionalNonNegativeNumber(row.freezeTurns, 'freezeTurns')
+    if (freeze !== undefined && freeze > 0) def.applyFreezeTicks = Math.floor(freeze)
+    return { definition: def }
+  } catch (error) {
+    return {
+      definition: null,
+      error: error instanceof Error ? error.message : 'invalid field value',
+    }
+  }
 }
 
 export function flatRowToBattleSkillDefinition(row: PocSkillFlatRow): BattleSkillDefinition | null {
-  const idResolved = resolveSkillId(row.id)
-  if ('error' in idResolved) return null
-  const name = row.name.trim() || idResolved.id
-
-  const def: BattleSkillDefinition = {
-    id: idResolved.id,
-    name,
-    description: row.description.trim() || undefined,
-    category: parseCategory(row.category),
-    ratio: Math.max(0, parseNum(row.power, 1)),
-    mpCost: parseIntNonNeg(row.mpCost, 0),
-    range: KECO_SKILL_CAST_RANGE,
-    cooldownTicks: parseIntNonNeg(row.maxCooldown, 0),
-  }
-
-  const freeze = row.freezeTurns.trim()
-  if (freeze) {
-    const turns = parseIntNonNeg(freeze, 0)
-    if (turns > 0) def.applyFreezeTicks = turns
-  }
+  const parsed = parseBattleSkillRow(row)
+  if (parsed.error) return null
+  const def = parsed.definition
+  if (!def) return null
 
   return def
 }
@@ -166,7 +237,11 @@ export function battleSkillDefinitionToFlatRow(def: BattleSkillDefinition): PocS
     power: String(def.ratio),
     mpCost: String(def.mpCost),
     range: String(def.range ?? KECO_SKILL_CAST_RANGE),
-    maxCooldown: String(Math.floor(def.cooldownTicks / 10) || def.cooldownTicks),
+    maxCooldown: String(
+      def.cooldownUnit === 'ticks'
+        ? Math.floor(def.cooldownTicks / 10)
+        : def.cooldownTicks,
+    ),
     freezeTurns: def.applyFreezeTicks != null ? String(def.applyFreezeTicks) : '',
   }
 }

@@ -188,7 +188,7 @@ export const executeSkill = (
   }
   
   if (skill.power > 0) {
-    let baseDamage = calculateDamage(attacker.atk, defender.def, skill.power);
+    let reactionExtraDamage = 0;
     
     const quickenBuff = defender.buffs.find(b => b.type === 'quicken');
     let reactionMultiplier = 1;
@@ -200,7 +200,10 @@ export const executeSkill = (
     
     const skillElement = skill.attachElement?.element;
     if (skillElement && skillElement !== 'random' && defender.element) {
-      const reaction = checkElementReaction(skillElement, defender.element.element);
+      const configuredReaction = skill.reactionTrigger?.find(
+        trigger => trigger.element === defender.element?.element,
+      )?.reaction;
+      const reaction = configuredReaction ?? checkElementReaction(skillElement, defender.element.element);
       if (reaction) {
         triggeredReaction = reaction;
         const reactionConfig = REACTION_CONFIG[reaction];
@@ -210,13 +213,14 @@ export const executeSkill = (
         }
         
         if (reactionConfig.extraDamage) {
-          const extraDamage = ceil(attacker.atk * reactionConfig.extraDamage);
-          baseDamage += extraDamage;
+          reactionExtraDamage = ceil(attacker.atk * reactionConfig.extraDamage);
         }
       }
     }
     
-    totalDamage = calculateDamage(attacker.atk, defender.def, skill.power, reactionMultiplier, extraMultiplier);
+    totalDamage =
+      calculateDamage(attacker.atk, defender.def, skill.power, reactionMultiplier, extraMultiplier)
+      + reactionExtraDamage;
     
     newDefender.hp = Math.max(0, defender.hp - totalDamage);
     

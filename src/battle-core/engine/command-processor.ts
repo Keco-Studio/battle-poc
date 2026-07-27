@@ -6,8 +6,10 @@ import { BattleCommand } from '../domain/types/command-types'
 import { BattleEvent } from '../domain/types/event-types'
 import { BattleStatusEffect } from '../domain/types/effect-types'
 import { getBattleSkillDefinition } from '../content/skills/basic-skill-catalog'
-import { applyFreezeToEntity } from './effect-processor'
+import { applyDebuffToEntity, applyDotToEntity, applyFreezeToEntity } from './effect-processor'
 import { BATTLE_BALANCE } from '../config/battle-balance'
+import { getBasicAttack, getBattleFormulas } from '@/src/lib/gameConfig/gameConfigRegistry'
+import { resolveKecoCastSkill } from '@/src/keco/resolveKecoCastSkill'
 
 export type BattleCommandWalkContext = BattleWalkTerrainContext
 
@@ -606,6 +608,29 @@ function applySingleCommand(
         applied: false
       }
     }
+    const kecoSkill = session.keco?.skillById[skill.id]
+    const usesKecoElementRuntime = Boolean(
+      kecoSkill?.attachElement || kecoSkill?.reactionTrigger?.length,
+    )
+    if (session.keco && usesKecoElementRuntime) {
+      const resolved = resolveKecoCastSkill({
+        session,
+        keco: session.keco,
+        actor,
+        target,
+        skillId: skill.id,
+        commandId: command.commandId,
+        tick: session.tick,
+      })
+      if (resolved.applied) {
+        const withOverlay = { ...resolved.session, keco: resolved.keco }
+        const withResult = resolveChaseByPosition(applyVictoryIfNeeded(withOverlay))
+        return {
+          session: applyDashCooldownIfNeeded(withResult, actor.id),
+          applied: true,
+        }
+      }
+    }
     const shatterContext = computeFreezeShatterContext(skill, target)
     const baseDamage = computeSkillDamage(actor, target, skill.ratio)
     const shatterBonusDamage = shatterContext.triggered
@@ -660,6 +685,27 @@ function applySingleCommand(
     const latestTarget = getEntityById(nextSession, target.id)
     if (skill.applyFreezeTicks && latestTarget && latestTarget.alive) {
       nextSession = applyFreezeToEntity(nextSession, latestTarget, actor.id, skill.applyFreezeTicks)
+    }
+    const dotDamageRatio = Number(skill.params?.dotDamage ?? 0)
+    const dotTicks = Number(skill.params?.dotTurns ?? skill.params?.dotTicks ?? 0)
+    const dotTarget = getEntityById(nextSession, target.id)
+    if (dotDamageRatio > 0 && dotTicks > 0 && dotTarget && dotTarget.alive) {
+      nextSession = applyDotToEntity(nextSession, dotTarget, actor.id, computeSkillDamage(actor, target, dotDamageRatio), dotTicks)
+    }
+    const specialType = String(skill.params?.specialEffect ?? '').trim()
+    const specialValue = Number(skill.params?.specialEffectValue ?? 0)
+    const specialDuration = Math.max(1, Math.floor(Number(skill.params?.specialEffectDuration ?? 0)))
+    if ((specialType === 'atk_debuff' || specialType === 'def_debuff') && specialValue > 0 && dotTarget && dotTarget.alive) {
+      nextSession = applyDebuffToEntity(nextSession, dotTarget, actor.id, specialType, specialValue, specialDuration)
+    }
+    if (specialType === 'heal' && specialValue > 0) {
+      const healed = getEntityById(nextSession, actor.id)
+      if (healed) {
+        nextSession = updateEntity(nextSession, {
+          ...healed,
+          resources: { ...healed.resources, hp: Math.min(healed.resources.maxHp, healed.resources.hp + Math.max(1, Math.floor(healed.resources.maxHp * specialValue))) },
+        })
+      }
     }
     const resolvedSession = resolveChaseByPosition(applyVictoryIfNeeded(nextSession))
     return {
@@ -766,18 +812,30 @@ function isActorControlled(actor: BattleEntity, currentTick: number): boolean {
 }
 
 function computeBasicDamage(actor: BattleEntity, target: BattleEntity): number {
+  const formulas = getBattleFormulas()
+  const basicAttackMultiplier = Math.max(0, Number(getBasicAttack().multiplier))
+  const atkMultiplier = 1 - getDebuffValue(actor, 'atk_debuff')
+  const defMultiplier = 1 - getDebuffValue(target, 'def_debuff')
   const raw =
-    (actor.atk - target.def * 0.5 + Math.random() * 2) * BATTLE_BALANCE.basicDamageMultiplier
-  const reduced = target.defending ? raw * 0.6 : raw
+    (actor.atk * atkMultiplier - target.def * 0.5 * defMultiplier + Math.random() * 2) *
+    formulas.basicDamageMultiplier * basicAttackMultiplier
+  const reduced = target.defending ? raw * formulas.defendDamageReduction : raw
   return Math.max(1, Math.floor(reduced))
 }
 
 function computeSkillDamage(actor: BattleEntity, target: BattleEntity, ratio: number): number {
+  const formulas = getBattleFormulas()
+  const atkMultiplier = 1 - getDebuffValue(actor, 'atk_debuff')
+  const defMultiplier = 1 - getDebuffValue(target, 'def_debuff')
   const raw =
-    (actor.atk * Math.max(0.5, ratio) - target.def * 0.45 + Math.random() * 2.5) *
-    BATTLE_BALANCE.skillDamageMultiplier
-  const reduced = target.defending ? raw * 0.62 : raw
+    (actor.atk * atkMultiplier * Math.max(0.5, ratio) - target.def * defMultiplier * 0.45 + Math.random() * 2.5) *
+    formulas.skillDamageMultiplier
+  const reduced = target.defending ? raw * formulas.defendSkillReduction : raw
   return Math.max(1, Math.floor(reduced))
+}
+
+function getDebuffValue(entity: BattleEntity, kind: 'atk_debuff' | 'def_debuff'): number {
+  return Math.min(0.95, Math.max(0, entity.effects.find((effect) => effect.tags?.includes(kind))?.params?.value as number || 0))
 }
 
 function applyDamageWithShieldAndRage(
@@ -1144,4 +1202,3 @@ function createEvent(
     createdAt: Date.now()
   }
 }
-
