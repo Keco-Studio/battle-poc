@@ -1,0 +1,41 @@
+{
+  "projectId": "fc3376fb-b6b8-42b0-8a16-459916e41da2",
+  "ownerId": "33b7f9c6-7310-4100-b51d-fff916e38ab2",
+  "verifiedAt": "2026-07-27T13:21:30.026Z",
+  "sourceCapturedAt": "2026-07-27T19:12:05+08:00",
+  "status": "passed",
+  "assertions": {
+    "sourceTablesDiscovered": 6,
+    "skillDraftsApplied": 2,
+    "jobDraftsApplied": 1,
+    "gameConfigDraftsApplied": 20,
+    "flamePower": 2.57,
+    "expPerLevel": 163,
+    "jobConsumer": {
+      "hp": 173,
+      "atk": 19,
+      "def": 11,
+      "spd": 8
+    },
+    "loadoutConsumer": [
+      "mcp_chain_flame",
+      "mcp_chain_frost"
+    ],
+    "refreshAuthority": {
+      "skillPower": {
+        "before": 2.31,
+        "after": 2.57
+      },
+      "expPerLevel": {
+        "before": 149,
+        "after": 163
+      }
+    }
+  },
+  "screenshots": [
+    "00-table-discovery.png",
+    "01-import-applied.png",
+    "02-gameplay-consumers.png",
+    "03-source-refresh.png"
+  ]
+}

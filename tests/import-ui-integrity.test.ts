@@ -5,6 +5,7 @@ import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ImportGameConfigBlock } from '@/app/components/gameConfig/ImportGameConfigBlock'
+import StudioImportModal from '@/app/components/studioImport/StudioImportModal'
 
 Object.assign(globalThis, { React })
 
@@ -21,6 +22,15 @@ vi.mock('@/src/lib/jobs/studioJobPicker', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/src/lib/jobs/studioJobPicker')>()
   return { ...actual, loadStudioTableRows: mocks.loadTable }
 })
+vi.mock('@/src/lib/skills/BattleSkillsProvider', () => ({
+  useBattleSkills: () => ({ modules: [], activeModuleId: 'builtin' }),
+}))
+vi.mock('@/src/lib/jobs/BattleJobsProvider', () => ({
+  useBattleJobs: () => ({ modules: [], activeModuleId: 'builtin' }),
+}))
+vi.mock('@/src/lib/gameConfig/BattleGameConfigProvider', () => ({
+  useBattleGameConfig: () => ({ modules: [], activeModuleId: 'studio-drafts' }),
+}))
 
 const tables = [{
   id: 'studio:config',
@@ -115,5 +125,47 @@ describe('Studio import UI integrity', () => {
       expect(onError).toHaveBeenCalledWith('Failed to load table')
     })
     expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(0)
+  })
+
+  it('recomputes import catalog draft counts when storage changes under the same module label', async () => {
+    const equipmentDraft = {
+      draftId: 'equipment',
+      kind: 'equipment',
+      fields: { id: { tableId: 'table-1', columnKey: 'id', value: 'weapon' } },
+    }
+    const basicAttackDraft = {
+      draftId: 'basic',
+      kind: 'basic_attack',
+      fields: { id: { tableId: 'table-2', columnKey: 'id', value: 'basic_attack' } },
+    }
+    const game = {
+      showStudioImport: true,
+      studioImportCategory: null,
+      closeStudioImport: vi.fn(),
+      setStudioImportCategory: vi.fn(),
+    }
+    localStorage.setItem(
+      'battle-poc-game-config-drafts-v1',
+      JSON.stringify({ version: 1, drafts: [equipmentDraft] }),
+    )
+
+    root.render(React.createElement(StudioImportModal, { game: game as never }))
+    await vi.waitFor(() => {
+      const row = [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.includes('Basic attack'))
+      expect(row?.textContent).toContain('Drafts 0')
+    })
+
+    localStorage.setItem(
+      'battle-poc-game-config-drafts-v1',
+      JSON.stringify({ version: 1, drafts: [equipmentDraft, basicAttackDraft] }),
+    )
+    root.render(React.createElement(StudioImportModal, { game: game as never }))
+
+    await vi.waitFor(() => {
+      const row = [...container.querySelectorAll('button')]
+        .find((button) => button.textContent?.includes('Basic attack'))
+      expect(row?.textContent).toContain('Drafts 1')
+    })
   })
 })

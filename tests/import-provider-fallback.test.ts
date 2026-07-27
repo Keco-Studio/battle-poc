@@ -3,7 +3,10 @@
 import React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BattleGameConfigProvider } from '@/src/lib/gameConfig/BattleGameConfigProvider'
+import {
+  BattleGameConfigProvider,
+  useBattleGameConfig,
+} from '@/src/lib/gameConfig/BattleGameConfigProvider'
 import { BattleJobsProvider } from '@/src/lib/jobs/BattleJobsProvider'
 import { BattleSkillsProvider } from '@/src/lib/skills/BattleSkillsProvider'
 import { applyGameConfigBundle, getActiveGameConfig } from '@/src/lib/gameConfig/gameConfigRegistry'
@@ -20,6 +23,7 @@ import {
 Object.assign(globalThis, { React })
 
 const mocks = vi.hoisted(() => ({
+  applyConfig: vi.fn(),
   hydrateConfig: vi.fn(),
   hydrateJobs: vi.fn(),
   hydrateSkills: vi.fn(),
@@ -32,7 +36,11 @@ vi.mock('@/src/lib/contexts/AuthContext', () => ({
 }))
 vi.mock('@/src/lib/gameConfig/pocGameConfigStorage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/src/lib/gameConfig/pocGameConfigStorage')>()
-  return { ...actual, hydratePocGameConfig: mocks.hydrateConfig }
+  return {
+    ...actual,
+    applyPocGameConfigDrafts: mocks.applyConfig,
+    hydratePocGameConfig: mocks.hydrateConfig,
+  }
 })
 vi.mock('@/src/lib/skills/pocSkillsStorage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/src/lib/skills/pocSkillsStorage')>()
@@ -61,6 +69,7 @@ describe('import Provider hydrate fallback', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     mocks.hydrateConfig.mockReset()
+    mocks.applyConfig.mockReset()
     mocks.hydrateJobs.mockReset()
     mocks.hydrateSkills.mockReset()
   })
@@ -86,6 +95,37 @@ describe('import Provider hydrate fallback', () => {
         createDefaultGameConfigBundle().progression.expPerLevel,
       )
     })
+  })
+
+  it('does not rehydrate in response to the Provider own game-config Apply event', async () => {
+    const bundle = createDefaultGameConfigBundle()
+    const state = {
+      activeModuleId: 'studio-drafts',
+      modules: [
+        { id: 'builtin', label: 'Default', source: 'builtin' as const, bundle },
+        { id: 'studio-drafts', label: 'Drafts', source: 'drafts' as const, bundle },
+      ],
+    }
+    mocks.hydrateConfig.mockResolvedValue({ state, bundle })
+    mocks.applyConfig.mockImplementation(async () => {
+      window.dispatchEvent(new CustomEvent('battle-poc-game-config-updated'))
+      return { state, bundle, errors: [] }
+    })
+
+    function ApplyProbe() {
+      const { applyConfigDrafts } = useBattleGameConfig()
+      return React.createElement('button', { onClick: () => void applyConfigDrafts() }, 'Apply')
+    }
+
+    root.render(
+      React.createElement(BattleGameConfigProvider, null, React.createElement(ApplyProbe)),
+    )
+    await vi.waitFor(() => expect(mocks.hydrateConfig).toHaveBeenCalledTimes(1))
+
+    container.querySelector('button')!.click()
+    await vi.waitFor(() => expect(mocks.applyConfig).toHaveBeenCalledTimes(1))
+
+    expect(mocks.hydrateConfig).toHaveBeenCalledTimes(1)
   })
 
   it('resets the skill catalog and Keco cache when hydrate throws unexpectedly', async () => {
