@@ -2,6 +2,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from 'react'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { LocalModeNotice } from '../LocalModeNotice'
 
 type Props = {
   open: boolean
@@ -36,6 +38,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
   if (!open) return null
 
   const generate = async () => {
+    if (LOCAL_WEB_MODE) return
     setBusy(true)
     setError(null)
     setResultUrl(null)
@@ -87,6 +90,9 @@ export default function PixellabMapGeneratorModal(props: Props) {
           >
             Close
           </button>
+        </div>
+        <div className="mb-3">
+          <LocalModeNotice />
         </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -166,7 +172,8 @@ export default function PixellabMapGeneratorModal(props: Props) {
 
             <button
               type="button"
-              disabled={busy}
+              data-remote-feature="supabase"
+              disabled={LOCAL_WEB_MODE || busy}
               onClick={() => void generate()}
               className="mt-1 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
             >

@@ -18,8 +18,10 @@ import {
   type PocJobDraft,
 } from '@/src/lib/jobs/pocJobDrafts'
 import { listSelectableStudioTables } from '@/src/lib/jobs/studioJobPicker'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import { ImportJobByIdBlock } from './ImportJobByIdBlock'
 import { SkillSourceSelect } from '../skills/SkillSourceSelect'
+import { LocalModeNotice } from '../LocalModeNotice'
 import styles from '../skills/SkillSourcePanel.module.css'
 
 type Props = {
@@ -113,6 +115,7 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
           : `${styles.panel} mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3`
       }
     >
+      <LocalModeNotice />
       <div>
         <div className={styles.sectionTitle}>Class stats source</div>
         <p className={styles.sectionHint}>
@@ -131,14 +134,14 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
         />
       </div>
 
-      {!supabaseReady ? (
+      {!supabaseReady && (
         <p className={styles.warnLine}>
           Sign in with the same Supabase account as Keco Studio to import class rows.
         </p>
-      ) : (
-        <>
+      )}
+      <>
           <ImportJobByIdBlock
-            disabled={validating}
+            disabled={LOCAL_WEB_MODE || validating}
             tables={studioTables}
             tablesLoading={tablesLoading}
             supabaseReady={supabaseReady}
@@ -153,8 +156,9 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
               <span className={styles.sectionTitle}>Class drafts ({drafts.length})</span>
               <button
                 type="button"
+                data-remote-feature="supabase"
                 onClick={() => void handleValidateApply()}
-                disabled={validating || drafts.length === 0 || isHydrating}
+                disabled={LOCAL_WEB_MODE || validating || drafts.length === 0 || isHydrating}
                 className={styles.applyBtn}
               >
                 <CheckCircle size={12} />
@@ -190,8 +194,7 @@ export function PocJobConfigPanel({ embedded = false }: Props) {
               </p>
             )}
           </div>
-        </>
-      )}
+      </>
 
       {(hydrateError || importError) && (
         <p className={styles.errorLine}>{importError ?? hydrateError}</p>

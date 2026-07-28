@@ -5,6 +5,8 @@ import { RefreshCw } from 'lucide-react'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { LocalModeNotice } from '../LocalModeNotice'
 import styles from './SkillSourcePanel.module.css'
 
 export function SimulationSkillSyncPanel() {
@@ -52,18 +54,19 @@ export function SimulationSkillSyncPanel() {
             Pull Studio import drafts from keco-simulation. Re-sync after Studio table changes.
           </p>
         </div>
-        {!supabaseReady ? null : (
-          <button
-            type="button"
-            onClick={() => void handleSync()}
-            disabled={syncing || isHydrating}
-            className={styles.applyBtn}
-          >
-            <RefreshCw size={12} className={syncing ? 'animate-spin' : undefined} />
-            {syncing ? 'Syncing…' : 'Sync'}
-          </button>
-        )}
+        <button
+          type="button"
+          data-remote-feature="supabase"
+          onClick={() => void handleSync()}
+          disabled={LOCAL_WEB_MODE || !supabaseReady || syncing || isHydrating}
+          className={styles.applyBtn}
+        >
+          <RefreshCw size={12} className={syncing ? 'animate-spin' : undefined} />
+          {syncing ? 'Syncing…' : 'Sync'}
+        </button>
       </div>
+
+      <LocalModeNotice />
 
       {!supabaseReady ? (
         <p className={styles.warnLine}>Sign in to sync skills from keco-simulation.</p>

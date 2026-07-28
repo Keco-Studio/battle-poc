@@ -8,6 +8,7 @@ import { PocGameConfigPanel } from '../gameConfig/PocGameConfigPanel'
 import { useBattleSkills } from '@/src/lib/skills/BattleSkillsProvider'
 import { useBattleJobs } from '@/src/lib/jobs/BattleJobsProvider'
 import { useBattleGameConfig } from '@/src/lib/gameConfig/BattleGameConfigProvider'
+import { LocalModeNotice } from '../LocalModeNotice'
 import {
   STUDIO_IMPORT_CATALOG,
   draftCountForCategory,
@@ -99,6 +100,9 @@ export default function StudioImportModal({ game }: Props) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="mb-3">
+            <LocalModeNotice />
+          </div>
           {!activeEntry ? (
             <ul className="space-y-2">
               {catalogRows.map((row) => (

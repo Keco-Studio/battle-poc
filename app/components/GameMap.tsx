@@ -42,6 +42,8 @@ import { useNearbyEnemyDetection } from './map-ui/hooks/useNearbyEnemyDetection'
 import { usePixellabSync } from './map-ui/hooks/usePixellabSync'
 import { ensureDeepClawAgentEnemy } from './map-ui/utils/gameMapBattleUtils'
 import { classifyBattleCommandMetadata } from '@/app/lib/battle-ai-command-stats'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { LocalModeNotice } from './LocalModeNotice'
 // disengageGridPositions moved to resolveMapBattleOutcome helper.
 import {
   ROTATION_KEYS,
@@ -1374,6 +1376,7 @@ export default function GameMap({ game }: Props) {
         </select>
       </div>
       <div className="absolute top-[7.25rem] right-4 z-20 flex max-w-[min(280px,calc(100vw-2rem))] flex-col items-end gap-1 rounded-lg border border-amber-500/35 bg-black/60 px-3 py-2 text-xs text-amber-100">
+        <LocalModeNotice />
         <button
           type="button"
           onClick={() => void handlePixellabSync()}
@@ -1383,8 +1386,10 @@ export default function GameMap({ game }: Props) {
         </button>
         <button
           type="button"
+          data-remote-feature="supabase"
+          disabled={LOCAL_WEB_MODE}
           onClick={() => setShowPixellabMapGen(true)}
-          className="rounded bg-sky-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600"
+          className="rounded bg-sky-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
         >
           Generate PixelLab Map
         </button>
