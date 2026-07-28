@@ -1,63 +1,87 @@
-import path from 'node:path'
-import { mkdir, writeFile } from 'node:fs/promises'
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
+
+import { requireServerUser } from '@/src/lib/auth/require-server-user'
+import { persistUserMapWithBackground } from '@/src/lib/maps/server-user-maps'
+import { createServerSupabase } from '@/src/lib/supabase/server'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 
 type PixellabResponse = {
   error?: string
   detail?: string
-  image?: {
-    base64?: string
-  }
+  image?: { base64?: string }
 }
 
 function safeSlug(input: string): string {
-  return (
-    input
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'map'
-  )
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'map'
 }
 
 function decodeBase64Png(data: string): Buffer {
-  const m = /^data:image\/png;base64,(.+)$/i.exec(data)
-  if (m?.[1]) return Buffer.from(m[1], 'base64')
-  const raw = data.trim()
-  if (raw.length > 32 && !/\s/.test(raw)) return Buffer.from(raw, 'base64')
-  throw new Error('PixelLab returned image is not a parseable base64 PNG (data URL or raw base64)')
+  const match = /^data:image\/png;base64,(.+)$/i.exec(data)
+  const encoded = match?.[1] ?? data.trim()
+  if (encoded.length <= 32 || /\s/.test(encoded)) {
+    throw new Error('PixelLab returned image is not a parseable base64 PNG')
+  }
+  return Buffer.from(encoded, 'base64')
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
+  let cloudPersistence: {
+    supabase: NonNullable<Awaited<ReturnType<typeof createServerSupabase>>>
+    userId: string
+  } | null = null
+
+  if (!LOCAL_WEB_MODE) {
+    // Legacy Supabase authentication and persistence remain available outside local Web mode.
+    const supabase = await createServerSupabase()
+    const auth = await requireServerUser(supabase)
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
+    }
+    if (!supabase) {
+      return NextResponse.json({ ok: false, error: 'supabase_not_configured' }, { status: 503 })
+    }
+    cloudPersistence = { supabase, userId: auth.user.id }
+  }
+
+  const token = process.env.PIXELLAB_API_TOKEN ?? ''
+  if (!token) {
+    return NextResponse.json({ ok: false, error: 'PIXELLAB_API_TOKEN not set' }, { status: 503 })
+  }
+
+  let body: {
+    description?: unknown
+    imageSize?: { width?: unknown; height?: unknown }
+    seed?: unknown
+    noBackground?: unknown
+    outline?: unknown
+    detail?: unknown
+  }
   try {
-    const token = process.env.PIXELLAB_API_TOKEN ?? ''
-    if (!token) {
-      return NextResponse.json({ ok: false, error: 'PIXELLAB_API_TOKEN not set' }, { status: 400 })
-    }
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
+  }
 
-    const body = (await req.json()) as {
-      description?: string
-      imageSize?: { width?: number; height?: number }
-      seed?: number
-      noBackground?: boolean
-      outline?: string
-      detail?: string
-    }
+  const description = typeof body.description === 'string' ? body.description.trim() : ''
+  const width = Number(body.imageSize?.width ?? 256)
+  const height = Number(body.imageSize?.height ?? 256)
+  if (!description) {
+    return NextResponse.json({ ok: false, error: 'description cannot be empty' }, { status: 400 })
+  }
+  if (
+    !Number.isInteger(width) || !Number.isInteger(height)
+    || width < 32 || height < 32 || width > 400 || height > 400
+  ) {
+    return NextResponse.json({ ok: false, error: 'imageSize must be between 32 and 400' }, { status: 400 })
+  }
 
-    const description = typeof body.description === 'string' ? body.description.trim() : ''
-    const width = Number(body.imageSize?.width ?? 256)
-    const height = Number(body.imageSize?.height ?? 256)
-    const seed = typeof body.seed === 'number' ? body.seed : undefined
-    const noBackground = body.noBackground !== false
-
-    if (!description) {
-      return NextResponse.json({ ok: false, error: 'description cannot be empty' }, { status: 400 })
-    }
-    if (!Number.isFinite(width) || !Number.isFinite(height) || width < 32 || height < 32 || width > 400 || height > 400) {
-      return NextResponse.json({ ok: false, error: 'imageSize must be between 32~400 (area limited by package)' }, { status: 400 })
-    }
-
-    const apiResp = await fetch('https://api.pixellab.ai/v1/generate-image-pixflux', {
+  try {
+    const apiResponse = await fetch('https://api.pixellab.ai/v1/generate-image-pixflux', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -66,78 +90,95 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         description,
         image_size: { width, height },
-        seed,
-        no_background: noBackground,
+        seed: typeof body.seed === 'number' ? body.seed : undefined,
+        no_background: body.noBackground !== false,
         outline: typeof body.outline === 'string' ? body.outline : undefined,
         detail: typeof body.detail === 'string' ? body.detail : undefined,
       }),
     })
 
-    const apiJson = (await apiResp.json().catch(() => null)) as PixellabResponse | null
-    if (!apiResp.ok) {
-      const detail = apiJson?.error || apiJson?.detail || `${apiResp.status} ${apiResp.statusText}`
-      return NextResponse.json({ ok: false, error: `PixelLab request failed: ${detail}` }, { status: apiResp.status })
+    const apiJson = (await apiResponse.json().catch(() => null)) as PixellabResponse | null
+    if (!apiResponse.ok) {
+      const detail = apiJson?.error || apiJson?.detail || `${apiResponse.status} ${apiResponse.statusText}`
+      return NextResponse.json(
+        { ok: false, error: `PixelLab request failed: ${detail}` },
+        { status: apiResponse.status },
+      )
+    }
+    if (!apiJson?.image?.base64) {
+      return NextResponse.json(
+        { ok: false, error: 'PixelLab returned abnormal format: missing image.base64' },
+        { status: 502 },
+      )
     }
 
-    const b64: string | undefined = apiJson?.image?.base64
-    if (!b64) {
-      return NextResponse.json({ ok: false, error: 'PixelLab returned abnormal format: missing image.base64' }, { status: 500 })
+    const png = decodeBase64Png(apiJson.image.base64)
+    if (png.byteLength > 10 * 1024 * 1024) {
+      return NextResponse.json({ ok: false, error: 'generated PNG exceeds 10 MiB' }, { status: 502 })
+    }
+    const metadata = await sharp(png).metadata()
+    if (metadata.format !== 'png' || !metadata.width || !metadata.height) {
+      return NextResponse.json({ ok: false, error: 'PixelLab response is not a valid PNG' }, { status: 502 })
+    }
+    if (metadata.width > 400 || metadata.height > 400) {
+      return NextResponse.json({ ok: false, error: 'generated PNG dimensions exceed 400' }, { status: 502 })
     }
 
-    const buf = decodeBase64Png(b64)
-    const stamp = Date.now()
-    const id = `${safeSlug(description)}-${stamp}`
-    const relDir = path.join('assets', 'maps')
-    const absDir = path.join(process.cwd(), 'public', relDir)
-    await mkdir(absDir, { recursive: true })
-    const fileName = `${id}.png`
-    await writeFile(path.join(absDir, fileName), buf)
+    if (LOCAL_WEB_MODE) {
+      return NextResponse.json({
+        ok: true,
+        mapRef: null,
+        previewUrl: `data:image/png;base64,${png.toString('base64')}`,
+        persisted: false,
+        imageSize: { width: metadata.width, height: metadata.height },
+      })
+    }
 
-    // Also create a minimal map JSON so it can be loaded via /api/maps like existing maps.
-    // This "project-like" format matches what /api/airpg-map expects.
-    const mapJsonFileName = `${id}.json`
-    const mapJsonPath = path.join(process.cwd(), 'data', 'maps', mapJsonFileName)
-    await mkdir(path.dirname(mapJsonPath), { recursive: true })
-    const startingMapId = 'map-1'
-    const gridW = 16
-    const gridH = 16
-    const backgroundImageUrl = `/${relDir}/${fileName}`
-    const projectLike = {
+    if (!cloudPersistence) {
+      return NextResponse.json({ ok: false, error: 'supabase_not_configured' }, { status: 503 })
+    }
+
+    const gridWidth = 16
+    const gridHeight = 16
+    const project = {
       config: {
-        startingMap: startingMapId,
+        startingMap: 'map-1',
         playerSpawn: { x: 8, y: 8 },
         playerVisualId: 'archerGreen',
       },
       maps: {
-        [startingMapId]: {
-          id,
-          width: gridW,
-          height: gridH,
-          backgroundImageUrl,
-          tileLayers: { ground: { data: Array(gridW * gridH).fill(0) } },
-          collisionLayer: Array(gridW * gridH).fill(0),
+        'map-1': {
+          id: 'map-1',
+          width: gridWidth,
+          height: gridHeight,
+          tileLayers: { ground: { data: Array(gridWidth * gridHeight).fill(0) } },
+          collisionLayer: Array(gridWidth * gridHeight).fill(0),
           entities: [],
         },
       },
       tilesets: {},
       entityDefs: {},
     }
-    await writeFile(mapJsonPath, JSON.stringify(projectLike, null, 2), 'utf8')
+    const result = await persistUserMapWithBackground(cloudPersistence.supabase, cloudPersistence.userId, {
+      name: `${safeSlug(description)}-${Date.now()}`,
+      mapData: project,
+      png,
+    })
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: result.status })
+    }
 
     return NextResponse.json({
       ok: true,
-      id,
-      fileName,
-      publicUrl: `/${relDir}/${fileName}`,
-      mapJsonId: id,
-      mapJsonFileName,
-      imageSize: { width, height },
+      mapRef: result.mapRef,
+      previewUrl: result.previewUrl,
+      persisted: true,
+      imageSize: { width: metadata.width, height: metadata.height },
     })
-  } catch (e) {
+  } catch (error) {
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : String(e) },
+      { ok: false, error: error instanceof Error ? error.message : String(error) },
       { status: 500 },
     )
   }
 }
-

@@ -23,7 +23,8 @@ Then open [http://localhost:3002](http://localhost:3002).
 `battle-poc` runs as an independent local Web project. Supabase runtime access, cloud auth,
 cloud maps, Studio Apply/sync, and migration automation are disabled; the legacy code remains
 in place for reference. Built-in maps, browser `localStorage`, local AI backends, and PixelLab
-resource sync remain available.
+generation/resource sync remain available. PixelLab generation returns a browser preview in local
+mode and does not authenticate with or persist to Supabase.
 
 Game content lives in TypeScript. When a Keco source is requested, use the `keco-main` MCP at
 development time to read that source, validate the complete result, and write typed data under

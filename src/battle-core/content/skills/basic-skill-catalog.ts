@@ -543,7 +543,13 @@ function withScaledCooldown(skill: BattleSkillDefinition): BattleSkillDefinition
   }
 }
 
-const ACTIVE_SKILLS = resolveGeneratedContent(GENERATED_BATTLE_SKILLS, () => SKILLS)
+const ACTIVE_SKILLS = (() => {
+  const merged = new Map(SKILLS.map((skill) => [skill.id, skill]))
+  for (const skill of resolveGeneratedContent(GENERATED_BATTLE_SKILLS, () => [])) {
+    merged.set(skill.id, skill)
+  }
+  return [...merged.values()]
+})()
 
 const SKILL_MAP = new Map(ACTIVE_SKILLS.map((skill) => {
   const scaled = withScaledCooldown(skill)

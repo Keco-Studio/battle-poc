@@ -1,0 +1,156 @@
+{
+  "version": "vs01",
+  "generatedAt": "2026-07-28T11:13:38.928Z",
+  "assets": [
+    {
+      "id": "character_relay_warden",
+      "path": "/assets/generated/vs01/characters/relay-warden.png",
+      "width": 128,
+      "height": 128,
+      "transparent": true,
+      "seed": 6101,
+      "prompt": "Game character sprite, full body Relay Warden, compact charcoal signal armor, teal relay glyphs, ember-red scarf, readable silhouette, three-quarter top-down view, crisp pixel art, isolated character, no text",
+      "reused": true
+    },
+    {
+      "id": "character_cinder_wisp",
+      "path": "/assets/generated/vs01/characters/cinder-wisp.png",
+      "width": 128,
+      "height": 128,
+      "transparent": true,
+      "seed": 6102,
+      "prompt": "Game enemy sprite, cinder wisp made of black iron fragments and ember-red flame, teal corrupted eye, readable silhouette, three-quarter top-down view, crisp pixel art, isolated, no text",
+      "reused": true
+    },
+    {
+      "id": "character_iron_husk",
+      "path": "/assets/generated/vs01/characters/iron-husk.png",
+      "width": 128,
+      "height": 128,
+      "transparent": true,
+      "seed": 6103,
+      "prompt": "Game enemy sprite, heavy iron husk automaton, basalt armor plates, furnace-red seams, teal relay core, broad readable silhouette, three-quarter top-down view, crisp pixel art, isolated, no text",
+      "reused": true
+    },
+    {
+      "id": "character_frost_revenant",
+      "path": "/assets/generated/vs01/characters/frost-revenant.png",
+      "width": 128,
+      "height": 128,
+      "transparent": true,
+      "seed": 6104,
+      "prompt": "Game enemy sprite, frost revenant in torn dark relay robes, ice-blue lattice limbs, pale teal mask, narrow readable silhouette, three-quarter top-down view, crisp pixel art, isolated, no text",
+      "reused": false
+    },
+    {
+      "id": "character_null_custodian",
+      "path": "/assets/generated/vs01/characters/null-custodian.png",
+      "width": 128,
+      "height": 128,
+      "transparent": true,
+      "seed": 6105,
+      "prompt": "Game boss sprite, Null Custodian, tall industrial occult keeper, asymmetric basalt armor, teal relay crown, ember and frost energy, commanding readable silhouette, three-quarter top-down view, crisp pixel art, isolated, no text",
+      "reused": false
+    },
+    {
+      "id": "map_emberwatch_causeway",
+      "path": "/assets/generated/vs01/maps/emberwatch-causeway.png",
+      "width": 400,
+      "height": 256,
+      "transparent": false,
+      "seed": 6201,
+      "prompt": "Top-down pixel art game map background, Emberwatch Causeway, wide basalt industrial bridge, broken relay machinery, clear walkable central lanes, teal navigation glyphs, sparse ember-red vents and ice-blue corruption, no characters, no text, exact 25:16 composition",
+      "reused": false
+    },
+    {
+      "id": "map_ashen_relay_core",
+      "path": "/assets/generated/vs01/maps/ashen-relay-core.png",
+      "width": 400,
+      "height": 256,
+      "transparent": false,
+      "seed": 6202,
+      "prompt": "Top-down pixel art boss arena background, Ashen Relay Core, circular signal chamber within rectangular basalt floor, clear walkable combat space, teal concentric relay glyphs, ember-red ruptures and ice-blue conduits, no characters, no text, exact 25:16 composition",
+      "reused": false
+    },
+    {
+      "id": "fx_relay_bolt",
+      "path": "/assets/generated/vs01/skill-fx/relay-bolt.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6301,
+      "prompt": "Pixel art game skill effect, compact teal relay energy bolt with white core and clean forward motion, isolated on transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_cinder_mark",
+      "path": "/assets/generated/vs01/skill-fx/cinder-mark.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6302,
+      "prompt": "Pixel art game skill effect, ember-red circular brand with black cinders and a teal signal notch, isolated on transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_frost_lattice",
+      "path": "/assets/generated/vs01/skill-fx/frost-lattice.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6303,
+      "prompt": "Pixel art game skill effect, ice-blue geometric lattice cage with pale teal highlights, readable magical control icon, isolated transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_shatter_lance",
+      "path": "/assets/generated/vs01/skill-fx/shatter-lance.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6304,
+      "prompt": "Pixel art game skill effect, sharp ice-blue signal lance exploding into angular shards, high contrast white core, isolated transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_sunder_arc",
+      "path": "/assets/generated/vs01/skill-fx/sunder-arc.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6305,
+      "prompt": "Pixel art game skill effect, broad ember-red and teal crescent slash breaking a small armor plate, isolated transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_mending_spark",
+      "path": "/assets/generated/vs01/skill-fx/mending-spark.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6306,
+      "prompt": "Pixel art game skill effect, warm white repair spark inside a teal relay ring with tiny gold motes, isolated transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_phase_needle",
+      "path": "/assets/generated/vs01/skill-fx/phase-needle.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6307,
+      "prompt": "Pixel art game skill effect, extremely narrow magenta-teal phase needle with afterimage streak, isolated transparent background, no text",
+      "reused": false
+    },
+    {
+      "id": "fx_overload_crown",
+      "path": "/assets/generated/vs01/skill-fx/overload-crown.png",
+      "width": 96,
+      "height": 96,
+      "transparent": true,
+      "seed": 6308,
+      "prompt": "Pixel art game skill effect, crown of eight teal relay nodes detonating into ember-red radial arcs, bold boss-level silhouette, isolated transparent background, no text",
+      "reused": false
+    }
+  ]
+}

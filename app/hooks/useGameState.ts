@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useLayoutEffect } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import {
   EquipmentType,
   calcPlayerStats,
@@ -21,13 +21,29 @@ import { getEquipmentTypes } from '@/src/lib/gameConfig/gameConfigRegistry'
 import { POC_SKILLS_UPDATED_EVENT } from '@/src/lib/skills/pocSkillModulesStorage'
 import type { JobClassId } from '../constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
-import { loadPlayerSave, savePlayerSave, recordBattle, fetchBattleHistory } from '@/src/lib/db'
-import type { BattleHistoryRow, PlayerSaveRow } from '@/src/lib/db'
+import {
+  CloudSaveCoordinator,
+  fetchBattleHistory,
+  loadPlayerSave,
+  recordBattle,
+  savePlayerSaveAtRevision,
+} from '@/src/lib/db'
+import type { BattleHistoryRow, PlayerSaveRow, PlayerSaveUpdate } from '@/src/lib/db'
 import { clearLongTermBtPersisted } from '@/src/battle-core/service/ai/long-term-bt-memory'
+import {
+  GameSaveHydrationGuard,
+  type GameSaveHydrationToken,
+} from '@/src/lib/auth/game-save-hydration'
+import { pushDataFlowTrace } from '@/src/lib/debug/data-flow-trace'
 import {
   ENEMY_CHAT_THREADS_STORAGE_KEY,
   SYSTEM_CHAT_THREADS_STORAGE_KEY,
 } from '@/app/components/chat-panel/chatPanelConstants'
+import {
+  DEFAULT_BUILTIN_MAP_REF,
+  parseMapRef,
+  type MapRef,
+} from '@/src/lib/maps/map-reference'
 
 export interface EquippedItem {
   name: string
@@ -121,8 +137,14 @@ interface SavedState {
   equippedGear: Record<EquipmentType, EquippedItem | null>
   inventory: InventoryItem[]
   playerPos: { x: number; y: number }
+  currentMapRef?: string
   carriedSkillIds?: string[]
   jobClassId?: string
+}
+
+type PendingHydrationCommit = {
+  token: GameSaveHydrationToken
+  revision: number
 }
 
 const STORAGE_KEY = 'battle-game-save'
@@ -243,7 +265,7 @@ const DEFAULT_GEAR: Record<EquipmentType, EquippedItem | null> = {
 
 /** Guest snapshot written to `localStorage` immediately on sign-out to avoid a race with the auto-save effect. */
 function guestSavedStatePayload(): SavedState {
-  const maxHp = calcPlayerStats(1, 'hero').maxHp
+  const maxHp = calcPlayerStats(1, 'relay_warden').maxHp
   return {
     playerLevel: 1,
     playerExp: 0,
@@ -252,8 +274,9 @@ function guestSavedStatePayload(): SavedState {
     equippedGear: { ...DEFAULT_GEAR },
     inventory: [],
     playerPos: { ...PLAYER_START },
-    carriedSkillIds: getDefaultCarriedSkillIds('hero', 6),
-    jobClassId: 'hero',
+    currentMapRef: DEFAULT_BUILTIN_MAP_REF,
+    carriedSkillIds: getDefaultCarriedSkillIds('relay_warden', 6),
+    jobClassId: 'relay_warden',
   }
 }
 
@@ -271,6 +294,24 @@ export function useGameState() {
    * which would overwrite cloud data with stale localStorage defaults.
    */
   const [dbHydrated, setDbHydrated] = useState(false)
+
+  const hydrationGuardRef = useRef(new GameSaveHydrationGuard())
+  const saveCoordinatorRef = useRef<CloudSaveCoordinator<PlayerSaveUpdate> | null>(null)
+  if (saveCoordinatorRef.current === null) {
+    saveCoordinatorRef.current = new CloudSaveCoordinator<PlayerSaveUpdate>({
+      quietMs: 250,
+      write: (snapshot, expectedRevision, userId) =>
+        savePlayerSaveAtRevision(userId, snapshot, expectedRevision),
+      onConflict: () => {
+        pushDataFlowTrace('savePlayerSaveAtRevision', 'error', 'save_conflict: hydration required')
+      },
+      onError: (error) => {
+        console.warn('DB auto-save failed:', error)
+      },
+    })
+  }
+  const [pendingHydrationCommit, setPendingHydrationCommit] =
+    useState<PendingHydrationCommit | null>(null)
 
   /** Supabase user id when logged in, null for guests. */
   const [authedUserId, setAuthedUserId] = useState<string | null>(null)
@@ -316,7 +357,19 @@ export function useGameState() {
 
   // Position state
   const [playerPos, setPlayerPos] = useState(() => ({ ...PLAYER_START }))
+  const [currentMapRefState, setCurrentMapRefState] = useState<MapRef>(DEFAULT_BUILTIN_MAP_REF)
+  const [playerPositionMapRef, setPlayerPositionMapRef] = useState<MapRef>(DEFAULT_BUILTIN_MAP_REF)
   const [enemies, setEnemies] = useState(() => [...initialEnemies])
+
+  const setCurrentMapRef = useCallback((value: string) => {
+    const parsed = parseMapRef(value)
+    if (parsed) setCurrentMapRefState(parsed.ref)
+  }, [])
+
+  const setResolvedMapPosition = useCallback((mapRef: MapRef, position: { x: number; y: number }) => {
+    setPlayerPos(position)
+    setPlayerPositionMapRef(mapRef)
+  }, [])
 
   // UI state
   const [showInteraction, setShowInteraction] = useState(false)
@@ -362,10 +415,10 @@ export function useGameState() {
   const [skillCooldownEndAt, setSkillCooldownEndAt] = useState<Record<string, number>>({})
   const [gainedExp, setGainedExp] = useState(0)
   const [gainedGold, setGainedGold] = useState(0)
-  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('hero', 6))
+  const [carriedSkillIds, setCarriedSkillIds] = useState<string[]>(() => getDefaultCarriedSkillIds('relay_warden', 6))
 
   /** Current job class id */
-  const [jobClassId, setJobClassId] = useState<JobClassId>('hero')
+  const [jobClassId, setJobClassId] = useState<JobClassId>('relay_warden')
 
   /** Whether to show the job selection modal */
   const [showJobSelect, setShowJobSelect] = useState(false)
@@ -395,13 +448,16 @@ export function useGameState() {
         try { window.localStorage.setItem(JOB_SELECTED_KEY, '1') } catch { /* ignore */ }
       }
       const lv = saved.playerLevel ?? 1
-      const job = (saved.jobClassId ?? 'hero') as JobClassId
+      const job = (saved.jobClassId ?? 'relay_warden') as JobClassId
       setPlayerLevel(lv)
       setPlayerExp(saved.playerExp ?? 0)
       setPlayerGold(saved.playerGold ?? 0)
       setEquippedGear(saved.equippedGear ?? { ...DEFAULT_GEAR })
       setInventory(Array.isArray(saved.inventory) ? saved.inventory : [])
       setPlayerPos(saved.playerPos ?? { ...PLAYER_START })
+      const savedMap = parseMapRef(saved.currentMapRef)?.ref ?? DEFAULT_BUILTIN_MAP_REF
+      setCurrentMapRefState(savedMap)
+      setPlayerPositionMapRef(savedMap)
       setJobClassId(job)
       const maxHp = calcPlayerStatsWithEquipment(lv, job, saved.equippedGear ?? {}).maxHp
       const hp = typeof saved.playerHP === 'number' ? saved.playerHP : maxHp
@@ -421,13 +477,15 @@ export function useGameState() {
     setEquippedGear({ ...DEFAULT_GEAR })
     setInventory([])
     setPlayerPos({ ...PLAYER_START })
-    setJobClassId('hero')
-    const maxHp = calcPlayerStats(1, 'hero').maxHp
+    setCurrentMapRefState(DEFAULT_BUILTIN_MAP_REF)
+    setPlayerPositionMapRef(DEFAULT_BUILTIN_MAP_REF)
+    setJobClassId('relay_warden')
+    const maxHp = calcPlayerStats(1, 'relay_warden').maxHp
     const maxMp = Math.floor(maxHp / 2)
     setPlayerHP(maxHp)
     setPlayerMaxMp(maxMp)
     setPlayerMP(maxMp)
-    setCarriedSkillIds(getDefaultCarriedSkillIds('hero', 6))
+    setCarriedSkillIds(getDefaultCarriedSkillIds('relay_warden', 6))
     setEnemies([...initialEnemies])
   }, [])
 
@@ -467,7 +525,7 @@ export function useGameState() {
   // Apply a DB save row to local state — used on login and initial auth check
   const applyDbSave = useCallback((save: PlayerSaveRow) => {
     const lv = save.level ?? 1
-    const job = (save.job_class_id ?? 'hero') as JobClassId
+    const job = (save.job_class_id ?? 'relay_warden') as JobClassId
     setPlayerLevel(lv)
     setPlayerExp(save.exp ?? 0)
     setPlayerGold(save.gold ?? 0)
@@ -480,6 +538,9 @@ export function useGameState() {
     setEquippedGear(gear)
     setInventory(Array.isArray(save.inventory) ? (save.inventory as InventoryItem[]) : [])
     setPlayerPos({ x: save.pos_x, y: save.pos_y })
+    const savedMap = parseMapRef(save.current_map_ref)?.ref ?? DEFAULT_BUILTIN_MAP_REF
+    setCurrentMapRefState(savedMap)
+    setPlayerPositionMapRef(savedMap)
     setJobClassId(job)
     const maxHp = calcPlayerStatsWithEquipment(lv, job, gear).maxHp
     const hp = save.current_hp ?? maxHp
@@ -500,6 +561,9 @@ export function useGameState() {
    * `onAuthStateChange`, and from `SIGNED_OUT` when the local session is actually gone.
    */
   const finalizeLocalSignOut = useCallback(() => {
+    saveCoordinatorRef.current?.cancel()
+    hydrationGuardRef.current.toGuest()
+    setPendingHydrationCommit(null)
     clearSharedBrowserGamePersistence()
     wipeSupabaseAuthLocalStorageKeys()
     applyLocalPlayerSaveOrDefaults(null)
@@ -521,63 +585,84 @@ export function useGameState() {
 
   const logoutAccount = finalizeLocalSignOut
 
-  // Supabase auth: detect session, load from DB on login, set authedUserId
+  // Supabase auth: hydrate one user generation before enabling cloud writes.
   useEffect(() => {
     if (!supabaseClient) {
+      saveCoordinatorRef.current?.cancel()
+      hydrationGuardRef.current.toGuest()
       setDbHydrated(true)
       return
     }
 
     const client = supabaseClient
+    let active = true
 
     const applySessionUser = (user: { id: string; email?: string | null }) => {
       setAuthedUserId(user.id)
       setAccountLabel(user.email ?? user.id)
     }
 
-    async function initFromAuth() {
+    const hydrateSessionUser = async (user: { id: string; email?: string | null }) => {
+      saveCoordinatorRef.current?.cancel()
+      const token = hydrationGuardRef.current.begin(user.id)
+      setPendingHydrationCommit(null)
+      setDbHydrated(false)
+      applySessionUser(user)
+
       try {
-        const { data: { session }, error } = await client.auth.getSession()
-        if (error || !session?.user) {
-          setDbHydrated(true)
-          return
-        }
-        applySessionUser(session.user)
-        const save = await loadPlayerSave()
+        const [save, logs] = await Promise.all([
+          loadPlayerSave(user.id),
+          fetchBattleHistory(50, user.id),
+        ])
+        if (!active || !hydrationGuardRef.current.isCurrent(token)) return
         if (save) {
           applyDbSave(save)
         } else {
           applyLocalPlayerSaveOrDefaults(loadSavedState())
           setChatMessages(loadChatMessages())
         }
-        const logs = await fetchBattleHistory(50)
         setBattleLogs(mapBattleHistoryRows(logs))
+        setPendingHydrationCommit({ token, revision: save?.save_revision ?? 0 })
       } catch (e) {
-        console.warn('Auth init failed:', e)
-      } finally {
-        setDbHydrated(true)
+        if (!active || !hydrationGuardRef.current.fail(token)) return
+        console.warn('DB load on sign-in failed:', e)
+        pushDataFlowTrace(
+          'loadPlayerSave',
+          'error',
+          e instanceof Error ? e.message : String(e),
+        )
       }
     }
 
-    initFromAuth()
-
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        applySessionUser(session.user)
-        try {
-          const save = await loadPlayerSave()
-          if (save) {
-            applyDbSave(save)
-          } else {
-            applyLocalPlayerSaveOrDefaults(loadSavedState())
-            setChatMessages(loadChatMessages())
-          }
-          const logs = await fetchBattleHistory(50)
-          setBattleLogs(mapBattleHistoryRows(logs))
-        } catch (e) {
-          console.warn('DB load on sign-in failed:', e)
+    async function initFromAuth() {
+      try {
+        const { data: { session }, error } = await client.auth.getSession()
+        if (!active) return
+        if (error) throw error
+        if (!session?.user) {
+          saveCoordinatorRef.current?.cancel()
+          hydrationGuardRef.current.toGuest()
+          setDbHydrated(true)
+          return
         }
-        setDbHydrated(true)
+        await hydrateSessionUser(session.user)
+      } catch (e) {
+        if (!active) return
+        console.warn('Auth init failed:', e)
+      }
+    }
+
+    void initFromAuth()
+
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        if (hydrationGuardRef.current.canSave(session.user.id)) {
+          applySessionUser(session.user)
+        } else {
+          // Do not await Supabase queries inside onAuthStateChange; the auth client
+          // may still hold its internal lock while invoking this callback.
+          void hydrateSessionUser(session.user)
+        }
       }
       if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') && session?.user) {
         applySessionUser(session.user)
@@ -589,8 +674,29 @@ export function useGameState() {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      active = false
+      subscription.unsubscribe()
+      saveCoordinatorRef.current?.cancel()
+    }
   }, [supabaseClient, applyDbSave, applyLocalPlayerSaveOrDefaults, finalizeLocalSignOut])
+
+  // This effect runs only after React commits the state applied by hydration.
+  useEffect(() => {
+    if (!pendingHydrationCommit) return
+    const { token, revision } = pendingHydrationCommit
+    if (!hydrationGuardRef.current.complete(token)) {
+      setPendingHydrationCommit(null)
+      return
+    }
+    saveCoordinatorRef.current?.start({
+      userId: token.userId,
+      generation: token.generation,
+      revision,
+    })
+    setDbHydrated(true)
+    setPendingHydrationCommit(null)
+  }, [pendingHydrationCommit])
 
   // Auto save — localStorage always; DB when logged in and DB hydrated
   useEffect(() => {
@@ -603,18 +709,27 @@ export function useGameState() {
       equippedGear,
       inventory,
       playerPos,
+      currentMapRef: playerPositionMapRef,
       carriedSkillIds,
       jobClassId,
     })
 
     if (!authedUserId || !dbHydrated) return
-    savePlayerSave({
+    const generation = hydrationGuardRef.current.currentGeneration
+    if (
+      !hydrationGuardRef.current.canSave(authedUserId) ||
+      !saveCoordinatorRef.current?.isReadyFor(authedUserId, generation)
+    ) {
+      return
+    }
+    saveCoordinatorRef.current.enqueue({
       level:             playerLevel,
       exp:               playerExp,
       gold:              playerGold,
       current_hp:        playerHP,
       pos_x:             playerPos.x,
       pos_y:             playerPos.y,
+      current_map_ref:   playerPositionMapRef,
       equipped_weapon:   equippedGear.weapon,
       equipped_ring:     equippedGear.ring,
       equipped_armor:    equippedGear.armor,
@@ -622,7 +737,11 @@ export function useGameState() {
       inventory,
       carried_skill_ids: carriedSkillIds,
       job_class_id:      jobClassId,
-    }).catch(e => console.warn('DB auto-save failed:', e))
+      combat_max_hp:     totalStats.maxHp,
+      combat_atk:        totalStats.atk,
+      combat_def:        totalStats.def,
+      combat_spd:        totalStats.spd,
+    })
   }, [
     storageHydrated,
     dbHydrated,
@@ -634,9 +753,22 @@ export function useGameState() {
     equippedGear,
     inventory,
     playerPos,
+    playerPositionMapRef,
     carriedSkillIds,
     jobClassId,
+    totalStats.maxHp,
+    totalStats.atk,
+    totalStats.def,
+    totalStats.spd,
   ])
+
+  useEffect(() => {
+    const flush = () => {
+      void saveCoordinatorRef.current?.flush()
+    }
+    window.addEventListener('pagehide', flush)
+    return () => window.removeEventListener('pagehide', flush)
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1119,6 +1251,7 @@ export function useGameState() {
           equippedGear: saved?.equippedGear ?? equippedGear,
           inventory: saved?.inventory ?? inventory,
           playerPos: saved?.playerPos ?? playerPos,
+          currentMapRef: saved?.currentMapRef ?? playerPositionMapRef,
           carriedSkillIds: defaultSkills,
           jobClassId: newJob,
         })
@@ -1128,7 +1261,7 @@ export function useGameState() {
       try { window.localStorage.setItem(JOB_SELECTED_KEY, '1') } catch { /* ignore */ }
     }
     setShowJobSelect(false)
-  }, [playerLevel, playerExp, playerGold, equippedGear, inventory, playerPos])
+  }, [playerLevel, playerExp, playerGold, equippedGear, inventory, playerPos, playerPositionMapRef])
 
   // Free heal to full HP
   const healWithGold = useCallback(() => {
@@ -1186,6 +1319,10 @@ export function useGameState() {
     // Position
     playerPos,
     setPlayerPos,
+    currentMapRef: currentMapRefState,
+    setCurrentMapRef,
+    playerPositionMapRef,
+    setResolvedMapPosition,
     enemies,
     setEnemies,
     // UI state

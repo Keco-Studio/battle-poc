@@ -1,0 +1,36 @@
+id,role,type,description,size/ratio,style line ref,source
+ember_null_arena,full-screen combat ground,background,fractured relay crucible suspended over a volcanic void,16:9,EMBER_NULL_STYLE,generate
+relay_warden_idle,hero neutral and breathing pose,sprite,white-armored relay warden with cyan glaive,1:1,EMBER_NULL_STYLE,generate
+relay_warden_run,hero locomotion animation,spritesheet,relay warden sprinting with lowered cyan glaive,1:1,EMBER_NULL_STYLE,generate
+relay_warden_dash,hero evade animation,spritesheet,relay warden phasing forward as a cyan afterimage,1:1,EMBER_NULL_STYLE,generate
+relay_warden_cast,hero skill animation,spritesheet,relay warden sweeping glaive to release relay energy,1:1,EMBER_NULL_STYLE,generate
+cinder_wisp_idle,enemy hover animation,spritesheet,black ember wisp with orange furnace core,1:1,EMBER_NULL_STYLE,generate
+cinder_wisp_attack,enemy dash attack animation,spritesheet,ember wisp compressing then lunging as a fire streak,1:1,EMBER_NULL_STYLE,generate
+iron_husk_idle,enemy march animation,spritesheet,heavy volcanic iron construct with magenta seams,1:1,EMBER_NULL_STYLE,generate
+iron_husk_attack,enemy charge animation,spritesheet,iron construct lowering shoulder and charging,1:1,EMBER_NULL_STYLE,generate
+frost_revenant_idle,enemy glide animation,spritesheet,white frost revenant with cyan veil and fractured staff,1:1,EMBER_NULL_STYLE,generate
+frost_revenant_attack,enemy cast animation,spritesheet,frost revenant raising staff to form a freezing cone,1:1,EMBER_NULL_STYLE,generate
+null_custodian_idle,boss hover animation,spritesheet,monumental black relay custodian with broken halo,1:1,EMBER_NULL_STYLE,generate
+null_custodian_summon,boss summon animation,spritesheet,relay custodian opening halo and calling orbiting shards,1:1,EMBER_NULL_STYLE,generate
+null_custodian_slam,boss area attack animation,spritesheet,relay custodian smashing both arms into the arena,1:1,EMBER_NULL_STYLE,generate
+relay_bolt_fx,primary projectile and impact,effect,cyan compressed relay spear with a sharp white core,1:1,EMBER_NULL_STYLE,generate
+cinder_chain_fx,burning mark and chain burst,effect,orange ember chain curling around a magenta target ring,1:1,EMBER_NULL_STYLE,generate
+frost_break_fx,freeze and shatter burst,effect,cyan ice lattice rupturing into white angular shards,1:1,EMBER_NULL_STYLE,generate
+overload_crown_fx,ultimate radial burst,effect,huge cyan crown ring intersected by orange electrical arcs,1:1,EMBER_NULL_STYLE,generate
+skill_sigil_sheet,four actionable skill icons,ui,relay bolt cinder chain frost break and overload crown sigils,1:1,EMBER_NULL_STYLE,generate
+combat_music,looped combat soundtrack,audio,industrial dark synth pulse with metallic percussion and rising boss layer,30 seconds,EMBER_NULL_STYLE,generate
+relay_shot_sfx,primary fire response,audio,compressed electric spear launch and short crystalline impact,1 second,EMBER_NULL_STYLE,generate
+thermal_shock_sfx,status combo reward,audio,deep thermal crack followed by ice shatter and bass pulse,2 seconds,EMBER_NULL_STYLE,generate
+phase_dash_sfx,dodge movement response,audio,fast spectral sweep with cyan electrical tail,1 second,EMBER_NULL_STYLE,generate
+enemy_impact_sfx,enemy damage response,audio,heavy metal strike with volcanic grit and short resonance ring,1 second,EMBER_NULL_STYLE,generate
+boss_warning_sfx,boss telegraph response,audio,low relay horn with rising digital fracture alarm,2 seconds,EMBER_NULL_STYLE,generate
+relay_warden_move_f8,hero eight-frame locomotion loop,spritesheet,existing relay warden with smooth stride lean and planted loop,8x256,EMBER_NULL_STYLE,derived
+cinder_wisp_move_f8,cinder eight-frame hover loop,spritesheet,existing cinder wisp rotating and pulsing around its furnace core,8x256,EMBER_NULL_STYLE,derived
+iron_husk_move_f8,husk eight-frame march loop,spritesheet,existing iron husk with heavy alternating weight transfer,8x256,EMBER_NULL_STYLE,derived
+frost_revenant_move_f8,revenant eight-frame glide loop,spritesheet,existing frost revenant floating with controlled lateral drift,8x256,EMBER_NULL_STYLE,derived
+null_custodian_move_f8,boss eight-frame hover loop,spritesheet,existing null custodian with slow monumental weight cycle,8x256,EMBER_NULL_STYLE,derived
+relay_warden_pixellab_walk_f8,hero native eight-frame walk cycle,spritesheet,PixelLab reference-guided alternating planted footsteps,8x256,EMBER_NULL_STYLE,pixellab
+cinder_wisp_pixellab_move_f8,cinder native eight-frame propulsion loop,spritesheet,PixelLab reference-guided rotating fragments and flame thrust,8x256,EMBER_NULL_STYLE,pixellab
+iron_husk_pixellab_walk_f8,husk native eight-frame heavy walk cycle,spritesheet,PixelLab reference-guided alternating stomps and weight transfer,8x256,EMBER_NULL_STYLE,pixellab
+frost_revenant_pixellab_move_f8,revenant native eight-frame glide cycle,spritesheet,PixelLab reference-guided robe trail and spectral propulsion,8x256,EMBER_NULL_STYLE,pixellab
+null_custodian_pixellab_move_f8,boss native eight-frame hover cycle,spritesheet,PixelLab reference-guided halo and four-arm propulsion,8x256,EMBER_NULL_STYLE,pixellab

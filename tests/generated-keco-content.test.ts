@@ -14,20 +14,18 @@ describe('generated Keco content seam', () => {
     expect(resolveGeneratedContent(null, () => ({ value: 1 }))).toEqual({ value: 1 })
   })
 
-  it('starts without silently selecting a Keco source', () => {
-    expect(GENERATED_CONTENT_MANIFEST.domains).toEqual({
-      skills: null,
-      jobs: null,
-      gameConfig: null,
-    })
-    expect(GENERATED_BATTLE_SKILLS).toBeNull()
-    expect(GENERATED_JOB_CLASSES).toBeNull()
-    expect(GENERATED_GAME_CONFIG).toBeNull()
+  it('selects the fully read-back VS01 Keco source', () => {
+    expect(GENERATED_CONTENT_MANIFEST.domains.skills?.tableNames).toEqual(['VS01_Skills'])
+    expect(GENERATED_CONTENT_MANIFEST.domains.jobs?.tableNames).toEqual(['VS01_Jobs'])
+    expect(GENERATED_CONTENT_MANIFEST.domains.gameConfig?.tableNames).toEqual(['VS01_Game'])
+    expect(GENERATED_BATTLE_SKILLS).toHaveLength(8)
+    expect(GENERATED_JOB_CLASSES.map((job) => job.id)).toEqual(['relay_warden'])
+    expect(GENERATED_GAME_CONFIG.roleLoadouts.relay_warden).toHaveLength(6)
   })
 
-  it('keeps current code defaults active until an MCP source is requested', () => {
-    expect(getBuiltinBattleSkillDefinitions()).not.toHaveLength(0)
-    expect(getBuiltinJobClassConfigs()).not.toHaveLength(0)
-    expect(createDefaultGameConfigBundle().progression.expPerLevel).toBeGreaterThan(0)
+  it('exposes VS01 through the existing runtime registries', () => {
+    expect(getBuiltinBattleSkillDefinitions().some((skill) => skill.id === 'relay_bolt')).toBe(true)
+    expect(getBuiltinJobClassConfigs()).toHaveLength(6)
+    expect(createDefaultGameConfigBundle().roleLoadouts.relay_warden).toContain('frost_lattice')
   })
 })

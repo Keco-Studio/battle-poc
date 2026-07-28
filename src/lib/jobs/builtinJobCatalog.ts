@@ -7,8 +7,6 @@ import {
   type JobClassId,
 } from './defaultJobClasses'
 import type { JobCatalogSnapshot, JobClassConfig } from './jobConfigTypes'
-import { GENERATED_JOB_CLASSES } from '@/src/content/generated/jobs'
-import { resolveGeneratedContent } from '@/src/content/generated/resolveGeneratedContent'
 
 function buildConfig(id: JobClassId): JobClassConfig {
   const stats = ROLE_STATS[id]
@@ -22,10 +20,7 @@ function buildConfig(id: JobClassId): JobClassConfig {
 }
 
 export function getBuiltinJobClassConfigs(): JobClassConfig[] {
-  const configs = resolveGeneratedContent(
-    GENERATED_JOB_CLASSES,
-    () => JOB_CLASS_IDS.map(buildConfig),
-  )
+  const configs = JOB_CLASS_IDS.map(buildConfig)
   return configs.map((config) => ({ ...config, stats: { ...config.stats } }))
 }
 

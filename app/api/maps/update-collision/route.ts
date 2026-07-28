@@ -1,69 +1,74 @@
-import path from 'node:path'
-import { readFile, writeFile } from 'node:fs/promises'
 import { NextResponse } from 'next/server'
 
-const LOCAL_MAPS_DIR = path.join(process.cwd(), 'data', 'maps')
+import { requireServerUser } from '@/src/lib/auth/require-server-user'
+import { validateMapProject } from '@/src/lib/maps/map-project'
+import { parseMapRef } from '@/src/lib/maps/map-reference'
+import { getUserMap, updateUserMap } from '@/src/lib/maps/server-user-maps'
+import { createServerSupabase } from '@/src/lib/supabase/server'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { localModeUnavailable } from '@/src/lib/runtime/localModeResponse'
 
-type MapNode = {
-  width?: number
-  height?: number
-  collisionLayer?: number[]
-}
+export async function POST(request: Request) {
+  if (LOCAL_WEB_MODE) return localModeUnavailable('cloud_maps')
+  // Legacy Supabase implementation retained below.
+  const supabase = await createServerSupabase()
+  const auth = await requireServerUser(supabase)
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
+  }
+  if (!supabase) return NextResponse.json({ ok: false, error: 'supabase_not_configured' }, { status: 503 })
 
-type MapProjectLike = {
-  config?: { startingMap?: string }
-  maps?: Record<string, MapNode>
-  metadata?: Record<string, unknown>
-}
-
-export async function POST(req: Request) {
+  let body: { mapRef?: unknown; mapId?: unknown; collision?: unknown }
   try {
-    const body = (await req.json()) as {
-      mapId?: string
-      collision?: number[]
-    }
-    const mapId = typeof body.mapId === 'string' ? body.mapId.trim() : ''
-    const collision = Array.isArray(body.collision) ? body.collision : null
-    if (!mapId) return NextResponse.json({ ok: false, error: 'mapId cannot be empty' }, { status: 400 })
-    if (!collision) return NextResponse.json({ ok: false, error: 'collision cannot be empty' }, { status: 400 })
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
+  }
 
-    const mapFilePath = path.join(LOCAL_MAPS_DIR, `${path.basename(mapId)}.json`)
-    const raw = await readFile(mapFilePath, 'utf8')
-    const project = JSON.parse(raw) as MapProjectLike
-
-    const startingMapId: string | undefined = project?.config?.startingMap
-    const maps: Record<string, MapNode> | undefined = project?.maps
-    if (!maps || typeof maps !== 'object') {
-      return NextResponse.json({ ok: false, error: 'Map JSON format abnormal: missing maps' }, { status: 400 })
-    }
-    const mapKey = startingMapId && maps[startingMapId] ? startingMapId : Object.keys(maps)[0]
-    if (!mapKey || !maps[mapKey]) {
-      return NextResponse.json({ ok: false, error: 'Map JSON format abnormal: cannot find map node' }, { status: 400 })
-    }
-    const mapNode = maps[mapKey]
-
-    const w = Number(mapNode?.width ?? 0)
-    const h = Number(mapNode?.height ?? 0)
-    const expected = w > 0 && h > 0 ? w * h : null
-    if (expected !== null && collision.length !== expected) {
-      return NextResponse.json(
-        { ok: false, error: `collision length mismatch: expected ${expected}, actual ${collision.length}` },
-        { status: 400 },
-      )
-    }
-
-    mapNode.collisionLayer = collision
-    if (project?.metadata && typeof project.metadata === 'object') {
-      project.metadata.updatedAt = new Date().toISOString()
-    }
-
-    await writeFile(mapFilePath, JSON.stringify(project, null, 2), 'utf8')
-    return NextResponse.json({ ok: true })
-  } catch (e) {
+  const parsed = parseMapRef(body.mapRef ?? body.mapId)
+  if (!parsed || parsed.source !== 'user') {
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : String(e) },
-      { status: 500 },
+      { ok: false, error: 'only private user maps can be edited' },
+      { status: 400 },
     )
   }
-}
+  if (!Array.isArray(body.collision) || !body.collision.every(Number.isFinite)) {
+    return NextResponse.json({ ok: false, error: 'collision must be a numeric array' }, { status: 400 })
+  }
 
+  const current = await getUserMap(supabase, auth.user.id, parsed.id)
+  if (!current.ok) {
+    return NextResponse.json({ ok: false, error: current.error }, { status: current.status })
+  }
+  const validated = validateMapProject(current.map.map_data)
+  if (!validated.ok) {
+    return NextResponse.json({ ok: false, error: validated.error }, { status: 500 })
+  }
+
+  const mapKey = validated.value.config.startingMap
+  const mapNode = validated.value.maps[mapKey]
+  const expectedLength = mapNode.width * mapNode.height
+  if (body.collision.length !== expectedLength) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `collision length mismatch: expected ${expectedLength}, actual ${body.collision.length}`,
+      },
+      { status: 400 },
+    )
+  }
+
+  mapNode.collisionLayer = body.collision
+  const metadata = validated.value.metadata
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    ;(metadata as Record<string, unknown>).updatedAt = new Date().toISOString()
+  }
+
+  const updated = await updateUserMap(supabase, auth.user.id, parsed.id, {
+    mapData: validated.value,
+  })
+  if (!updated.ok) {
+    return NextResponse.json({ ok: false, error: updated.error }, { status: updated.status })
+  }
+  return NextResponse.json({ ok: true, mapRef: parsed.ref })
+}

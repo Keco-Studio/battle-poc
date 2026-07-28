@@ -1,6 +1,9 @@
 import path from 'node:path'
 import { mkdir, readdir, stat, copyFile } from 'node:fs/promises'
 import { NextResponse } from 'next/server'
+import { requireServerUser } from '@/src/lib/auth/require-server-user'
+import { createServerSupabase } from '@/src/lib/supabase/server'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 
 type SyncResult = {
   ok: boolean
@@ -68,6 +71,18 @@ async function copyRecursive(
  *   battle-poc/public/assets/characters/
  */
 export async function POST() {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
+
+  if (!LOCAL_WEB_MODE) {
+    const supabase = await createServerSupabase()
+    const auth = await requireServerUser(supabase)
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
+    }
+  }
+
   try {
     const repoRoot = path.resolve(process.cwd(), '..')
     const fromDir = path.join(repoRoot, 'ai-rpg-poc', 'examples', 'demo-project', 'assets', 'characters')
@@ -97,4 +112,3 @@ export async function POST() {
     )
   }
 }
-

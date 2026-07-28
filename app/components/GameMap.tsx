@@ -42,13 +42,11 @@ import { useNearbyEnemyDetection } from './map-ui/hooks/useNearbyEnemyDetection'
 import { usePixellabSync } from './map-ui/hooks/usePixellabSync'
 import { ensureDeepClawAgentEnemy } from './map-ui/utils/gameMapBattleUtils'
 import { classifyBattleCommandMetadata } from '@/app/lib/battle-ai-command-stats'
-import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import { LocalModeNotice } from './LocalModeNotice'
 // disengageGridPositions moved to resolveMapBattleOutcome helper.
 import {
   ROTATION_KEYS,
   DEFAULT_DIRECTION,
-  HOME_DEFAULT_MAP_ID,
   MAP_DISPLAY_ORDER,
   getMapDisplayName,
   snapToGrid,
@@ -57,6 +55,17 @@ import {
 } from './map-ui/gameMapUtils'
 import { MapBattleController } from '../../src/map-battle/MapBattleController'
 import { isDemoDungeonCellWalkable, snapGridSpawnToWalkable } from '../../src/map-battle/dungeonDemoFootTiles'
+import { resolveInitialMapPosition } from '@/src/lib/maps/saved-map-position'
+import { parseMapRef, type MapRef } from '@/src/lib/maps/map-reference'
+import {
+  EMPTY_VS01_PROGRESS,
+  VS01_PROGRESS_STORAGE_KEY,
+  getVs01Objective,
+  isVs01CoreUnlocked,
+  normalizeVs01Progress,
+  recordVs01Victory,
+  type Vs01Progress,
+} from '@/src/content/generated/vs01/progression'
 
 interface Props {
   game: GameState
@@ -70,6 +79,42 @@ type MapTileset = {
   tileHeight: number
   tileCount: number
   columns: number
+}
+
+type MapCatalogItem = {
+  id: string
+  ref: MapRef
+  source: 'builtin' | 'user'
+  name: string
+  fileName: string | null
+  previewUrl?: string | null
+}
+
+type AirpgMapPayload = {
+  mapRef: MapRef
+  width: number
+  height: number
+  backgroundImageUrl?: string | null
+  ground: number[]
+  collision: number[]
+  mapId: string
+  tileset: MapTileset | null
+  playerSpawn: { x: number; y: number }
+  playerVisualId?: MapCharacterVisualId
+  enemies: Array<{
+    id: number
+    templateId?: string
+    skillIds?: string[]
+    name: string
+    x: number
+    y: number
+    level: number
+    profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
+    enemyType?: 'wild' | 'agent'
+    agentId?: string
+    visualId?: MapCharacterVisualId | null
+    mapSpriteTileIndex?: number
+  }>
 }
 
 type MoveAnim = 'idle' | 'walk' | 'running'
@@ -118,6 +163,10 @@ export default function GameMap({ game }: Props) {
   const {
     playerPos,
     setPlayerPos,
+    currentMapRef,
+    setCurrentMapRef,
+    playerPositionMapRef,
+    setResolvedMapPosition,
     enemies,
     setEnemies,
     showInteraction,
@@ -184,6 +233,7 @@ export default function GameMap({ game }: Props) {
     automationTask,
     processAutomationAfterBattle,
     cancelAutomation,
+    accountLabel,
   } = game
 
   const dockItems: {
@@ -210,7 +260,11 @@ export default function GameMap({ game }: Props) {
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [tilesetImage, setTilesetImage] = useState<HTMLImageElement | null>(null)
   const [tilesetReady, setTilesetReady] = useState(false)
-  const [availableMaps, setAvailableMaps] = useState<Array<{ id: string; fileName: string }>>([])
+  const [availableMaps, setAvailableMaps] = useState<MapCatalogItem[]>([])
+  const [vs01Progress, setVs01Progress] = useState<Vs01Progress>(EMPTY_VS01_PROGRESS)
+  const vs01ProgressRef = useRef(vs01Progress)
+  vs01ProgressRef.current = vs01Progress
+  const vs01CoreUnlocked = isVs01CoreUnlocked(vs01Progress)
   const orderedAvailableMaps = useMemo(() => {
     const orderIndex = new Map(MAP_DISPLAY_ORDER.map((id, index) => [id, index]))
     return [...availableMaps].sort((a, b) => {
@@ -222,7 +276,20 @@ export default function GameMap({ game }: Props) {
       return getMapDisplayName(a.id).localeCompare(getMapDisplayName(b.id))
     })
   }, [availableMaps])
-  const [selectedMapId, setSelectedMapId] = useState<string>(HOME_DEFAULT_MAP_ID)
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(VS01_PROGRESS_STORAGE_KEY)
+      if (stored) setVs01Progress(normalizeVs01Progress(JSON.parse(stored)))
+    } catch {
+      setVs01Progress({ ...EMPTY_VS01_PROGRESS })
+    }
+  }, [])
+  const savedPlayerPosRef = useRef(playerPos)
+  savedPlayerPosRef.current = playerPos
+  const playerPositionMapRefRef = useRef(playerPositionMapRef)
+  playerPositionMapRefRef.current = playerPositionMapRef
+  const loadedMapPayloadRef = useRef<AirpgMapPayload | null>(null)
   const [mapInfo, setMapInfo] = useState<{
     width: number
     height: number
@@ -381,48 +448,29 @@ export default function GameMap({ game }: Props) {
   const [battlePlayerMaxHp, setBattlePlayerMaxHp] = useState(0)
   const [battleAiDebugStats, setBattleAiDebugStats] = useState<BattleAiDebugStats>(EMPTY_BATTLE_AI_DEBUG_STATS)
 
-  const refreshMapsCatalog = useCallback(async (preferSelectId?: string) => {
+  const refreshMapsCatalog = useCallback(async (preferSelectRef?: string) => {
     try {
       const res = await fetch('/api/maps')
       if (!res.ok) return
       const data = (await res.json()) as {
-        maps: Array<{ id: string; fileName: string }>
+        maps: MapCatalogItem[]
         defaultMapId: string | null
       }
       setAvailableMaps(data.maps)
-      if (preferSelectId) {
-        setSelectedMapId(preferSelectId)
+      if (preferSelectRef && data.maps.some((map) => map.ref === preferSelectRef)) {
+        setCurrentMapRef(preferSelectRef)
       }
     } catch (error) {
       console.warn('refresh maps catalog failed:', error)
     }
-  }, [])
+  }, [setCurrentMapRef])
 
   const reloadCurrentMap = useCallback(async () => {
     try {
-      const res = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
+      const res = await fetch(`/api/airpg-map?map=${encodeURIComponent(currentMapRef)}`)
       if (!res.ok) return
-      const data = (await res.json()) as {
-        width: number
-        height: number
-        backgroundImageUrl?: string | null
-        ground: number[]
-        collision: number[]
-        mapId: string
-        tileset: MapTileset | null
-        playerSpawn: { x: number; y: number }
-        playerVisualId?: MapCharacterVisualId
-        enemies: Array<{
-          id: number
-          name: string
-          x: number
-          y: number
-          level: number
-          profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
-          visualId?: MapCharacterVisualId | null
-          mapSpriteTileIndex?: number
-        }>
-      }
+      const data = (await res.json()) as AirpgMapPayload
+      loadedMapPayloadRef.current = data
       setMapInfo({
         width: data.width,
         height: data.height,
@@ -435,7 +483,7 @@ export default function GameMap({ game }: Props) {
     } catch (e) {
       console.warn('reload current map failed:', e)
     }
-  }, [selectedMapId])
+  }, [currentMapRef])
 
   useEffect(() => {
     if (!showBattle) {
@@ -447,62 +495,18 @@ export default function GameMap({ game }: Props) {
   }, [clearTransientFx, resetCombatFx, showBattle])
 
   useEffect(() => {
-    let active = true
-    const loadCatalog = async () => {
-      try {
-        const res = await fetch('/api/maps')
-        if (!res.ok) return
-        const data = (await res.json()) as {
-          maps: Array<{ id: string; fileName: string }>
-          defaultMapId: string | null
-        }
-        if (!active) return
-        setAvailableMaps(data.maps)
-        if (data.maps.some((map) => map.id === HOME_DEFAULT_MAP_ID)) {
-          setSelectedMapId(HOME_DEFAULT_MAP_ID)
-        } else if (data.defaultMapId) {
-          setSelectedMapId(data.defaultMapId)
-        }
-      } catch (error) {
-        console.warn('load maps catalog failed:', error)
-      }
-    }
-    loadCatalog()
-    return () => {
-      active = false
-    }
-  }, [])
+    void refreshMapsCatalog()
+  }, [accountLabel, refreshMapsCatalog])
 
   useEffect(() => {
     let active = true
     const loadMap = async () => {
       try {
-        const res = await fetch(`/api/airpg-map?map=${encodeURIComponent(selectedMapId)}`)
+        const res = await fetch(`/api/airpg-map?map=${encodeURIComponent(currentMapRef)}`)
         if (!res.ok) return
-        const data = (await res.json()) as {
-          width: number
-          height: number
-          backgroundImageUrl?: string | null
-          ground: number[]
-          collision: number[]
-          mapId: string
-          tileset: MapTileset | null
-          playerSpawn: { x: number; y: number }
-          playerVisualId?: MapCharacterVisualId
-          enemies: Array<{
-            id: number
-            name: string
-            x: number
-            y: number
-            level: number
-            profile?: { maxHp?: number | null; atk?: number | null; def?: number | null; spd?: number | null }
-            enemyType?: 'wild' | 'agent'
-            agentId?: string
-            visualId?: MapCharacterVisualId | null
-            mapSpriteTileIndex?: number
-          }>
-        }
+        const data = (await res.json()) as AirpgMapPayload
         if (!active) return
+        loadedMapPayloadRef.current = data
         setMapInfo({
           width: data.width,
           height: data.height,
@@ -515,36 +519,48 @@ export default function GameMap({ game }: Props) {
         if (data.playerVisualId) {
           setPlayerVisualId(data.playerVisualId)
         }
-        const spawn = snapGridSpawnToWalkable(
-          data.playerSpawn.x,
-          data.playerSpawn.y,
-          data.width,
-          data.height,
-          data.collision,
-          data.ground,
-          data.tileset?.id ?? null,
-        )
-        setPlayerPos(spawn)
-        if (data.enemies.length > 0) {
-          setEnemies(
-            ensureDeepClawAgentEnemy(data.enemies, {
+        const resolvedPosition = resolveInitialMapPosition({
+          selectedRef: currentMapRef,
+          savedRef: playerPositionMapRefRef.current,
+          savedPosition: savedPlayerPosRef.current,
+          spawn: data.playerSpawn,
+          width: data.width,
+          height: data.height,
+          isWalkable: (x, y) => isDemoDungeonCellWalkable({
+            x,
+            y,
+            mapW: data.width,
+            mapH: data.height,
+            collision: data.collision,
+            ground: data.ground,
+            tilesetId: data.tileset?.id ?? null,
+          }),
+        })
+        setResolvedMapPosition(currentMapRef, resolvedPosition)
+        const defeated = new Set(vs01ProgressRef.current.defeatedEnemyIds)
+        const activeEnemies = data.enemies.filter((enemy) => !enemy.templateId || !defeated.has(enemy.templateId))
+        const isVs01Map = currentMapRef === 'builtin:emberwatch-causeway'
+          || currentMapRef === 'builtin:ashen-relay-core'
+        setEnemies(
+          isVs01Map
+            ? activeEnemies
+            : ensureDeepClawAgentEnemy(activeEnemies, {
               width: data.width,
               height: data.height,
               collision: data.collision,
               ground: data.ground,
               tilesetId: data.tileset?.id ?? null,
             }),
-          )
-        }
+        )
       } catch (error) {
         console.warn('load airpg map failed:', error)
       }
     }
-    if (selectedMapId) loadMap()
+    loadMap()
     return () => {
       active = false
     }
-  }, [selectedMapId, setEnemies, setPlayerPos])
+  }, [accountLabel, currentMapRef, setEnemies, setResolvedMapPosition])
 
   useEffect(() => {
     const id = window.setInterval(() => setWalkAnimTick((t) => t + 1), 130)
@@ -821,7 +837,7 @@ export default function GameMap({ game }: Props) {
       mapHeight: mapInfo.height,
       battleTickMs: BASE_BATTLE_TICK_MS,
       isWalkable: isWalkableForBattle,
-      playerName: `Warrior Lv.${playerLevel}`,
+      playerName: `Relay Warden Lv.${playerLevel}`,
       playerGrid: initialPlayerGrid,
       playerStats: totalStats,
       playerHp: playerHP,
@@ -836,7 +852,7 @@ export default function GameMap({ game }: Props) {
         ? pvpOpponentCarriedSkillIds
           .map((id) => getSkillById(id)?.coreSkillId)
           .filter((id): id is string => typeof id === 'string' && id.length > 0)
-        : undefined,
+        : battleEnemy.skillIds,
       battleDecisionMode,
       llmConfig:
         battleDecisionMode === 'dual_llm'
@@ -1020,7 +1036,20 @@ export default function GameMap({ game }: Props) {
         mapHeight: mapInfo.height,
         isWalkable,
         pendingRespawnEnemyIdRef,
-        completeMapBattleVictory,
+        completeMapBattleVictory: (closingLog) => {
+          completeMapBattleVictory(closingLog)
+          const defeatedEnemy = enemiesRef.current.find((enemy) => enemy.id === combatEnemyId)
+          if (!defeatedEnemy?.templateId) return
+          setVs01Progress((previous) => {
+            const next = recordVs01Victory(previous, defeatedEnemy.templateId!)
+            try {
+              window.localStorage.setItem(VS01_PROGRESS_STORAGE_KEY, JSON.stringify(next))
+            } catch {
+              // Runtime progression remains usable for this session if storage is unavailable.
+            }
+            return next
+          })
+        },
         completeMapBattleDefeat,
         finalizeMapBattleFleeSuccess,
         setPlayerFacing,
@@ -1155,11 +1184,21 @@ export default function GameMap({ game }: Props) {
     })
     const id = pendingRespawnEnemyIdRef.current
     if (id !== null) {
-      respawnDefeatedEnemy(id)
+      const defeatedEnemy = enemiesRef.current.find((enemy) => enemy.id === id)
+      if (battleResult === 'win' && defeatedEnemy?.templateId) {
+        setEnemies((previous) => previous.filter((enemy) => enemy.id !== id))
+        setEnemyPositions((previous) => {
+          const next = { ...previous }
+          delete next[id]
+          return next
+        })
+      } else {
+        respawnDefeatedEnemy(id)
+      }
       pendingRespawnEnemyIdRef.current = null
     }
     closeBattle()
-  }, [closeBattle, respawnDefeatedEnemy, setEnemyPositions, setPlayerPos])
+  }, [battleResult, closeBattle, respawnDefeatedEnemy, setEnemies, setEnemyPositions, setPlayerPos])
 
   /** Automation: auto-click Continue when settlement page appears */
   const prevIsGameOverRef = useRef(false)
@@ -1220,7 +1259,7 @@ export default function GameMap({ game }: Props) {
   })
 
   const handlePixellabSync = usePixellabSync({
-    selectedMapId,
+    selectedMapId: currentMapRef,
     mapInfo: {
       width: mapInfo.width,
       height: mapInfo.height,
@@ -1287,8 +1326,11 @@ export default function GameMap({ game }: Props) {
       )}
 
       {/* Top-left player info */}
-      <div className="absolute top-4 left-4 z-20 min-w-48 rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-4 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)]">
-        <div className="mb-3 flex items-start gap-3">
+      <div
+        className="absolute left-2 top-2 z-20 w-[calc(50%-0.75rem)] min-w-0 rounded-xl border-2 border-fuchsia-300/70 bg-gradient-to-br from-pink-100/95 via-violet-100/90 to-sky-100/95 p-2 shadow-[0_10px_24px_-8px_rgba(91,33,182,0.45)] sm:left-4 sm:top-4 sm:w-auto sm:min-w-48 sm:p-4"
+        data-testid="player-status"
+      >
+        <div className="mb-1 flex items-start gap-1 sm:mb-3 sm:gap-3">
           <div
             onClick={() => setShowCharacter(true)}
             className="cursor-pointer transition-opacity hover:opacity-80"
@@ -1298,7 +1340,7 @@ export default function GameMap({ game }: Props) {
               alt="Player"
               width={48}
               height={48}
-              className="h-12 w-12 rounded-lg border border-cyan-300 bg-gradient-to-b from-cyan-50 to-indigo-100 object-contain pixelated"
+              className="h-10 w-10 rounded-lg border border-cyan-300 bg-gradient-to-b from-cyan-50 to-indigo-100 object-contain pixelated sm:h-12 sm:w-12"
             />
           </div>
           <div className="min-w-0 flex-1">
@@ -1358,24 +1400,46 @@ export default function GameMap({ game }: Props) {
         </div>
       </div>
 
-      <div className="absolute top-4 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
+      <div
+        className="absolute right-2 top-2 z-20 w-[calc(50%-0.75rem)] truncate whitespace-nowrap rounded-lg border border-sky-500/40 bg-black/60 px-2 py-2 text-xs text-sky-100 sm:right-4 sm:top-4 sm:w-auto sm:px-3"
+        data-testid="map-status"
+      >
         Map: {getMapDisplayName(mapInfo.mapId)} · {mapInfo.width}x{mapInfo.height} (grid) {tilesetReady ? ' · Sprites' : ' · Fallback render'}
       </div>
-      <div className="absolute top-16 right-4 z-20 rounded-lg border border-sky-500/40 bg-black/60 px-3 py-2 text-xs text-sky-100">
-        <label className="mr-2">Map</label>
+      <div
+        className="absolute left-1/2 top-60 z-20 w-[min(440px,calc(100vw-2rem))] -translate-x-1/2 border border-teal-400/45 bg-[#071312]/90 px-3 py-2 text-center text-xs text-teal-50 shadow-[0_8px_24px_rgba(0,0,0,0.28)] sm:top-4"
+        data-testid="vs01-objective"
+      >
+        <span className="font-semibold text-teal-300">Ember Relay</span>
+        <span className="mx-2 text-teal-700">|</span>
+        {getVs01Objective(vs01Progress)}
+      </div>
+      <div
+        className="absolute right-2 top-12 z-20 w-[calc(50%-0.75rem)] rounded-lg border border-sky-500/40 bg-black/60 px-2 py-2 text-xs text-sky-100 sm:right-4 sm:top-16 sm:w-auto sm:px-3"
+        data-testid="map-selector"
+      >
+        <label className="mr-2 hidden sm:inline">Map</label>
         <select
-          className="rounded bg-slate-900 px-2 py-1 text-xs text-slate-100"
-          value={selectedMapId}
-          onChange={(e) => setSelectedMapId(e.target.value)}
+          aria-label="Select map"
+          className="block w-full min-w-0 rounded bg-slate-900 px-2 py-1 text-xs text-slate-100 sm:inline-block sm:w-auto"
+          value={currentMapRef}
+          onChange={(e) => setCurrentMapRef(e.target.value)}
         >
           {orderedAvailableMaps.map((map) => (
-            <option key={map.id} value={map.id}>
-              {getMapDisplayName(map.id)}
+            <option
+              key={map.ref}
+              value={map.ref}
+              disabled={map.ref === 'builtin:ashen-relay-core' && !vs01CoreUnlocked}
+            >
+              {map.name}{map.ref === 'builtin:ashen-relay-core' && !vs01CoreUnlocked ? ' (Locked)' : ''}
             </option>
           ))}
         </select>
       </div>
-      <div className="absolute top-[7.25rem] right-4 z-20 flex max-w-[min(280px,calc(100vw-2rem))] flex-col items-end gap-1 rounded-lg border border-amber-500/35 bg-black/60 px-3 py-2 text-xs text-amber-100">
+      <div
+        className="absolute right-2 top-24 z-20 flex w-[calc(50%-0.75rem)] flex-col items-stretch gap-1 rounded-lg border border-amber-500/35 bg-black/60 px-2 py-1.5 text-xs text-amber-100 sm:right-4 sm:top-[7.25rem] sm:w-auto sm:max-w-[min(280px,calc(100vw-2rem))] sm:items-end sm:px-3 sm:py-2"
+        data-testid="map-tools"
+      >
         <LocalModeNotice />
         <button
           type="button"
@@ -1386,10 +1450,8 @@ export default function GameMap({ game }: Props) {
         </button>
         <button
           type="button"
-          data-remote-feature="supabase"
-          disabled={LOCAL_WEB_MODE}
           onClick={() => setShowPixellabMapGen(true)}
-          className="rounded bg-sky-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded bg-sky-700/90 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600"
         >
           Generate PixelLab Map
         </button>
@@ -1422,7 +1484,7 @@ export default function GameMap({ game }: Props) {
 
       <CollisionEditorModal
         open={showCollisionEditor}
-        mapId={selectedMapId}
+        mapId={currentMapRef}
         width={mapInfo.width}
         height={mapInfo.height}
         collision={mapInfo.collision}

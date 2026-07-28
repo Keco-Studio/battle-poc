@@ -14,6 +14,8 @@ import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
 import { LOCAL_MODE_ERROR, LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import type { JobCatalogSnapshot } from './jobConfigTypes'
+import { snapshotFromConfigs } from './builtinJobCatalog'
+import { VS01_JOBS } from '@/src/content/generated/vs01/jobs'
 import {
   DEFAULT_POC_JOB_MODULE_ID,
   POC_JOBS_UPDATED_EVENT,
@@ -59,7 +61,7 @@ export function BattleJobsProvider({ children }: { children: ReactNode }) {
       if (LOCAL_WEB_MODE) {
         const local = resetPocJobsRuntimeToBuiltin()
         setModulesState(local.state)
-        setSnapshot(local.snapshot)
+        setSnapshot(snapshotFromConfigs([...VS01_JOBS]))
         setIsHydrating(false)
         return
       }

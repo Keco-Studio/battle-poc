@@ -13,8 +13,6 @@ const remoteUiFiles = [
   'app/components/skills/SkillCatalogSourcesPanel.tsx',
   'app/components/jobs/PocJobConfigPanel.tsx',
   'app/components/gameConfig/PocGameConfigPanel.tsx',
-  'app/components/map-ui/PixellabMapGeneratorModal.tsx',
-  'app/components/GameMap.tsx',
 ]
 
 describe('local-mode remote UI', () => {

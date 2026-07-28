@@ -2,7 +2,6 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from 'react'
-import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import { LocalModeNotice } from '../LocalModeNotice'
 
 type Props = {
@@ -12,7 +11,13 @@ type Props = {
 }
 
 type CreateMapResp =
-  | { ok: true; id: string; fileName: string; publicUrl: string; mapJsonId?: string; mapJsonFileName?: string; imageSize: { width: number; height: number } }
+  | {
+      ok: true
+      mapRef: `user:${string}` | null
+      previewUrl: string
+      persisted: boolean
+      imageSize: { width: number; height: number }
+    }
   | { ok: false; error: string }
 
 export default function PixellabMapGeneratorModal(props: Props) {
@@ -28,7 +33,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
-  const [resultMapJsonId, setResultMapJsonId] = useState<string | null>(null)
+  const [resultMapRef, setResultMapRef] = useState<string | null>(null)
 
   const sizeHint = useMemo(() => {
     const area = width * height
@@ -38,11 +43,10 @@ export default function PixellabMapGeneratorModal(props: Props) {
   if (!open) return null
 
   const generate = async () => {
-    if (LOCAL_WEB_MODE) return
     setBusy(true)
     setError(null)
     setResultUrl(null)
-    setResultMapJsonId(null)
+    setResultMapRef(null)
     try {
       const resp = await fetch('/api/pixellab/create-map', {
         method: 'POST',
@@ -61,11 +65,9 @@ export default function PixellabMapGeneratorModal(props: Props) {
         setError(data.error || 'Generation failed')
         return
       }
-      setResultUrl(data.publicUrl)
-      setResultMapJsonId(typeof data.mapJsonId === 'string' ? data.mapJsonId : null)
-      if (typeof data.mapJsonId === 'string' && data.mapJsonId) {
-        onCreatedMap?.(data.mapJsonId)
-      }
+      setResultUrl(data.previewUrl)
+      setResultMapRef(data.mapRef)
+      if (data.mapRef) onCreatedMap?.(data.mapRef)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -80,7 +82,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
           <div className="min-w-0">
             <div className="truncate text-sm font-bold text-slate-100">PixelLab Generate Map (pixflux)</div>
             <div className="truncate text-[11px] text-slate-400">
-              Generated result will be saved to <span className="font-mono text-slate-300">public/assets/maps/</span>
+              Local mode previews the generated image without uploading it to Supabase
             </div>
           </div>
           <button
@@ -172,8 +174,7 @@ export default function PixellabMapGeneratorModal(props: Props) {
 
             <button
               type="button"
-              data-remote-feature="supabase"
-              disabled={LOCAL_WEB_MODE || busy}
+              disabled={busy}
               onClick={() => void generate()}
               className="mt-1 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -192,12 +193,9 @@ export default function PixellabMapGeneratorModal(props: Props) {
             </div>
             <div className="rounded-xl border border-slate-800 bg-black/35 p-3">
               <div className="mb-2 text-[11px] font-semibold text-slate-300">Generation Result</div>
-              <div className="text-[11px] text-slate-200">
-                publicUrl: <span className="font-mono text-amber-200">{resultUrl}</span>
-              </div>
-              {resultMapJsonId && (
+              {resultMapRef && (
                 <div className="mt-1 text-[11px] text-slate-200">
-                  mapId: <span className="font-mono text-sky-200">{resultMapJsonId}</span> (Written to data/maps, can be selected in map dropdown at top-right)
+                  map: <span className="font-mono text-sky-200">{resultMapRef}</span>
                 </div>
               )}
               <div className="mt-2 flex gap-2">
@@ -227,4 +225,3 @@ export default function PixellabMapGeneratorModal(props: Props) {
     </div>
   )
 }
-

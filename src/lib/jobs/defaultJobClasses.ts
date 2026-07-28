@@ -1,10 +1,11 @@
 /** Built-in job class definitions (default when no Studio module is active). */
 
-export type JobClassId = 'hero' | 'tank' | 'archer' | 'mage' | 'healer' | 'assassin'
+export type JobClassId = 'relay_warden' | 'hero' | 'tank' | 'archer' | 'mage' | 'healer' | 'assassin'
 
 export const JOB_CLASS_IDS: JobClassId[] = ['hero', 'tank', 'archer', 'mage', 'healer', 'assassin']
 
 export const JOB_DISPLAY_NAMES: Record<JobClassId, string> = {
+  relay_warden: 'Relay Warden',
   hero: 'Warrior',
   tank: 'Tank',
   archer: 'Archer',
@@ -14,6 +15,7 @@ export const JOB_DISPLAY_NAMES: Record<JobClassId, string> = {
 }
 
 export const JOB_DESCRIPTIONS: Record<JobClassId, string> = {
+  relay_warden: 'Mid-range signal duelist with pressure, control, shatter, and repair tools.',
   hero: 'Balanced frontline. Balances damage and control, maintains pressure rhythm.',
   tank: 'Heavy armor frontline. Absorbs damage to protect allies, disrupts enemy rhythm.',
   archer: 'Ranged physical DPS. Maintains safe distance for sustained pressure, kites enemies.',
@@ -23,6 +25,7 @@ export const JOB_DESCRIPTIONS: Record<JobClassId, string> = {
 }
 
 export const JOB_PREFERRED_RANGE: Record<JobClassId, 'melee' | 'mid' | 'ranged'> = {
+  relay_warden: 'mid',
   hero: 'melee',
   tank: 'melee',
   archer: 'ranged',
@@ -45,6 +48,17 @@ export const ROLE_STATS: Record<
     hpMult: number
   }
 > = {
+  relay_warden: {
+    hp: 135,
+    atk: 19,
+    def: 7,
+    spd: 6,
+    growthHp: 32,
+    growthAtk: 5.5,
+    growthDef: 2.8,
+    growthSpd: 2.4,
+    hpMult: 5,
+  },
   hero: {
     hp: 120,
     atk: 6,

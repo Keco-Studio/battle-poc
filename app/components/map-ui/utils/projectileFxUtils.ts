@@ -8,6 +8,7 @@ export function buildProjectileFxInput(input: {
   actorPos: GridPos
   targetPos: GridPos
   durationMs: number
+  assetUrl?: string | null
 }): {
   kind: ProjectileKind
   from: 'player' | 'enemy'
@@ -16,8 +17,9 @@ export function buildProjectileFxInput(input: {
   deltaX: number
   deltaY: number
   durationMs: number
+  assetUrl?: string | null
 } {
-  const { kind, from, actorPos, targetPos, durationMs } = input
+  const { kind, from, actorPos, targetPos, durationMs, assetUrl } = input
   return {
     kind,
     from,
@@ -26,5 +28,6 @@ export function buildProjectileFxInput(input: {
     deltaX: targetPos.x - actorPos.x,
     deltaY: targetPos.y - actorPos.y,
     durationMs,
+    assetUrl,
   }
 }

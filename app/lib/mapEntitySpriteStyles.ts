@@ -10,7 +10,10 @@ const CHAR_SHEET_H = 256
 export function mapCharacterIdleStyle(visualId: MapCharacterVisualId, displaySize: number): CSSProperties {
   if (visualId.startsWith('pixellab:')) {
     const slug = visualId.slice('pixellab:'.length)
-    const url = `/assets/characters/${encodeURIComponent(slug)}.png`
+    const generatedSlug = slug.startsWith('vs01-') ? slug.slice('vs01-'.length) : null
+    const url = generatedSlug
+      ? `/assets/generated/vs01/characters/${encodeURIComponent(generatedSlug)}.png`
+      : `/assets/characters/${encodeURIComponent(slug)}.png`
     return {
       width: displaySize,
       height: displaySize,

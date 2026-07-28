@@ -1,4 +1,9 @@
 import type { CSSProperties } from 'react'
+import {
+  DEFAULT_BUILTIN_MAP_ID,
+  DEFAULT_BUILTIN_MAP_REF,
+  parseMapRef,
+} from '@/src/lib/maps/map-reference'
 
 export const ROTATION_KEYS = [
   'north',
@@ -14,7 +19,8 @@ export const ROTATION_KEYS = [
 export type RotationKey = (typeof ROTATION_KEYS)[number]
 
 export const DEFAULT_DIRECTION: RotationKey = 'south'
-export const HOME_DEFAULT_MAP_ID = 'top-down-pixel-art-rpg-battle-arena-map-wide-ope-1777006352683'
+export const HOME_DEFAULT_MAP_ID = DEFAULT_BUILTIN_MAP_ID
+export const HOME_DEFAULT_MAP_REF = DEFAULT_BUILTIN_MAP_REF
 
 const ENEMY_WALK_FRAMES_BY_FACING: Record<RotationKey, number> = {
   north: 8,
@@ -50,14 +56,20 @@ const PIXELLAB_ROW_BY_FACING: Record<RotationKey, number> = {
 }
 
 export const MAP_DISPLAY_ORDER = [
-  HOME_DEFAULT_MAP_ID,
-  'bottom-up-map',
+  HOME_DEFAULT_MAP_REF,
+  'builtin:ashen-relay-core',
+  'builtin:bottom-up-map',
 ]
 
 export function getMapDisplayName(mapId: string): string {
-  if (mapId === HOME_DEFAULT_MAP_ID) return 'Top-down battle arena'
-  if (mapId === 'bottom-up-map') return 'Bottom-up battle arena'
-  return mapId
+  const parsed = parseMapRef(mapId)
+  const displayId = parsed?.id ?? mapId
+  if (displayId === 'emberwatch-causeway' || displayId === 'emberwatch_causeway') return 'Emberwatch Causeway'
+  if (displayId === 'ashen-relay-core' || displayId === 'ashen_relay_core') return 'Ashen Relay Core'
+  if (displayId === HOME_DEFAULT_MAP_ID) return 'Top-down battle arena'
+  if (displayId === 'bottom-up-map') return 'Bottom-up battle arena'
+  if (parsed?.source === 'user') return 'Private map'
+  return displayId
 }
 
 export type PixelLabPackMeta = {

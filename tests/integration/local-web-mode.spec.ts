@@ -18,8 +18,9 @@ test('local Web mode keeps remote UI visible with zero Supabase traffic', async 
   })
 
   await page.goto('/')
-  await page.getByRole('button', { name: 'Import' }).click()
+  await page.getByRole('button', { name: 'Profile' }).click()
   await expect(page.getByTestId('local-mode-notice').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Generate PixelLab Map' })).toBeEnabled()
   await expect(page.locator('[data-remote-feature="supabase"]').first()).toBeDisabled()
 
   await page.reload()

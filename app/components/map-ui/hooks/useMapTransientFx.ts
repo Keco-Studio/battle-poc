@@ -25,6 +25,7 @@ export type MapProjectileFx = {
   deltaX: number
   deltaY: number
   durationMs: number
+  assetUrl?: string | null
 }
 
 export type MapImpactFx = {

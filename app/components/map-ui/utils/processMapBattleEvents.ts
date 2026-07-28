@@ -35,7 +35,7 @@ type ProcessParams = {
   ) => void
   setPlayerFacing: Dispatch<SetStateAction<any>>
   setEnemyFacings: Dispatch<SetStateAction<Record<number, any>>>
-  resolveSkillFxProfile: (input: { action: string; skillId: string; actorRole: 'player' | 'enemy' }) => { projectileKind: any; durationMs: number }
+  resolveSkillFxProfile: (input: { action: string; skillId: string; actorRole: 'player' | 'enemy' }) => { projectileKind: any; durationMs: number; assetUrl?: string | null }
   pushProjectileFx: (item: any) => void
   setBattleLog: Dispatch<SetStateAction<string[]>>
   getAvailableSkills: () => Skill[]
@@ -132,6 +132,7 @@ export function processMapBattleEvents(params: ProcessParams): void {
               actorPos,
               targetPos,
               durationMs: fxProfile.durationMs,
+              assetUrl: fxProfile.assetUrl,
             }),
           )
           if (commandId) projectileTargetStoreRef.current[commandId] = { target: targetRole }
