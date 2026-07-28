@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createServerSupabase } from '@/src/lib/supabase/server'
+import { requireServerUser } from '@/src/lib/auth/require-server-user'
 import { callOpenClawHooks } from '@/src/server/openclawHooks'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { localModeUnavailable } from '@/src/lib/runtime/localModeResponse'
 
 type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -433,6 +436,7 @@ export async function GET() {
       })
     }
     if (mode === 'supabase_openclaw') {
+      if (LOCAL_WEB_MODE) return localModeUnavailable('supabase_openclaw')
       try {
         const accessToken = await getUserAccessToken()
         const p = await callSupabaseFunction<{ ok?: boolean; error?: string }>('openclaw_health', accessToken, {}, 7000)
@@ -472,6 +476,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!LOCAL_WEB_MODE) {
+    const supabase = await createServerSupabase()
+    const auth = await requireServerUser(supabase)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+  }
+
   try {
     const raw = (await request.json()) as ChatRequestBody
     const target: 'system' | 'enemy' = raw.target === 'enemy' ? 'enemy' : 'system'
@@ -486,6 +498,9 @@ export async function POST(request: Request) {
     }
 
     const mode = resolveMode()
+    if (LOCAL_WEB_MODE && mode === 'supabase_openclaw') {
+      return localModeUnavailable('supabase_openclaw')
+    }
     const wantsStream = Boolean(raw.stream)
 
     if (wantsStream && mode === 'deepseek') {
@@ -543,4 +558,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

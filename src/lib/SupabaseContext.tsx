@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getOrCreateBrowserSupabaseClient } from './supabase/client'
+import { getOrCreateBrowserSupabaseClient } from './supabase/browserClient'
+import { LOCAL_WEB_MODE } from './runtime/localWebMode'
 
 function readSupabaseEnv(): { url: string; anonKey: string } | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,13 +14,16 @@ function readSupabaseEnv(): { url: string; anonKey: string } | null {
 
 /** True when Supabase env vars are set (guest mode still works when false). */
 export function isBattleSupabaseConfigured(): boolean {
-  return readSupabaseEnv() !== null
+  return !LOCAL_WEB_MODE && readSupabaseEnv() !== null
 }
 
 const SupabaseContext = createContext<SupabaseClient | null>(null)
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
-  const client = useMemo(() => getOrCreateBrowserSupabaseClient(), [])
+  const client = useMemo(
+    () => (LOCAL_WEB_MODE ? null : getOrCreateBrowserSupabaseClient()),
+    [],
+  )
 
   return <SupabaseContext.Provider value={client}>{children}</SupabaseContext.Provider>
 }

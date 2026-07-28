@@ -5,13 +5,16 @@ import type { BattleHistoryInsert, BattleHistoryRow } from './types'
 /**
  * Fetch the most recent N battle records for the current user.
  */
-export async function fetchBattleHistory(limit = 50): Promise<BattleHistoryRow[]> {
+export async function fetchBattleHistory(limit = 50, expectedUserId?: string): Promise<BattleHistoryRow[]> {
   const supabase = requireSupabaseClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from('battle_history')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit)
+
+  if (expectedUserId) query = query.eq('user_id', expectedUserId)
+  const { data, error } = await query
 
   if (error) throw error
   return data ?? []

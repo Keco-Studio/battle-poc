@@ -2,14 +2,15 @@ import { requireSupabaseClient } from '../supabase/client'
 import { getAuthUserId } from '../supabase/auth-user-id'
 import type { PlayerSaveRow, PlayerSaveUpdate } from './types'
 import { pushDataFlowTrace } from '../debug/data-flow-trace'
+import type { CloudSaveWriteResult } from './cloud-save-coordinator'
 
 /**
  * Load the current user's save. Returns null if not found.
  */
-export async function loadPlayerSave(): Promise<PlayerSaveRow | null> {
+export async function loadPlayerSave(expectedUserId?: string): Promise<PlayerSaveRow | null> {
   const supabase = requireSupabaseClient()
   pushDataFlowTrace('loadPlayerSave', 'start')
-  const userId = await getAuthUserId(supabase)
+  const userId = expectedUserId ?? await getAuthUserId(supabase)
   if (!userId) {
     pushDataFlowTrace('loadPlayerSave', 'success', 'Not authenticated')
     return null
@@ -56,6 +57,41 @@ export async function savePlayerSave(update: PlayerSaveUpdate): Promise<void> {
     throw error
   }
   pushDataFlowTrace('savePlayerSave', 'success')
+}
+
+/**
+ * Persist a complete snapshot only when the caller still owns the loaded revision.
+ * Returning `conflict` is intentional: callers must hydrate again instead of
+ * overwriting a newer save produced by another tab or device.
+ */
+export async function savePlayerSaveAtRevision(
+  userId: string,
+  update: PlayerSaveUpdate,
+  expectedRevision: number,
+): Promise<CloudSaveWriteResult> {
+  const supabase = requireSupabaseClient()
+  pushDataFlowTrace('savePlayerSaveAtRevision', 'start', `revision=${expectedRevision}`)
+
+  const { data, error } = await supabase
+    .from('player_saves')
+    .update({ ...update, save_revision: expectedRevision + 1 })
+    .eq('user_id', userId)
+    .eq('save_revision', expectedRevision)
+    .select('save_revision')
+    .maybeSingle()
+
+  if (error) {
+    pushDataFlowTrace('savePlayerSaveAtRevision', 'error', error.message)
+    throw error
+  }
+  if (!data) {
+    pushDataFlowTrace('savePlayerSaveAtRevision', 'error', 'save_conflict')
+    return { applied: false, reason: 'conflict' }
+  }
+
+  const revision = Number(data.save_revision)
+  pushDataFlowTrace('savePlayerSaveAtRevision', 'success', `revision=${revision}`)
+  return { applied: true, revision }
 }
 
 /**

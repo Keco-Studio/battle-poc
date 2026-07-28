@@ -92,6 +92,12 @@ export interface PlayerSaveRow {
   equipped_shoes: EquippedItem | null
   inventory: InventoryItem[]
   carried_skill_ids: string[]
+  current_map_ref: string
+  save_revision: number
+  combat_max_hp: number | null
+  combat_atk: number | null
+  combat_def: number | null
+  combat_spd: number | null
   created_at: string
   updated_at: string
 }
@@ -188,6 +194,28 @@ export interface SimulationSkillDraftsRow {
   updated_at: string
 }
 
+export interface UserMapRow {
+  id: string
+  owner_id: string
+  name: string
+  map_data: Json
+  background_object_path: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PvpOpponentRow {
+  user_id: string
+  character_name: string
+  level: number
+  job_class_id: string | null
+  combat_max_hp: number | null
+  combat_atk: number | null
+  combat_def: number | null
+  combat_spd: number | null
+  carried_skill_ids: string[]
+}
+
 // ─────────────────────────────────────────────
 // Supabase Database generic type (for typed client)
 // ─────────────────────────────────────────────
@@ -209,6 +237,20 @@ export interface Database {
           drafts?: Json
           updated_at?: string
         }
+        Relationships: []
+      }
+      user_maps: {
+        Row: UserMapRow
+        Insert: {
+          id?: string
+          owner_id: string
+          name: string
+          map_data: Json
+          background_object_path?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Pick<UserMapRow, 'name' | 'map_data' | 'background_object_path' | 'updated_at'>>
         Relationships: []
       }
       skills: {
@@ -255,6 +297,11 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      list_pvp_opponents: {
+        Args: { p_limit?: number }
+        Returns: PvpOpponentRow[]
+      }
+    }
   }
 }

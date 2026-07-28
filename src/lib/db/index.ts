@@ -1,4 +1,5 @@
 export * from './types'
 export * from './player-saves'
+export * from './cloud-save-coordinator'
 export * from './battle-history'
 export * from './game-data'

@@ -1,9 +1,15 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 
 const AUTH_CHECK_TIMEOUT_MS = 8000
 
 export async function middleware(request: NextRequest) {
+  if (LOCAL_WEB_MODE) {
+    // The legacy Supabase session-refresh implementation below is retained but inactive.
+    return NextResponse.next()
+  }
+
   const response = NextResponse.next({
     request: {
       headers: request.headers,

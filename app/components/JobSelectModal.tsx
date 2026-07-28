@@ -9,6 +9,7 @@ import { useBattleJobs } from '@/src/lib/jobs/BattleJobsProvider'
 import JobClassHoverDetail from './JobClassHoverDetail'
 
 const JOB_ICONS: Record<string, string> = {
+  relay_warden: 'R',
   hero: '⚔️',
   tank: '🛡️',
   archer: '🏹',

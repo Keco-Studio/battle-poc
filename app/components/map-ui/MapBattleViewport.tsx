@@ -146,13 +146,21 @@ export default function MapBattleViewport(props: Props) {
                 )
               })()}
               <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] text-amber-100/95 bg-black/75 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[8rem] truncate">
-                {enemy.name} Lv.{enemyLevelRangeMin}~{enemyLevelRangeMax}
+                {enemy.name} {Number.isFinite(enemy.level) && enemy.level > 0
+                  ? `Lv.${enemy.level}`
+                  : `Lv.${enemyLevelRangeMin}~${enemyLevelRangeMax}`}
               </div>
             </div>
           )
         })}
 
-        <div className="absolute pointer-events-none z-30" style={{ left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%', top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%', transform: mounted ? 'translate(-50%, -50%)' : undefined, transitionProperty: 'left, top', transitionDuration: showBattle ? '300ms' : '120ms', transitionTimingFunction: showBattle ? 'linear' : 'ease-out', willChange: 'left, top' }}>
+        <div
+          className="absolute pointer-events-none z-30"
+          data-testid="player-grid-position"
+          data-grid-x={String(playerPos.x)}
+          data-grid-y={String(playerPos.y)}
+          style={{ left: mounted ? `${gridToScreen(playerPos.x, playerPos.y).x}px` : '15%', top: mounted ? `${gridToScreen(playerPos.x, playerPos.y).y}px` : '80%', transform: mounted ? 'translate(-50%, -50%)' : undefined, transitionProperty: 'left, top', transitionDuration: showBattle ? '300ms' : '120ms', transitionTimingFunction: showBattle ? 'linear' : 'ease-out', willChange: 'left, top' }}
+        >
           {showBattle && (
             <div className="absolute -top-10 left-1/2 w-14 -translate-x-1/2">
               <div className="mb-0.5 text-center font-arcade text-[8px] text-emerald-200">HP</div>
@@ -192,8 +200,8 @@ export default function MapBattleViewport(props: Props) {
               const dx = end.x - start.x
               const dy = end.y - start.y
               const angle = Math.atan2(dy, dx)
-              const projectileClass = fx.kind === 'arrow' ? 'oc-projectile-arrow' : fx.kind === 'fireball' ? 'oc-projectile-fireball' : fx.kind === 'arcane_bolt' ? 'oc-projectile-arcane' : fx.kind === 'frost' ? 'oc-projectile-frost' : fx.kind === 'slash' ? 'oc-projectile-slash' : fx.kind === 'support' ? 'oc-projectile-support' : 'oc-projectile-generic'
-              return <span key={fx.id} className={`oc-projectile ${projectileClass}`} style={{ left: start.x, top: start.y, ['--proj-dx' as string]: `${dx}px`, ['--proj-dy' as string]: `${dy}px`, ['--proj-rot' as string]: `${angle}rad`, animationDuration: `${fx.durationMs}ms` }} />
+              const projectileClass = fx.assetUrl ? 'oc-projectile-generated' : fx.kind === 'arrow' ? 'oc-projectile-arrow' : fx.kind === 'fireball' ? 'oc-projectile-fireball' : fx.kind === 'arcane_bolt' ? 'oc-projectile-arcane' : fx.kind === 'frost' ? 'oc-projectile-frost' : fx.kind === 'slash' ? 'oc-projectile-slash' : fx.kind === 'support' ? 'oc-projectile-support' : 'oc-projectile-generic'
+              return <span key={fx.id} className={`oc-projectile ${projectileClass}`} style={{ left: start.x, top: start.y, backgroundImage: fx.assetUrl ? `url("${fx.assetUrl}")` : undefined, ['--proj-dx' as string]: `${dx}px`, ['--proj-dy' as string]: `${dy}px`, ['--proj-rot' as string]: `${angle}rad`, animationDuration: `${fx.durationMs}ms` }} />
             })}
             {impactFx.map((fx) => {
               const p = gridToScreen(fx.x, fx.y)

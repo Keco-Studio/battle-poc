@@ -1,5 +1,7 @@
 import { BattleSkillDefinition } from '../../domain/types/skill-types'
 import { getRoleSkillLoadout as getRoleSkillLoadoutFromGameConfig } from '@/src/lib/gameConfig/gameConfigRegistry'
+import { GENERATED_BATTLE_SKILLS } from '@/src/content/generated/skills'
+import { resolveGeneratedContent } from '@/src/content/generated/resolveGeneratedContent'
 
 const SKILL_COOLDOWN_MULTIPLIER = 10
 
@@ -541,7 +543,15 @@ function withScaledCooldown(skill: BattleSkillDefinition): BattleSkillDefinition
   }
 }
 
-const SKILL_MAP = new Map(SKILLS.map((skill) => {
+const ACTIVE_SKILLS = (() => {
+  const merged = new Map(SKILLS.map((skill) => [skill.id, skill]))
+  for (const skill of resolveGeneratedContent(GENERATED_BATTLE_SKILLS, () => [])) {
+    merged.set(skill.id, skill)
+  }
+  return [...merged.values()]
+})()
+
+const SKILL_MAP = new Map(ACTIVE_SKILLS.map((skill) => {
   const scaled = withScaledCooldown(skill)
   return [scaled.id, scaled] as const
 }))
@@ -580,12 +590,12 @@ export function getAllBattleSkillDefinitions(): BattleSkillDefinition[] {
 
 /** Raw built-in catalog entries (pre engine cooldown scaling). */
 export function getBuiltinBattleSkillDefinitions(): BattleSkillDefinition[] {
-  return SKILLS.map((skill) => ({ ...skill }))
+  return ACTIVE_SKILLS.map((skill) => ({ ...skill }))
 }
 
 export function resetSkillCatalogToBuiltin(): void {
   SKILL_MAP.clear()
-  for (const skill of SKILLS) {
+  for (const skill of ACTIVE_SKILLS) {
     const scaled = withScaledCooldown({ ...skill })
     SKILL_MAP.set(scaled.id, scaled)
   }

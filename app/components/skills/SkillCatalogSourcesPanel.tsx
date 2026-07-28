@@ -18,8 +18,10 @@ import {
   draftImportDisplayId,
 } from '@/src/lib/skills/pocSkillDrafts'
 import { listSelectableStudioTables } from '@/src/lib/skills/studioSkillPicker'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import { ImportSkillByIdBlock } from './ImportSkillByIdBlock'
 import { SkillSourceSelect } from './SkillSourceSelect'
+import { LocalModeNotice } from '../LocalModeNotice'
 import styles from './SkillSourcePanel.module.css'
 
 type Props = {
@@ -110,6 +112,7 @@ export function SkillCatalogSourcesPanel({ embedded = false }: Props) {
 
   return (
     <div className={shellClass}>
+      <LocalModeNotice />
       <div>
         <div className={styles.sectionTitle}>Active catalog</div>
         <p className={styles.sectionHint}>
@@ -126,14 +129,14 @@ export function SkillCatalogSourcesPanel({ embedded = false }: Props) {
         )}
       </div>
 
-      {!supabaseReady ? (
+      {!supabaseReady && (
         <p className={styles.warnLine}>
           Sign in with the same account as Keco Studio to import skills.
         </p>
-      ) : (
-        <div className="space-y-3">
+      )}
+      <div className="space-y-3">
           <ImportSkillByIdBlock
-            disabled={validating}
+            disabled={LOCAL_WEB_MODE || validating}
             tables={studioTables}
             tablesLoading={tablesLoading}
             supabaseReady={supabaseReady}
@@ -148,8 +151,9 @@ export function SkillCatalogSourcesPanel({ embedded = false }: Props) {
               <span className={styles.sectionTitle}>Pending drafts ({drafts.length})</span>
               <button
                 type="button"
+                data-remote-feature="supabase"
                 onClick={() => void handleValidateApply()}
-                disabled={validating || drafts.length === 0 || isHydrating}
+                disabled={LOCAL_WEB_MODE || validating || drafts.length === 0 || isHydrating}
                 className={styles.applyBtn}
               >
                 <CheckCircle size={12} />
@@ -179,8 +183,7 @@ export function SkillCatalogSourcesPanel({ embedded = false }: Props) {
               </ul>
             )}
           </div>
-        </div>
-      )}
+      </div>
 
       {(hydrateError || importError) && (
         <p className={styles.errorLine}>{importError ?? hydrateError}</p>

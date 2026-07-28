@@ -18,6 +18,8 @@ on:
 
 jobs:
   migrate-database:
+    # Legacy workflow retained for history. battle-poc must not mutate shared Supabase projects.
+    if: ${{ false }}
     runs-on: ubuntu-latest
 
     steps:

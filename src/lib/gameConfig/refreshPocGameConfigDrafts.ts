@@ -31,8 +31,23 @@ export async function refreshPocGameConfigDraftsFromLiveTables(
   drafts: PocGameConfigDraft[],
   loadTable: StudioTableLoader = loadStudioTableRows,
 ): Promise<{ drafts: PocGameConfigDraft[] }> {
-  const rowCache = new Map<string, StudioTableRow[]>()
+  const rowCache = new Map<string, { rows: StudioTableRow[]; unavailable: boolean }>()
   const next: PocGameConfigDraft[] = []
+
+  if (supabase) {
+    const tableIds = [...new Set(drafts.map(anchorTableId).filter((id): id is string => Boolean(id)))]
+    const loadedTables = await Promise.all(
+      tableIds.map(async (tableId) => {
+        try {
+          const loaded = await loadTable(supabase, tableId)
+          return [tableId, { rows: loaded?.rows ?? [], unavailable: false }] as const
+        } catch {
+          return [tableId, { rows: [] as StudioTableRow[], unavailable: true }] as const
+        }
+      }),
+    )
+    for (const [tableId, result] of loadedTables) rowCache.set(tableId, result)
+  }
 
   for (const draft of drafts) {
     const tableId = anchorTableId(draft)
@@ -45,20 +60,12 @@ export async function refreshPocGameConfigDraftsFromLiveTables(
       continue
     }
 
-    let rows = rowCache.get(tableId)
-    if (!rows) {
-      let loaded: { columns: unknown[]; rows: StudioTableRow[] } | null
-      try {
-        loaded = await loadTable(supabase, tableId)
-      } catch {
-        rows = []
-        rowCache.set(tableId, rows)
-        next.push({ ...draft, invalidReason: 'Source table unavailable; rebind this draft before applying.' })
-        continue
-      }
-      rows = loaded?.rows ?? []
-      rowCache.set(tableId, rows)
+    const loaded = rowCache.get(tableId)
+    if (!loaded || loaded.unavailable) {
+      next.push({ ...draft, invalidReason: 'Source table unavailable; rebind this draft before applying.' })
+      continue
     }
+    const rows = loaded.rows
 
     const idRef = draft.fields.id
     const duplicateIds = idRef?.columnKey

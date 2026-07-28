@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "projectRef": "lulrcirmwwvvnupmwqcq",
+  "ownerId": "33b7f9c6-7310-4100-b51d-fff916e38ab2",
+  "ownerSaveRows": 1,
+  "ownerRead": true,
+  "ownerUpdate": true,
+  "pvpVisibleRows": 53,
+  "historyInsertReadCleanup": true,
+  "authUsers": 53,
+  "playerSaves": 53,
+  "catalogs": {
+    "skills": 47,
+    "jobClasses": 6,
+    "jobClassSkills": 52,
+    "enemyTemplates": 5,
+    "mapEnemies": 13
+  },
+  "pgrst205": false,
+  "verifiedAt": "2026-07-27T15:38:44.730Z"
+}

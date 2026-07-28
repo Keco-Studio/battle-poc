@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
+import { LOCAL_MODE_ERROR, LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import type { Skill } from '@/app/constants'
 import { setAllSkills } from '@/app/constants'
 import {
@@ -85,6 +86,14 @@ export function BattleSkillsProvider({ children }: { children: ReactNode }) {
     setIsHydrating(true)
     setHydrateError(null)
     try {
+      if (LOCAL_WEB_MODE) {
+        const local = resetPocSkillsRuntimeToBuiltin()
+        setModulesState(local.state)
+        applyRuntime(local)
+        setIsHydrating(false)
+        return
+      }
+      // Legacy Supabase import path retained for deliberate future restoration.
       const client = supabase && isAuthenticated ? supabase : null
       if (!client) {
         const cleared = await hydratePocSkills(null, { includeSimulationSync: false })
@@ -133,15 +142,28 @@ export function BattleSkillsProvider({ children }: { children: ReactNode }) {
   )
 
   const applySkillDrafts = useCallback(async () => {
+    if (LOCAL_WEB_MODE) {
+      return { skills, errors: [LOCAL_MODE_ERROR] }
+    }
+    // Legacy Supabase import path retained for deliberate future restoration.
     const client = supabase && isAuthenticated ? supabase : null
     const { state, skills: next, baseSkills: nextBase, simulationSyncSkills: nextSim, errors } =
       await applyPocSkillDrafts(client)
     setModulesState(state)
     applyRuntime({ skills: next, baseSkills: nextBase, simulationSyncSkills: nextSim })
     return { skills: next, errors }
-  }, [supabase, isAuthenticated, applyRuntime])
+  }, [supabase, isAuthenticated, skills, applyRuntime])
 
   const syncSimulationSkills = useCallback(async () => {
+    if (LOCAL_WEB_MODE) {
+      return {
+        skills,
+        errors: [LOCAL_MODE_ERROR],
+        warnings: [],
+        syncedCount: 0,
+      }
+    }
+    // Legacy Supabase import path retained for deliberate future restoration.
     if (!supabase || !isAuthenticated || !userProfile?.id) {
       return {
         skills,

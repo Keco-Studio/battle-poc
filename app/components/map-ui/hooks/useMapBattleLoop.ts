@@ -58,7 +58,7 @@ export function useMapBattleLoop(params: {
   commandMetaByIdRef: React.MutableRefObject<Record<string, any>>
   projectileTargetByCommandRef: React.MutableRefObject<Record<string, { target: 'player' | 'enemy' }>>
   triggerCombatFx: (role: 'player' | 'enemy', anim: 'idle' | 'attack' | 'cast' | 'hit', enemyId: number | null, opts?: any) => void
-  resolveSkillFxProfile: (input: { action: string; skillId: string; actorRole: 'player' | 'enemy' }) => { projectileKind: any; durationMs: number }
+  resolveSkillFxProfile: (input: { action: string; skillId: string; actorRole: 'player' | 'enemy' }) => { projectileKind: any; durationMs: number; assetUrl?: string | null }
   pushProjectileFx: (item: any) => void
   pushFloatText: (item: any) => void
   pushImpactFx: (item: any) => void

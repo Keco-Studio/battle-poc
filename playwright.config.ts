@@ -7,6 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '.env.local'), override: true });
 
 export default defineConfig({
   testDir: './tests/integration',
+  outputDir: 'test-results/playwright',
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3002',

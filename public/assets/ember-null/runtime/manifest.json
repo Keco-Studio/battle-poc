@@ -1,0 +1,107 @@
+{
+  "version": "ember-null-v1",
+  "style": "High-contrast 2D hand-painted action-game art with crisp cel-shaded surfaces and subtle mineral texture. Shapes use sharp geometric silhouettes, broken circular motifs, and clean edges without cartoon outlines. Environments are near-black volcanic metal with cyan relay circuitry; the hero uses pale ceramic armor, enemies use charcoal bodies, and hazards signal in magenta and molten orange. Lighting is dramatic and nocturnal with restrained bloom. Maintain strong foreground separation, instantly readable effects, and one consistent three-quarter top-down perspective.",
+  "generatedAt": "2026-07-28T12:01:18.032Z",
+  "assets": [
+    {
+      "id": "hero-run-sheet",
+      "fileName": "hero-run-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "hero-dash-sheet",
+      "fileName": "hero-dash-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "hero-cast-sheet",
+      "fileName": "hero-cast-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "cinder-idle-sheet",
+      "fileName": "cinder-idle-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "cinder-attack-sheet",
+      "fileName": "cinder-attack-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "husk-walk-sheet",
+      "fileName": "husk-walk-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "husk-charge-sheet",
+      "fileName": "husk-charge-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "revenant-glide-sheet",
+      "fileName": "revenant-glide-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "revenant-cast-sheet",
+      "fileName": "revenant-cast-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "boss-idle-sheet",
+      "fileName": "boss-idle-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "boss-summon-sheet",
+      "fileName": "boss-summon-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "boss-slam-sheet",
+      "fileName": "boss-slam-sheet.png",
+      "reused": true
+    },
+    {
+      "id": "iron-husk-idle",
+      "fileName": "iron-husk-idle.png",
+      "reused": true
+    },
+    {
+      "id": "frost-revenant-idle",
+      "fileName": "frost-revenant-idle.png",
+      "reused": true
+    },
+    {
+      "id": "null-custodian-idle",
+      "fileName": "null-custodian-idle.png",
+      "reused": true
+    },
+    {
+      "id": "relay-bolt-fx",
+      "fileName": "relay-bolt-fx.png",
+      "reused": true
+    },
+    {
+      "id": "cinder-chain-fx",
+      "fileName": "cinder-chain-fx.png",
+      "reused": true
+    },
+    {
+      "id": "frost-break-fx",
+      "fileName": "frost-break-fx.png",
+      "reused": true
+    },
+    {
+      "id": "overload-crown-fx",
+      "fileName": "overload-crown-fx.png",
+      "reused": true
+    },
+    {
+      "id": "skill-sigil-sheet",
+      "fileName": "skill-sigil-sheet.png",
+      "reused": true
+    }
+  ]
+}

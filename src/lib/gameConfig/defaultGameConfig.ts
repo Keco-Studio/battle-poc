@@ -1,5 +1,7 @@
 import type { EquipmentType, Skill } from '@/app/constants'
 import type { GameConfigBundle } from './gameConfigTypes'
+import { GENERATED_GAME_CONFIG } from '@/src/content/generated/game-config'
+import { resolveGeneratedContent } from '@/src/content/generated/resolveGeneratedContent'
 
 const DEFAULT_BASIC_ATTACK: Skill = {
   id: 'basic_attack',
@@ -81,7 +83,7 @@ const DEFAULT_ROLE_LOADOUTS: Record<string, string[]> = {
   ],
 }
 
-export function createDefaultGameConfigBundle(): GameConfigBundle {
+function createBuiltInGameConfigBundle(): GameConfigBundle {
   return {
     equipment: JSON.parse(JSON.stringify(DEFAULT_EQUIPMENT)),
     basicAttack: { ...DEFAULT_BASIC_ATTACK },
@@ -104,6 +106,11 @@ export function createDefaultGameConfigBundle(): GameConfigBundle {
     },
     roleLoadouts: JSON.parse(JSON.stringify(DEFAULT_ROLE_LOADOUTS)),
   }
+}
+
+export function createDefaultGameConfigBundle(): GameConfigBundle {
+  const bundle = resolveGeneratedContent(GENERATED_GAME_CONFIG, createBuiltInGameConfigBundle)
+  return JSON.parse(JSON.stringify(bundle)) as GameConfigBundle
 }
 
 export function isEquipmentType(id: string): id is EquipmentType {

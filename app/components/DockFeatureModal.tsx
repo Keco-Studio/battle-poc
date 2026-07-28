@@ -26,6 +26,8 @@ import { formatProfileSessionLabel, getProfileAuthViewState } from '@/src/lib/au
 import { defaultDisplayNameFromEmail, isValidEmailFormat } from '@/src/lib/auth/email-format'
 import { formatPasswordGrantAuthError } from '@/src/lib/auth/format-password-auth-error'
 import { startGoogleOAuth } from '@/src/lib/auth/google-oauth'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { LocalModeNotice } from './LocalModeNotice'
 
 const CACHE_TTL_MS = 300 * 1000
 const PVP_CACHE_KEY = 'battle:pvp-users-cache'
@@ -239,6 +241,7 @@ export default function DockFeatureModal({ game }: Props) {
   )
 
   const refreshOpenclawHealth = useCallback(async () => {
+    if (LOCAL_WEB_MODE) return
     if (!supabase) return
     try {
       const {
@@ -282,6 +285,7 @@ export default function DockFeatureModal({ game }: Props) {
   }, [dockPanel])
 
   const handleGoogleLogin = useCallback(async () => {
+    if (LOCAL_WEB_MODE) return
     if (!supabase || googleAuthLoading || authSubmitLoading) return
 
     setAuthError(null)
@@ -323,6 +327,12 @@ export default function DockFeatureModal({ game }: Props) {
 
   useEffect(() => {
     if (dockPanel !== 'battle_system') return
+    if (LOCAL_WEB_MODE) {
+      setPvpUsers([])
+      setPvpError(null)
+      setPvpLoading(false)
+      return
+    }
     if (!supabase) {
       setPvpUsers([])
       setPvpError('Supabase is not configured')
@@ -526,6 +536,7 @@ export default function DockFeatureModal({ game }: Props) {
 
             {dockPanel === 'battle_system' && (
               <div className="flex flex-col gap-3">
+                <LocalModeNotice />
                 <div className="flex items-center gap-2">
                   <Sparkles size={14} className="text-orange-500 shrink-0" />
                   <span className="text-[13px] font-bold text-slate-900">Search PVP Opponent</span>
@@ -534,6 +545,8 @@ export default function DockFeatureModal({ game }: Props) {
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
+                    data-remote-feature="supabase"
+                    disabled={LOCAL_WEB_MODE}
                     value={pvpSearchQuery}
                     onChange={(e) => setPvpSearchQuery(e.target.value)}
                     placeholder="Search username..."
@@ -557,6 +570,8 @@ export default function DockFeatureModal({ game }: Props) {
                         <button
                           key={user.id}
                           type="button"
+                          data-remote-feature="supabase"
+                          disabled={LOCAL_WEB_MODE}
                           onClick={() => {
                             game.startPVPBattle(user)
                             closeDockPanel()
@@ -600,6 +615,9 @@ export default function DockFeatureModal({ game }: Props) {
               <div className="flex flex-col items-center">
                 <div className="oc-rainbow-border w-full max-w-[340px] p-5">
                   <div className="mb-3 text-center">
+                    <LocalModeNotice />
+                  </div>
+                  <div className="mb-3 text-center">
                     <div className="mb-1 flex items-center justify-center gap-1 text-[15px] font-bold text-slate-900">
                       <Sparkles size={14} className="text-orange-500" />
                       Battle Arena
@@ -612,7 +630,7 @@ export default function DockFeatureModal({ game }: Props) {
                     </div>
                   </div>
 
-                  {profileAuthViewState === 'guest-mode' ? (
+                  {profileAuthViewState === 'guest-mode' && !LOCAL_WEB_MODE ? (
                     <>
                       <p className="mb-4 text-center text-[12px] leading-relaxed text-slate-600">
                         Configure Supabase to enable email sign-up/login; saves still prioritize browser local storage.
@@ -637,7 +655,8 @@ export default function DockFeatureModal({ game }: Props) {
                       </p>
                       <button
                         type="button"
-                        disabled={signOutLoading}
+                        data-remote-feature="supabase"
+                        disabled={LOCAL_WEB_MODE || signOutLoading}
                         onClick={async () => {
                           setAuthError(null)
                           setSignOutLoading(true)
@@ -734,7 +753,8 @@ export default function DockFeatureModal({ game }: Props) {
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            disabled={openclawLoading || !openclawGatewayUrl.trim() || !openclawToken.trim()}
+                            data-remote-feature="supabase"
+                            disabled={LOCAL_WEB_MODE || openclawLoading || !openclawGatewayUrl.trim() || !openclawToken.trim()}
                             onClick={async () => {
                               setOpenclawLoading(true)
                               try {
@@ -759,7 +779,8 @@ export default function DockFeatureModal({ game }: Props) {
                           </button>
                           <button
                             type="button"
-                            disabled={openclawLoading}
+                            data-remote-feature="supabase"
+                            disabled={LOCAL_WEB_MODE || openclawLoading}
                             onClick={async () => {
                               setOpenclawLoading(true)
                               try {
@@ -815,8 +836,9 @@ export default function DockFeatureModal({ game }: Props) {
                         <>
                           <button
                             type="button"
+                            data-remote-feature="supabase"
                             onClick={() => void handleGoogleLogin()}
-                            disabled={googleAuthLoading || authSubmitLoading}
+                            disabled={LOCAL_WEB_MODE || googleAuthLoading || authSubmitLoading}
                             className="mb-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-[12px] font-bold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <GoogleMark />
@@ -901,7 +923,8 @@ export default function DockFeatureModal({ game }: Props) {
 
                       <button
                         type="button"
-                        disabled={authSubmitLoading || googleAuthLoading}
+                        data-remote-feature="supabase"
+                        disabled={LOCAL_WEB_MODE || authSubmitLoading || googleAuthLoading}
                         onClick={async () => {
                           setAuthError(null)
                           const email = loginAccount.trim()

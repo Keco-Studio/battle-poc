@@ -20,8 +20,10 @@ import {
 import type { GameConfigImportKind } from '@/src/lib/gameConfig/gameConfigTypes'
 import { BALANCE_SCALAR_KEYS } from '@/src/lib/gameConfig/defaultGameConfig'
 import { listSelectableStudioTables } from '@/src/lib/jobs/studioJobPicker'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import { ImportGameConfigBlock } from './ImportGameConfigBlock'
 import { SkillSourceSelect } from '../skills/SkillSourceSelect'
+import { LocalModeNotice } from '../LocalModeNotice'
 import styles from '../skills/SkillSourcePanel.module.css'
 
 type Props = {
@@ -88,6 +90,7 @@ export function PocGameConfigPanel({ importKind, embedded = false }: Props) {
           : `${styles.panel} mb-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3`
       }
     >
+      <LocalModeNotice />
       {!importKind && (
         <>
           <div>
@@ -119,12 +122,12 @@ export function PocGameConfigPanel({ importKind, embedded = false }: Props) {
         </>
       )}
 
-      {!supabaseReady ? (
+      {!supabaseReady && (
         <p className={styles.warnLine}>Sign in to import from Keco Studio.</p>
-      ) : (
-        <>
+      )}
+      <>
           <ImportGameConfigBlock
-            disabled={validating}
+            disabled={LOCAL_WEB_MODE || validating}
             tables={studioTables}
             tablesLoading={tablesLoading}
             supabaseReady={supabaseReady}
@@ -141,8 +144,9 @@ export function PocGameConfigPanel({ importKind, embedded = false }: Props) {
               </span>
               <button
                 type="button"
+                data-remote-feature="supabase"
                 className={styles.applyBtn}
-                disabled={validating || draftsForView.length === 0 || isHydrating}
+                disabled={LOCAL_WEB_MODE || validating || draftsForView.length === 0 || isHydrating}
                 onClick={() => void handleValidateApply()}
               >
                 <CheckCircle size={12} />
@@ -172,8 +176,7 @@ export function PocGameConfigPanel({ importKind, embedded = false }: Props) {
               <p className={`${styles.okLine} mt-2`}>Draft module active — overrides listed config.</p>
             )}
           </div>
-        </>
-      )}
+      </>
 
       {(hydrateError || importError) && (
         <p className={styles.errorLine}>{importError ?? hydrateError}</p>

@@ -217,6 +217,39 @@ test.describe('输入与交互冲突（P0）', () => {
 })
 
 test.describe('数据一致性与持久化（P0）', () => {
+  test('地图加载完成后仍恢复同地图的已保存坐标', async ({ page }) => {
+    const mapRef = 'builtin:top-down-pixel-art-rpg-battle-arena-map-wide-ope-1777006352683'
+    await page.addInitScript(({ savedMapRef }) => {
+      localStorage.setItem('battle-job-selected', '1')
+      localStorage.setItem('battle-game-save', JSON.stringify({
+        playerLevel: 1,
+        playerExp: 0,
+        playerGold: 0,
+        playerHP: 30,
+        equippedGear: { weapon: null, ring: null, armor: null, shoes: null },
+        inventory: [],
+        playerPos: { x: 9, y: 8 },
+        currentMapRef: savedMapRef,
+        carriedSkillIds: [],
+        jobClassId: 'hero',
+      }))
+    }, { savedMapRef: mapRef })
+
+    const mapResponse = page.waitForResponse((response) =>
+      response.url().includes('/api/airpg-map?map=') && response.url().includes(encodeURIComponent(mapRef)),
+    )
+    await page.goto('/')
+    expect((await mapResponse).status()).toBe(200)
+
+    const marker = page.getByTestId('player-grid-position')
+    await expect(marker).toHaveAttribute('data-grid-x', '9')
+    await expect(marker).toHaveAttribute('data-grid-y', '8')
+    await expect.poll(async () => page.evaluate(() => {
+      const raw = localStorage.getItem('battle-game-save')
+      return raw ? JSON.parse(raw).currentMapRef : null
+    })).toBe(mapRef)
+  })
+
   test('刷新后前端位置状态保持一致（本地存档）', async ({ page }) => {
     await page.goto('/')
     const beforeSave = await page.evaluate(() => {

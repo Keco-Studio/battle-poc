@@ -20,7 +20,8 @@ function buildConfig(id: JobClassId): JobClassConfig {
 }
 
 export function getBuiltinJobClassConfigs(): JobClassConfig[] {
-  return JOB_CLASS_IDS.map(buildConfig)
+  const configs = JOB_CLASS_IDS.map(buildConfig)
+  return configs.map((config) => ({ ...config, stats: { ...config.stats } }))
 }
 
 export function snapshotFromConfigs(configs: JobClassConfig[]): JobCatalogSnapshot {

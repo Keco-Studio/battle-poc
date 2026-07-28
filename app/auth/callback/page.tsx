@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSupabase } from '@/src/lib/SupabaseContext'
 import { resolvePostLoginRedirect } from '@/src/lib/authPostLoginRedirect'
 import { waitForAuthCallbackSession } from '@/src/lib/auth/auth-callback-session'
+import Link from 'next/link'
+import { LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
+import { LocalModeNotice } from '@/app/components/LocalModeNotice'
 
 function AuthCallbackContent() {
   const router = useRouter()
@@ -57,6 +60,17 @@ function AuthCallbackContent() {
 }
 
 export default function AuthCallbackPage() {
+  if (LOCAL_WEB_MODE) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-4 text-center">
+        <LocalModeNotice />
+        <Link href="/" className="text-sm font-semibold text-sky-700 hover:underline">
+          Return to battle
+        </Link>
+      </main>
+    )
+  }
+
   return (
     <Suspense
       fallback={

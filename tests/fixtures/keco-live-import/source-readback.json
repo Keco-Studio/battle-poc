@@ -1,0 +1,232 @@
+{
+  "projectId": "fc3376fb-b6b8-42b0-8a16-459916e41da2",
+  "projectName": "battle-poc",
+  "capturedAt": "2026-07-27T19:12:05+08:00",
+  "updatedAt": "2026-07-27T21:19:24+08:00",
+  "refresh": {
+    "changes": [
+      {
+        "table": "Skills",
+        "rowId": "befb7129-90a3-4813-9a96-e8505c23291e",
+        "field": "power",
+        "before": 2.31,
+        "after": 2.57,
+        "sourceUpdatedAt": "2026-07-27T13:19:21.472722+00:00"
+      },
+      {
+        "table": "BalanceScalars",
+        "rowId": "57254c2b-d6f1-438e-b49e-327bfd2a3b87",
+        "field": "value",
+        "before": 149,
+        "after": 163,
+        "sourceUpdatedAt": "2026-07-27T13:19:24.268134+00:00"
+      }
+    ]
+  },
+  "tables": {
+    "Skills": {
+      "tableId": "158fae7e-2841-4800-9764-15e7e07aceaf",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "description": "string",
+        "category": "string",
+        "type": "string",
+        "power": "float",
+        "mp": "int",
+        "maxCooldown": "int",
+        "range": "float",
+        "attachElement": "string",
+        "attachStrength": "string",
+        "attachTurns": "int",
+        "dotDamage": "float",
+        "dotTurns": "int",
+        "freezeTurns": "int",
+        "specialEffect": "string",
+        "specialEffectValue": "float",
+        "specialEffectDuration": "int",
+        "reactionTriggers": "string"
+      },
+      "rows": [
+        {
+          "rowId": "befb7129-90a3-4813-9a96-e8505c23291e",
+          "rowIndex": 1,
+          "values": {
+            "id": "mcp_chain_flame",
+            "name": "MCP Chain Flame",
+            "description": "Live MCP fire acceptance skill",
+            "category": "burst",
+            "type": "attack",
+            "power": 2.57,
+            "mp": 7,
+            "maxCooldown": 3,
+            "range": 4.5,
+            "attachElement": "fire",
+            "attachStrength": "strong",
+            "attachTurns": 3,
+            "dotDamage": 0.27,
+            "dotTurns": 2,
+            "freezeTurns": 0,
+            "specialEffect": "def_debuff",
+            "specialEffectValue": 0.21,
+            "specialEffectDuration": 2,
+            "reactionTriggers": "[{\"element\":\"fire\",\"reaction\":\"overload\"}]"
+          }
+        },
+        {
+          "rowId": "fc9e271f-bcbf-4a1f-918a-d4569899a167",
+          "rowIndex": 2,
+          "values": {
+            "id": "mcp_chain_frost",
+            "name": "MCP Chain Frost",
+            "description": "Live MCP frost acceptance skill",
+            "category": "control",
+            "type": "attack",
+            "power": 0.91,
+            "mp": 5,
+            "maxCooldown": 2,
+            "range": 5,
+            "attachElement": "ice",
+            "attachStrength": "weak",
+            "attachTurns": 2,
+            "dotDamage": 0,
+            "dotTurns": 0,
+            "freezeTurns": 2,
+            "specialEffect": "",
+            "specialEffectValue": 0,
+            "specialEffectDuration": 0,
+            "reactionTriggers": ""
+          }
+        }
+      ]
+    },
+    "Jobs": {
+      "tableId": "e0656d4d-964f-4d08-9b10-320f725d86d7",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "description": "string",
+        "preferredRange": "string",
+        "hp": "int",
+        "atk": "int",
+        "def": "int",
+        "spd": "int",
+        "growthHp": "float",
+        "growthAtk": "float",
+        "growthDef": "float",
+        "growthSpd": "float",
+        "hpMult": "float"
+      },
+      "rows": [
+        {
+          "rowId": "99ba50d3-8074-46e7-beef-165dd10c8d7f",
+          "rowIndex": 1,
+          "values": {
+            "id": "mcp_chain_mage",
+            "name": "MCP Chain Mage",
+            "description": "Live MCP acceptance class",
+            "preferredRange": "ranged",
+            "hp": 173,
+            "atk": 19,
+            "def": 11,
+            "spd": 8,
+            "growthHp": 41,
+            "growthAtk": 6,
+            "growthDef": 4,
+            "growthSpd": 2,
+            "hpMult": 1.7
+          }
+        }
+      ]
+    },
+    "Equipment": {
+      "tableId": "1b206fd0-ac98-45b1-ae32-10a1adc7e378",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "icon": "string",
+        "stat": "string",
+        "bonus": "float"
+      },
+      "rows": [
+        {
+          "rowId": "aa8f2b60-a63e-4272-8f90-df304c6dbb9a",
+          "rowIndex": 1,
+          "values": {
+            "id": "weapon",
+            "name": "MCP Relay Blade",
+            "icon": "M",
+            "stat": "atk",
+            "bonus": 13.5
+          }
+        }
+      ]
+    },
+    "Loadouts": {
+      "tableId": "678b01fc-0b3c-449e-b1be-5ccc49585bef",
+      "fields": {
+        "id": "string",
+        "skillIds": "string"
+      },
+      "rows": [
+        {
+          "rowId": "21eb5248-4269-4e60-81b7-92fb92872a73",
+          "rowIndex": 1,
+          "values": {
+            "id": "mcp_chain_mage",
+            "skillIds": "mcp_chain_flame,mcp_chain_frost"
+          }
+        }
+      ]
+    },
+    "BasicAttack": {
+      "tableId": "e2aff71c-eb3b-4bc1-ba37-7493460e6a03",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "icon": "string",
+        "multiplier": "float",
+        "description": "string"
+      },
+      "rows": [
+        {
+          "rowId": "894562ea-83b7-4e74-9512-ed78edf5846a",
+          "rowIndex": 1,
+          "values": {
+            "id": "basic_attack",
+            "name": "MCP Pulse Strike",
+            "icon": "M",
+            "multiplier": 1.17,
+            "description": "Live MCP basic attack"
+          }
+        }
+      ]
+    },
+    "BalanceScalars": {
+      "tableId": "db819e6e-5d32-4e46-9593-868cbb9d22a3",
+      "fields": {
+        "key": "string",
+        "value": "float"
+      },
+      "rows": [
+        { "rowId": "57254c2b-d6f1-438e-b49e-327bfd2a3b87", "rowIndex": 1, "values": { "key": "exp_per_level", "value": 163 } },
+        { "rowId": "d1def272-d347-4b38-9578-469bff773a26", "rowIndex": 2, "values": { "key": "reward_exp_per_enemy_level", "value": 23 } },
+        { "rowId": "19962fff-5031-4795-814f-b35ecd1aea06", "rowIndex": 3, "values": { "key": "reward_gold_per_enemy_level", "value": 17 } },
+        { "rowId": "9663f927-8156-4922-bfe0-bc7233fc247e", "rowIndex": 4, "values": { "key": "enemy_base_hp", "value": 91 } },
+        { "rowId": "3eb35c2d-995b-42ba-bf34-7b707061ce11", "rowIndex": 5, "values": { "key": "enemy_base_atk", "value": 13 } },
+        { "rowId": "4c4c84d8-7c8c-45e6-a113-5905a4b231d3", "rowIndex": 6, "values": { "key": "enemy_base_def", "value": 7 } },
+        { "rowId": "847e7edd-c9ee-4642-b101-00a4828656fb", "rowIndex": 7, "values": { "key": "enemy_base_spd", "value": 8 } },
+        { "rowId": "bd53ab4f-1617-44bc-b652-c6ef7db70738", "rowIndex": 8, "values": { "key": "enemy_growth_hp", "value": 11 } },
+        { "rowId": "d6d814b0-ee49-42ac-bc26-ad6ec8892f21", "rowIndex": 9, "values": { "key": "enemy_growth_atk", "value": 2.4 } },
+        { "rowId": "39546139-b66c-4158-b466-095bc7848cf8", "rowIndex": 10, "values": { "key": "enemy_growth_def", "value": 1.3 } },
+        { "rowId": "41926531-64a8-44d5-995b-8ef2473869bd", "rowIndex": 11, "values": { "key": "enemy_growth_spd", "value": 0.7 } },
+        { "rowId": "c443e391-bc2f-4784-9ae5-4735616faa0c", "rowIndex": 12, "values": { "key": "battle_armor_k", "value": 47 } },
+        { "rowId": "fa08bf25-7261-45c4-bbad-c1b1f3474cca", "rowIndex": 13, "values": { "key": "hp_multiplier", "value": 1.83 } },
+        { "rowId": "3df21e03-cdff-458a-9887-476d0f45a722", "rowIndex": 14, "values": { "key": "basic_damage_multiplier", "value": 0.93 } },
+        { "rowId": "95101a4d-f501-4c83-811e-74d389918d51", "rowIndex": 15, "values": { "key": "defend_damage_reduction", "value": 0.41 } },
+        { "rowId": "6c9287c1-c0b9-414c-afa6-a374232468c0", "rowIndex": 16, "values": { "key": "defend_skill_reduction", "value": 0.44 } },
+        { "rowId": "e41d44a1-f468-42ce-8172-04e039db26b0", "rowIndex": 17, "values": { "key": "skill_damage_multiplier", "value": 0.88 } }
+      ]
+    }
+  }
+}

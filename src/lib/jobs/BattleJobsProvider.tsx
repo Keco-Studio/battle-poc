@@ -12,7 +12,10 @@ import {
 import type { JobClassId } from '@/app/constants'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
+import { LOCAL_MODE_ERROR, LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import type { JobCatalogSnapshot } from './jobConfigTypes'
+import { snapshotFromConfigs } from './builtinJobCatalog'
+import { VS01_JOBS } from '@/src/content/generated/vs01/jobs'
 import {
   DEFAULT_POC_JOB_MODULE_ID,
   POC_JOBS_UPDATED_EVENT,
@@ -55,6 +58,14 @@ export function BattleJobsProvider({ children }: { children: ReactNode }) {
     setIsHydrating(true)
     setHydrateError(null)
     try {
+      if (LOCAL_WEB_MODE) {
+        const local = resetPocJobsRuntimeToBuiltin()
+        setModulesState(local.state)
+        setSnapshot(snapshotFromConfigs([...VS01_JOBS]))
+        setIsHydrating(false)
+        return
+      }
+      // Legacy Supabase import path retained for deliberate future restoration.
       const client = supabase && isAuthenticated ? supabase : null
       const { state, snapshot: next } = await hydratePocJobs(client)
       setModulesState(state)
@@ -89,6 +100,10 @@ export function BattleJobsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyJobDrafts = useCallback(async () => {
+    if (LOCAL_WEB_MODE) {
+      return { errors: [LOCAL_MODE_ERROR] }
+    }
+    // Legacy Supabase import path retained for deliberate future restoration.
     const client = supabase && isAuthenticated ? supabase : null
     const { state, snapshot: next, errors } = await applyPocJobDrafts(client)
     setModulesState(state)

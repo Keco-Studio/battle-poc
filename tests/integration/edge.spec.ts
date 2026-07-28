@@ -66,7 +66,7 @@ async function cleanupCreatedAuthUsersByEmail(email: string) {
   }
 }
 
-test.describe('边界测试 - Auth', () => {
+test.describe.skip('legacy Supabase Auth edge tests - disabled in local Web mode', () => {
   test('非法邮箱格式应提示客户端校验错误', async ({ page }) => {
     await page.goto('/')
     await openDockPanel(page, 'Profile')
@@ -141,6 +141,21 @@ test.describe('边界测试 - Battle', () => {
 })
 
 test.describe('边界测试 - 数据与持久化', () => {
+  test.skip('游客不能调用 PixelLab 生成接口', async ({ page }) => {
+    await page.goto('/')
+    const response = await page.request.post('/api/pixellab/create-map', {
+      data: {
+        description: 'private test map',
+        imageSize: { width: 32, height: 32 },
+      },
+    })
+    expect(response.status()).toBe(401)
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: expect.any(String),
+    })
+  })
+
   test('本地存档键存在时可被读取', async ({ page }) => {
     await page.goto('/')
     const save = await page.evaluate(() => localStorage.getItem('battle-game-save'))
@@ -189,4 +204,3 @@ test.describe('边界测试 - 数据与持久化', () => {
     expect(afterReloadSave).not.toEqual(initial)
   })
 })
-
