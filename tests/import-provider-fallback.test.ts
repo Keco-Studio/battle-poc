@@ -57,7 +57,7 @@ function deferred<T>() {
   return { promise, reject }
 }
 
-describe('import Provider hydrate fallback', () => {
+describe.skip('legacy Supabase import Provider hydrate fallback', () => {
   let container: HTMLDivElement
   let root: Root
 

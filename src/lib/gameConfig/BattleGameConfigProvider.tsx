@@ -12,6 +12,7 @@ import {
 } from 'react'
 import { useSupabaseOptional } from '@/src/lib/SupabaseContext'
 import { useAuth } from '@/src/lib/contexts/AuthContext'
+import { LOCAL_MODE_ERROR, LOCAL_WEB_MODE } from '@/src/lib/runtime/localWebMode'
 import type { GameConfigBundle } from './gameConfigTypes'
 import {
   DEFAULT_POC_GAME_CONFIG_MODULE_ID,
@@ -56,6 +57,15 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
     setIsHydrating(true)
     setHydrateError(null)
     try {
+      if (LOCAL_WEB_MODE) {
+        const local = resetPocGameConfigRuntimeToBuiltin()
+        setModulesState(local.state)
+        setBundle(local.bundle)
+        bump()
+        setIsHydrating(false)
+        return
+      }
+      // Legacy Supabase import path retained for deliberate future restoration.
       const client = supabase && isAuthenticated ? supabase : null
       const { state, bundle: next } = await hydratePocGameConfig(client)
       setModulesState(state)
@@ -95,6 +105,10 @@ export function BattleGameConfigProvider({ children }: { children: ReactNode }) 
   )
 
   const applyConfigDrafts = useCallback(async () => {
+    if (LOCAL_WEB_MODE) {
+      return { errors: [LOCAL_MODE_ERROR] }
+    }
+    // Legacy Supabase import path retained for deliberate future restoration.
     applyingDraftsRef.current = true
     try {
       const client = supabase && isAuthenticated ? supabase : null
