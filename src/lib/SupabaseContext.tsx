@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getOrCreateBrowserSupabaseClient } from './supabase/client'
+import { getOrCreateBrowserSupabaseClient } from './supabase/browserClient'
 import { LOCAL_WEB_MODE } from './runtime/localWebMode'
 
 function readSupabaseEnv(): { url: string; anonKey: string } | null {

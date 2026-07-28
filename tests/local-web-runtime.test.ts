@@ -1,7 +1,27 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  createClient: vi.fn(),
+}))
+
+vi.mock('@supabase/supabase-js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@supabase/supabase-js')>()
+  return { ...actual, createClient: mocks.createClient }
+})
 
 describe('local Web runtime boundary', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    mocks.createClient.mockReset()
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://local-mode-test.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'local-mode-test-anon-key')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('pins battle-poc to local mode', async () => {
     const mode = await import('@/src/lib/runtime/localWebMode')
     expect(mode.LOCAL_WEB_MODE).toBe(true)
@@ -21,5 +41,11 @@ describe('local Web runtime boundary', () => {
     const clientCreation = source.indexOf('createServerClient(')
     expect(localReturn).toBeGreaterThanOrEqual(0)
     expect(clientCreation).toBeGreaterThan(localReturn)
+  })
+
+  it('does not construct a browser Supabase client when importing the local-mode context', async () => {
+    await import('@/src/lib/SupabaseContext')
+
+    expect(mocks.createClient).not.toHaveBeenCalled()
   })
 })
