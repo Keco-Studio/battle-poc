@@ -186,7 +186,7 @@ async function readImportStorage(page: Page): Promise<Record<string, string>> {
   }, IMPORT_STORAGE_KEYS)
 }
 
-test.describe('live Keco import acceptance', () => {
+test.describe.skip('legacy Supabase integration - disabled in local Web mode', () => {
   test.skip(process.env.KECO_LIVE_IMPORT !== '1', 'Set KECO_LIVE_IMPORT=1 to run')
   test.describe.configure({ timeout: 600_000 })
 

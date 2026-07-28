@@ -18,6 +18,18 @@ npm run dev
 
 Then open [http://localhost:3002](http://localhost:3002).
 
+## Local Web data mode
+
+`battle-poc` runs as an independent local Web project. Supabase runtime access, cloud auth,
+cloud maps, Studio Apply/sync, and migration automation are disabled; the legacy code remains
+in place for reference. Built-in maps, browser `localStorage`, local AI backends, and PixelLab
+resource sync remain available.
+
+Game content lives in TypeScript. When a Keco source is requested, use the `keco-main` MCP at
+development time to read that source, validate the complete result, and write typed data under
+`src/content/generated/`. The browser reads those generated modules directly; MCP and database
+access are not application runtime dependencies.
+
 ## Optional: Run the AI Proxy (Chat)
 
 If you want in-game AI chat, start the local proxy as well:

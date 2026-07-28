@@ -66,7 +66,7 @@ async function cleanupCreatedAuthUsersByEmail(email: string) {
   }
 }
 
-test.describe('边界测试 - Auth', () => {
+test.describe.skip('legacy Supabase Auth edge tests - disabled in local Web mode', () => {
   test('非法邮箱格式应提示客户端校验错误', async ({ page }) => {
     await page.goto('/')
     await openDockPanel(page, 'Profile')
