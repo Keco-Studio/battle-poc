@@ -29,6 +29,10 @@ function preparation(mode: 'standard' | 'sandbox') {
     skills: V3_CONTENT.skills,
     trees: V3_CONTENT.trees,
     validationErrors: [],
+    progressionBonuses: mode === 'standard' ? Object.values(V3_CONTENT.progression) : [],
+    statModifiers: mode === 'standard'
+      ? { hp: 18, energy: 20, atk: 4, def: 3, spd: 1 }
+      : { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 },
     onModeChange: noop,
     onPlayerSkillChange: noop,
     onEnemySkillChange: noop,
@@ -52,6 +56,19 @@ describe('V3 React surfaces', () => {
     const html = renderToStaticMarkup(preparation('sandbox'))
     expect(html).toContain('aria-readonly="false"')
     expect(html).toContain('编辑敌方构筑')
+  })
+
+  it('explains earned expedition bonuses in standard preparation only', () => {
+    const standard = renderToStaticMarkup(preparation('standard'))
+    const sandbox = renderToStaticMarkup(preparation('sandbox'))
+    expect(standard).toContain('远征加成')
+    expect(standard).toContain('生命 +18')
+    expect(standard).toContain('能量 +20')
+    expect(standard).toContain('攻击 +4')
+    expect(standard).toContain('防御 +3')
+    expect(standard).toContain('速度 +1')
+    expect(standard).toContain('繁花核心强化生命与防御。')
+    expect(sandbox).not.toContain('远征加成')
   })
 
   it('shows both actors, tick state, patch evidence, and viewer controls', () => {
@@ -133,7 +150,21 @@ describe('V3 React surfaces', () => {
       right: { templateType: 'enemy', templateId: enemy.id, skillIds: enemy.skillIds, treeId: enemy.treeId },
     })
     const html = renderToStaticMarkup(React.createElement(BattleReport, {
-      battle: { ...battle, result: 'left_win' as const, endReason: 'hp_zero' as const },
+      battle: {
+        ...battle,
+        initialConfig: {
+          ...battle.initialConfig,
+          versions: {
+            content: 'fixture-content',
+            rules: 'fixture-rules',
+            visual: 'fixture-visual',
+            modelProvider: 'deepseek',
+            model: 'fixture-model',
+          },
+        },
+        result: 'left_win' as const,
+        endReason: 'hp_zero' as const,
+      },
       encounter,
       mode: 'standard' as const,
       durationMs: 4200,
@@ -145,8 +176,10 @@ describe('V3 React surfaces', () => {
       onReturnToMap: noop,
     }))
     expect(html).toContain('7319')
-    expect(html).toContain(V3_CONTENT.game.rulesetVersion)
-    expect(html).toContain(V3_CONTENT.game.visualVersion)
+    expect(html).toContain('fixture-content')
+    expect(html).toContain('fixture-rules')
+    expect(html).toContain('fixture-visual')
+    expect(html).toContain('fixture-model')
     expect(html).toContain('确定性重放')
     expect(html).toContain(V3_CONTENT.rewards[encounter.rewardId].name)
   })

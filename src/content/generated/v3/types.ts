@@ -77,6 +77,18 @@ export type V3Reward = {
   description: string
 }
 
+export type V3ProgressionBonus = {
+  id: string
+  contentVersion: string
+  dropId: string
+  hp: number
+  energy: number
+  atk: number
+  def: number
+  spd: number
+  description: string
+}
+
 export type V3BehaviorNode = {
   id: string
   kind: 'selector' | 'sequence' | 'condition' | 'action'
@@ -148,6 +160,7 @@ export type V3Content = {
   maps: Record<string, V3Map>
   encounters: Record<string, V3Encounter>
   rewards: Record<string, V3Reward>
+  progression: Record<string, V3ProgressionBonus>
   trees: Record<string, V3BehaviorTree>
   rules: V3Rules
   assets: Record<string, V3Asset>

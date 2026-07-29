@@ -14,11 +14,22 @@ describe('V3 generated content', () => {
     expect(Object.keys(V3_CONTENT.skills)).toHaveLength(8)
     expect(Object.keys(V3_CONTENT.enemies)).toHaveLength(4)
     expect(Object.keys(V3_CONTENT.encounters)).toHaveLength(4)
+    expect(Object.keys(V3_CONTENT.progression)).toHaveLength(3)
     expect(Object.keys(V3_CONTENT.trees)).toHaveLength(4)
     expect(V3_CONTENT.maps.sunlit_circuit.width).toBe(16)
     expect(V3_CONTENT.maps.sunlit_circuit.height).toBe(16)
     expect(V3_CONTENT.maps.prism_gate.width).toBe(16)
     expect(V3_CONTENT.maps.prism_gate.height).toBe(16)
+  })
+
+  it('binds every prerequisite reward drop to one authored progression bonus', () => {
+    const bonuses = Object.values(V3_CONTENT.progression)
+    expect(bonuses.map((bonus) => bonus.dropId).sort()).toEqual([
+      'bloom_core',
+      'prism_lens',
+      'sunforge_coil',
+    ])
+    expect(bonuses.every((bonus) => bonus.contentVersion === V3_CONTENT_VERSION)).toBe(true)
   })
 
   it('binds stable content, rules, and visual versions', () => {
@@ -46,6 +57,7 @@ describe('V3 generated content', () => {
     for (const asset of characterAssets) {
       expect(asset.directions).toEqual(['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'])
       expect(asset.framesPerDirection).toBe(8)
+      expect(asset.fps).toBe(12)
     }
   })
 })

@@ -3,11 +3,20 @@ import { describe, expect, it } from 'vitest'
 import {
   EMPTY_V3_PROGRESS,
   initialV3PhaseState,
+  progressionModifiers,
   recordV3Outcome,
   transitionV3Phase,
 } from '@/src/v3/runtime/campaign'
 
 describe('V3 campaign progress', () => {
+  it('resolves cumulative expedition bonuses from earned drops', () => {
+    expect(progressionModifiers({
+      drops: ['bloom_core', 'sunforge_coil', 'prism_lens'],
+    })).toEqual({ hp: 18, energy: 20, atk: 4, def: 3, spd: 1 })
+    expect(progressionModifiers({ drops: ['unknown_drop', 'bloom_core'] }))
+      .toEqual({ hp: 12, energy: 0, atk: 0, def: 2, spd: 0 })
+  })
+
   it('does not award or unlock content for sandbox victories', () => {
     const next = recordV3Outcome(EMPTY_V3_PROGRESS, {
       encounterId: 'briar_trial',

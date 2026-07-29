@@ -8,6 +8,7 @@ import type {
   V3Enemy,
   V3Job,
   V3Map,
+  V3ProgressionBonus,
   V3Reward,
   V3Skill,
 } from './types'
@@ -28,6 +29,7 @@ export const V3_CONTENT: V3Content = {
   maps: recordById(source.content.maps as unknown as V3Map[]),
   encounters: recordById(source.content.encounters as V3Encounter[]),
   rewards: recordById(source.content.rewards as V3Reward[]),
+  progression: recordById(source.content.progression as V3ProgressionBonus[]),
   trees: recordById(source.content.trees as unknown as V3BehaviorTree[]),
   rules: source.content.rules,
   assets: recordById(source.content.assets as V3Asset[]),
@@ -74,6 +76,15 @@ export function validateV3ContentGraph(content: V3Content): string[] {
     for (const prerequisite of encounter.unlockAfterIds) {
       has(content.encounters, prerequisite, `encounter:${encounter.id}:unlock`)
     }
+  }
+
+  const progressionDrops = new Set<string>()
+  const rewardDrops = new Set(Object.values(content.rewards).map((reward) => reward.dropId))
+  for (const bonus of Object.values(content.progression)) {
+    if (progressionDrops.has(bonus.dropId)) errors.push(`progression:${bonus.id}:duplicate_drop`)
+    progressionDrops.add(bonus.dropId)
+    if (!rewardDrops.has(bonus.dropId)) errors.push(`progression:${bonus.id}:reward`)
+    if (bonus.contentVersion !== content.game.contentVersion) errors.push(`progression:${bonus.id}:version`)
   }
 
   for (const tree of Object.values(content.trees)) {

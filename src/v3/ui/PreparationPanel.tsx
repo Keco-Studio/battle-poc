@@ -6,9 +6,11 @@ import type {
   V3Encounter,
   V3Enemy,
   V3Job,
+  V3ProgressionBonus,
   V3Skill,
 } from '@/src/content/generated/v3'
 import type { V3BattleMode } from '@/src/v3/runtime/campaign'
+import type { V3StatModifiers } from '@/src/v3/runtime/types'
 import type { V3ModelProvider } from '@/src/v3/runtime/useV3Game'
 
 export type PreparationPanelProps = {
@@ -24,6 +26,8 @@ export type PreparationPanelProps = {
   skills: Record<string, V3Skill>
   trees: Record<string, V3BehaviorTree>
   validationErrors: string[]
+  progressionBonuses: V3ProgressionBonus[]
+  statModifiers: V3StatModifiers
   onModeChange: (mode: V3BattleMode) => void
   onPlayerSkillChange: (index: number, skillId: string) => void
   onEnemySkillChange: (index: number, skillId: string) => void
@@ -90,6 +94,20 @@ export function PreparationPanel(props: PreparationPanelProps) {
         <button type="button" className={props.mode === 'standard' ? 'is-active' : ''} onClick={() => props.onModeChange('standard')}>正式挑战</button>
         <button type="button" className={sandbox ? 'is-active' : ''} onClick={() => props.onModeChange('sandbox')}>自由测试</button>
       </div>
+
+      {!sandbox && props.progressionBonuses.length > 0 && (
+        <section className="v3-progression-band" aria-label="远征加成">
+          <div>
+            <strong>远征加成</strong>
+            <span>生命 +{props.statModifiers.hp}</span>
+            <span>能量 +{props.statModifiers.energy}</span>
+            <span>攻击 +{props.statModifiers.atk}</span>
+            <span>防御 +{props.statModifiers.def}</span>
+            <span>速度 +{props.statModifiers.spd}</span>
+          </div>
+          <ul>{props.progressionBonuses.map((bonus) => <li key={bonus.id}>{bonus.description}</li>)}</ul>
+        </section>
+      )}
 
       <div className="v3-prepare-columns">
         <section className="v3-build-column">

@@ -19,12 +19,21 @@ function config(overrides: Partial<V3BattleConfig> = {}): V3BattleConfig {
       templateId: 'astra_vanguard',
       skillIds: ['solar_lance', 'bloom_guard', 'gale_step', 'prism_snare'],
       treeId: 'tree_balanced',
+      modifiers: { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 },
     },
     right: {
       templateType: 'enemy',
       templateId: 'briar_sentinel',
       skillIds: ['solar_lance', 'bloom_guard', 'gale_step', 'prism_snare'],
       treeId: 'tree_survival',
+      modifiers: { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 },
+    },
+    versions: {
+      content: V3_CONTENT.game.contentVersion,
+      rules: V3_CONTENT.game.rulesetVersion,
+      visual: V3_CONTENT.game.visualVersion,
+      modelProvider: 'minimax',
+      model: V3_CONTENT.game.defaultModel,
     },
     ...overrides,
   }
@@ -102,4 +111,55 @@ describe('V3 deterministic battle engine', () => {
     expect(state.actors.left.damageDealt + state.actors.right.damageDealt).toBeGreaterThan(0)
     expect(state.events.some((event) => event.type === 'damage')).toBe(true)
   })
+
+  it('applies embedded expedition modifiers to current and maximum stats', () => {
+    const state = createBattle(config({
+      left: {
+        ...config().left,
+        modifiers: { hp: 18, energy: 20, atk: 4, def: 3, spd: 1 },
+      },
+    }))
+    const template = V3_CONTENT.jobs.astra_vanguard
+    expect(state.actors.left).toMatchObject({
+      hp: template.hp + 18,
+      maxHp: template.hp + 18,
+      energy: template.energy + 20,
+      maxEnergy: template.energy + 20,
+      atk: template.atk + 4,
+      def: template.def + 3,
+      spd: template.spd + 1,
+    })
+  })
+
+  it('turns the prerequisite rewards into a meaningful but non-guaranteed boss advantage', () => {
+    const skills = Object.keys(V3_CONTENT.skills)
+    const loadouts: string[][] = []
+    for (const first of skills) for (const second of skills) for (const third of skills) for (const fourth of skills) {
+      const loadout = [first, second, third, fourth]
+      if (new Set(loadout).size === 4) loadouts.push(loadout)
+    }
+    const boss = V3_CONTENT.enemies.eclipse_marshal
+    const countWins = (modifiers: V3BattleConfig['left']['modifiers']) => loadouts.reduce((wins, skillIds) => {
+      let state = createBattle(config({
+        mapId: 'prism_gate',
+        maxDecisionTicks: V3_CONTENT.rules.maxDecisionTicks,
+        left: { ...config().left, skillIds, modifiers },
+        right: {
+          templateType: 'enemy',
+          templateId: boss.id,
+          skillIds: boss.skillIds,
+          treeId: boss.treeId,
+          modifiers: { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 },
+        },
+      }))
+      while (state.result === 'ongoing') state = resolveDecisionTick(state, { left: null, right: null })
+      return wins + (state.result === 'left_win' ? 1 : 0)
+    }, 0)
+
+    expect(loadouts).toHaveLength(1680)
+    expect(countWins({ hp: 0, energy: 0, atk: 0, def: 0, spd: 0 })).toBe(0)
+    const progressedWins = countWins({ hp: 18, energy: 20, atk: 4, def: 3, spd: 1 })
+    expect(progressedWins).toBeGreaterThan(0)
+    expect(progressedWins).toBeLessThan(loadouts.length)
+  }, 30_000)
 })

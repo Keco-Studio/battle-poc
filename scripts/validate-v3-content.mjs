@@ -23,6 +23,7 @@ const enemies = unique(source.content.enemies, 'enemies')
 const maps = unique(source.content.maps, 'maps')
 const encounters = unique(source.content.encounters, 'encounters')
 const rewards = unique(source.content.rewards, 'rewards')
+unique(source.content.progression, 'progression')
 const trees = unique(source.content.trees, 'trees')
 const assets = unique(source.content.assets, 'assets')
 
@@ -48,6 +49,18 @@ for (const encounter of source.content.encounters) {
   if (!enemies.has(encounter.enemyId)) errors.push(`${encounter.id}: missing enemy ${encounter.enemyId}`)
   if (!rewards.has(encounter.rewardId)) errors.push(`${encounter.id}: missing reward ${encounter.rewardId}`)
   for (const id of encounter.unlockAfterIds) if (!encounters.has(id)) errors.push(`${encounter.id}: missing prerequisite ${id}`)
+}
+
+const progressionDrops = new Set()
+const rewardDrops = new Set(source.content.rewards.map((reward) => reward.dropId))
+for (const bonus of source.content.progression) {
+  if (bonus.contentVersion !== source.contentVersion) errors.push(`${bonus.id}: content version mismatch`)
+  if (!rewardDrops.has(bonus.dropId)) errors.push(`${bonus.id}: missing reward drop ${bonus.dropId}`)
+  if (progressionDrops.has(bonus.dropId)) errors.push(`${bonus.id}: duplicate drop ${bonus.dropId}`)
+  progressionDrops.add(bonus.dropId)
+  for (const stat of ['hp', 'energy', 'atk', 'def', 'spd']) {
+    if (!Number.isInteger(bonus[stat]) || bonus[stat] < 0) errors.push(`${bonus.id}: invalid ${stat}`)
+  }
 }
 
 for (const asset of source.content.assets.filter((row) => row.kind === 'character')) {

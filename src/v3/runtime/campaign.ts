@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { V3_CONTENT, type V3Point } from '@/src/content/generated/v3'
 
-import type { V3BattleResult } from './types'
+import type { V3BattleResult, V3StatModifiers } from './types'
 
 export type V3BattleMode = 'standard' | 'sandbox'
 export type V3Phase = 'explore' | 'prepare' | 'battle' | 'report'
@@ -40,6 +40,7 @@ export type V3PhaseEvent =
   | { type: 'return_to_map' }
 
 export const V3_PROGRESS_STORAGE_KEY = 'ai-battle-v3-progress'
+export const EMPTY_V3_STAT_MODIFIERS: V3StatModifiers = { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 }
 
 const safeBeacon = V3_CONTENT.maps[V3_CONTENT.game.defaultExplorationMapId].safeBeacon ?? { x: 3, y: 16 }
 const initialUnlocked = Object.values(V3_CONTENT.encounters)
@@ -129,6 +130,20 @@ export function recordV3Outcome(
     playerPosition: { x: encounter.x, y: encounter.y },
     battleRecords,
   }
+}
+
+export function progressionModifiers(progress: Pick<V3Progress, 'drops'>): V3StatModifiers {
+  const earned = new Set(progress.drops)
+  return Object.values(V3_CONTENT.progression).reduce<V3StatModifiers>((total, bonus) => {
+    if (!earned.has(bonus.dropId)) return total
+    return {
+      hp: total.hp + bonus.hp,
+      energy: total.energy + bonus.energy,
+      atk: total.atk + bonus.atk,
+      def: total.def + bonus.def,
+      spd: total.spd + bonus.spd,
+    }
+  }, { ...EMPTY_V3_STAT_MODIFIERS })
 }
 
 export function parseV3Progress(value: unknown): V3Progress {

@@ -14,8 +14,10 @@ import {
 import { createBattle, resolveDecisionTick } from './battleEngine'
 import {
   EMPTY_V3_PROGRESS,
+  EMPTY_V3_STAT_MODIFIERS,
   initialV3PhaseState,
   loadV3Progress,
+  progressionModifiers,
   recordV3Outcome,
   saveV3Progress,
   transitionV3Phase,
@@ -146,6 +148,14 @@ export function useV3Game() {
     ? V3_CONTENT.enemies[selectedEncounter.enemyId]
     : V3_CONTENT.enemies.briar_sentinel
   const player = V3_CONTENT.jobs.astra_vanguard
+  const earnedProgressionBonuses = useMemo(() => {
+    const drops = new Set(progress.drops)
+    return Object.values(V3_CONTENT.progression).filter((bonus) => drops.has(bonus.dropId))
+  }, [progress.drops])
+  const statModifiers = useMemo(
+    () => mode === 'standard' ? progressionModifiers(progress) : { ...EMPTY_V3_STAT_MODIFIERS },
+    [mode, progress],
+  )
 
   useEffect(() => {
     if (mode === 'standard' && selectedEnemy) {
@@ -321,15 +331,24 @@ export function useV3Game() {
         templateId: player.id,
         skillIds: [...playerSkillIds],
         treeId: playerTreeId,
+        modifiers: { ...statModifiers },
       },
       right: {
         templateType: 'enemy',
         templateId: selectedEnemy.id,
         skillIds: [...enemySkillIds],
         treeId: enemyTreeId,
+        modifiers: { ...EMPTY_V3_STAT_MODIFIERS },
+      },
+      versions: {
+        content: V3_CONTENT.game.contentVersion,
+        rules: V3_CONTENT.game.rulesetVersion,
+        visual: V3_CONTENT.game.visualVersion,
+        modelProvider,
+        model: modelName(modelProvider),
       },
     })
-  }, [enemySkillIds, enemyTreeId, player.id, playerSkillIds, playerTreeId, selectedEncounter, selectedEnemy, startFromConfig])
+  }, [enemySkillIds, enemyTreeId, modelProvider, player.id, playerSkillIds, playerTreeId, selectedEncounter, selectedEnemy, startFromConfig, statModifiers])
 
   const cancelPreparation = useCallback(() => {
     setValidationErrors([])
@@ -479,6 +498,8 @@ export function useV3Game() {
     timelineFilter,
     durationMs,
     validationErrors,
+    earnedProgressionBonuses,
+    statModifiers,
     viewModel,
     setMode,
     setModelProvider,

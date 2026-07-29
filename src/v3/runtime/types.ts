@@ -4,11 +4,28 @@ export type V3ActorId = 'left' | 'right'
 export type V3BattleResult = 'ongoing' | 'left_win' | 'right_win' | 'draw' | 'invalid'
 export type V3BattleEndReason = null | 'hp_zero' | 'max_tick' | 'invariant_error'
 
+export type V3StatModifiers = {
+  hp: number
+  energy: number
+  atk: number
+  def: number
+  spd: number
+}
+
+export type V3BattleVersions = {
+  content: string
+  rules: string
+  visual: string
+  modelProvider: 'minimax' | 'deepseek'
+  model: string
+}
+
 export type V3BattleSideConfig = {
   templateType: 'job' | 'enemy'
   templateId: string
   skillIds: string[]
   treeId: string
+  modifiers: V3StatModifiers
 }
 
 export type V3BattleConfig = {
@@ -17,6 +34,13 @@ export type V3BattleConfig = {
   maxDecisionTicks: number
   left: V3BattleSideConfig
   right: V3BattleSideConfig
+  versions: V3BattleVersions
+}
+
+export type V3BattleConfigInput = Omit<V3BattleConfig, 'left' | 'right' | 'versions'> & {
+  left: Omit<V3BattleSideConfig, 'modifiers'> & { modifiers?: V3StatModifiers }
+  right: Omit<V3BattleSideConfig, 'modifiers'> & { modifiers?: V3StatModifiers }
+  versions?: V3BattleVersions
 }
 
 export type V3ActorStatus = {

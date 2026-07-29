@@ -1,6 +1,6 @@
 import { Map, RefreshCw, RotateCcw, Trophy } from 'lucide-react'
 
-import { V3_CONTENT, type V3Encounter, type V3Reward } from '@/src/content/generated/v3'
+import type { V3Encounter, V3Reward } from '@/src/content/generated/v3'
 import type { V3BattleMode } from '@/src/v3/runtime/campaign'
 import type { V3BattleState } from '@/src/v3/runtime/types'
 import type { V3TimelineFilter } from '@/src/v3/runtime/useV3Game'
@@ -60,8 +60,10 @@ export function BattleReport(props: BattleReportProps) {
         <section className="v3-tree-diff">
           <p>随机种子 {props.battle.initialConfig.seed}</p>
           <p>策略版本 {firstPatch?.baseTreeVersion ?? 1} → {lastPatch?.resultingTreeVersion ?? props.battle.trees.left.version}</p>
-          <p>规则版本 {V3_CONTENT.game.rulesetVersion}</p>
-          <p>视觉版本 {V3_CONTENT.game.visualVersion}</p>
+          <p>内容版本 {props.battle.initialConfig.versions.content}</p>
+          <p>规则版本 {props.battle.initialConfig.versions.rules}</p>
+          <p>视觉版本 {props.battle.initialConfig.versions.visual}</p>
+          <p>模型版本 {props.battle.initialConfig.versions.model}</p>
           <code>{lastPatch?.reason ?? '本场没有策略调整'}</code>
         </section>
       </details>

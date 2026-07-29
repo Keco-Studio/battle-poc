@@ -129,6 +129,8 @@ export function V3Game() {
               skills={V3_CONTENT.skills}
               trees={V3_CONTENT.trees}
               validationErrors={game.validationErrors}
+              progressionBonuses={game.earnedProgressionBonuses}
+              statModifiers={game.statModifiers}
               onModeChange={game.setMode}
               onPlayerSkillChange={game.updatePlayerSkill}
               onEnemySkillChange={game.updateEnemySkill}

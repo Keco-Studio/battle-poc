@@ -8,6 +8,7 @@ import type {
   V3ActorState,
   V3BattleAction,
   V3BattleConfig,
+  V3BattleConfigInput,
   V3BattleEvent,
   V3BattleState,
   V3BehaviorTreePatch,
@@ -28,19 +29,21 @@ function actorTemplate(side: V3BattleConfig['left']): V3CombatantTemplate {
 
 function createActor(id: V3ActorId, config: V3BattleConfig['left'], position: { x: number; y: number }): V3ActorState {
   const template = actorTemplate(config)
+  const modifiedHp = template.hp + config.modifiers.hp
+  const modifiedEnergy = template.energy + config.modifiers.energy
   return {
     id,
     templateId: template.id,
     name: template.name,
     visualAssetId: template.visualAssetId,
-    hp: template.hp,
-    maxHp: template.hp,
-    energy: template.energy,
-    maxEnergy: template.energy,
+    hp: modifiedHp,
+    maxHp: modifiedHp,
+    energy: modifiedEnergy,
+    maxEnergy: modifiedEnergy,
     shield: 0,
-    atk: template.atk,
-    def: template.def,
-    spd: template.spd,
+    atk: template.atk + config.modifiers.atk,
+    def: template.def + config.modifiers.def,
+    spd: template.spd + config.modifiers.spd,
     position: { ...position },
     skillIds: [...config.skillIds],
     cooldowns: {},
@@ -53,7 +56,20 @@ function createActor(id: V3ActorId, config: V3BattleConfig['left'], position: { 
   }
 }
 
-export function createBattle(config: V3BattleConfig): V3BattleState {
+export function createBattle(input: V3BattleConfigInput): V3BattleState {
+  const zero = { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 }
+  const config: V3BattleConfig = {
+    ...input,
+    left: { ...input.left, modifiers: { ...(input.left.modifiers ?? zero) } },
+    right: { ...input.right, modifiers: { ...(input.right.modifiers ?? zero) } },
+    versions: input.versions ?? {
+      content: V3_CONTENT.game.contentVersion,
+      rules: V3_CONTENT.game.rulesetVersion,
+      visual: V3_CONTENT.game.visualVersion,
+      modelProvider: 'minimax',
+      model: V3_CONTENT.game.defaultModel,
+    },
+  }
   const map = V3_CONTENT.maps[config.mapId]
   if (!map || map.kind !== 'battle') throw new Error(`Unknown battle map: ${config.mapId}`)
   const leftTree = V3_CONTENT.trees[config.left.treeId]?.tree
