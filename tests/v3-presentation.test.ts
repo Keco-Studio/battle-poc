@@ -6,6 +6,7 @@ import {
   animationKeysFor,
   cameraFrameFor,
   directionFromDelta,
+  directionFromPath,
   gridPointToWorld,
   worldPointToGrid,
 } from '@/src/v3/presentation/viewModel'
@@ -39,6 +40,11 @@ describe('V3 presentation contracts', () => {
     expect(directionFromDelta(1, -1)).toBe('ne')
     expect(directionFromDelta(-4, 0)).toBe('w')
     expect(directionFromDelta(0, 0, 'se')).toBe('se')
+  })
+
+  it('uses the final path segment to drive a directional animation', () => {
+    expect(directionFromPath([{ x: 2, y: 8 }, { x: 2, y: 9 }], 'e')).toBe('s')
+    expect(directionFromPath([{ x: 4, y: 4 }], 'nw')).toBe('nw')
   })
 
   it('builds a manifest-driven catalog with every map, character, and skill effect', () => {

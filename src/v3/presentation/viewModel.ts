@@ -116,6 +116,13 @@ export function directionFromDelta(
   return x < 0 ? 'w' : 'e'
 }
 
+export function directionFromPath(path: V3Point[], fallback: V3Direction = 's'): V3Direction {
+  if (path.length < 2) return fallback
+  const previous = path[path.length - 2]
+  const current = path[path.length - 1]
+  return directionFromDelta(current.x - previous.x, current.y - previous.y, fallback)
+}
+
 export function gridPointToWorld(point: V3Point, layout: V3StageLayout): V3Point {
   const cellWidth = layout.width / layout.columns
   const cellHeight = layout.height / layout.rows

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { V3_CONTENT } from '@/src/content/generated/v3'
 import {
   directionFromDelta,
+  directionFromPath,
   type V3Direction,
   type V3MoveIntent,
   type V3ViewModel,
@@ -87,6 +88,7 @@ export function useV3Game() {
   const [playerTreeId, setPlayerTreeId] = useState(V3_CONTENT.jobs.astra_vanguard.treeId)
   const [enemyTreeId, setEnemyTreeId] = useState(V3_CONTENT.enemies.briar_sentinel.treeId)
   const [battle, setBattle] = useState<V3BattleState | null>(null)
+  const [exploreFacing, setExploreFacing] = useState<V3Direction>('s')
   const [paused, setPaused] = useState(false)
   const [speed, setSpeed] = useState<0.5 | 1 | 2 | 4>(1)
   const [activeEventIndex, setActiveEventIndex] = useState(0)
@@ -152,8 +154,11 @@ export function useV3Game() {
       x: Math.max(0, Math.min(31, target.x)),
       y: Math.max(0, Math.min(19, target.y)),
     }
+    setExploreFacing(intent.kind === 'direction'
+      ? intent.direction
+      : directionFromDelta(nextPosition.x - current.x, nextPosition.y - current.y, exploreFacing))
     setProgress((value) => ({ ...value, playerPosition: nextPosition }))
-  }, [])
+  }, [exploreFacing])
 
   const updatePlayerSkill = useCallback((index: number, skillId: string) => {
     setPlayerSkillIds((current) => current.map((value, slot) => slot === index ? skillId : value))
@@ -330,20 +335,21 @@ export function useV3Game() {
 
   const viewModel = useMemo<V3ViewModel>(() => {
     const explorationMap = V3_CONTENT.maps[V3_CONTENT.game.defaultExplorationMapId]
-    const playerFacing = activeEvent?.type === 'move' && activeEvent.actorId === 'left' && activeEvent.position
-      ? directionFromDelta(
-          activeEvent.position.x - progress.playerPosition.x,
-          activeEvent.position.y - progress.playerPosition.y,
-          's',
-        )
-      : 's'
+    const battlePath = (actorId: V3ActorId) => battle ? [
+      battle.map.spawns[actorId] ?? battle.actors[actorId].position,
+      ...battle.events
+        .filter((event) => event.type === 'move' && event.actorId === actorId && event.position)
+        .map((event) => event.position!),
+    ] : []
+    const leftPath = battlePath('left')
+    const rightPath = battlePath('right')
     return {
       phase: phaseState.phase,
       exploration: {
         mapId: explorationMap.id,
         playerPosition: progress.playerPosition,
         playerVisualAssetId: player.visualAssetId,
-        playerFacing,
+        playerFacing: exploreFacing,
         safeBeacon: explorationMap.safeBeacon ?? { x: 3, y: 16 },
         encounters: Object.values(V3_CONTENT.encounters).map((encounter) => ({
           id: encounter.id,
@@ -368,22 +374,22 @@ export function useV3Game() {
             name: battle.actors.left.name,
             visualAssetId: battle.actors.left.visualAssetId,
             position: battle.actors.left.position,
-            facing: 'e',
+            facing: directionFromPath(leftPath, 'e'),
             hp: battle.actors.left.hp,
             maxHp: battle.actors.left.maxHp,
             shield: battle.actors.left.shield,
-            path: [],
+            path: leftPath.slice(-6),
           },
           right: {
             id: 'right',
             name: battle.actors.right.name,
             visualAssetId: battle.actors.right.visualAssetId,
             position: battle.actors.right.position,
-            facing: 'w',
+            facing: directionFromPath(rightPath, 'w'),
             hp: battle.actors.right.hp,
             maxHp: battle.actors.right.maxHp,
             shield: battle.actors.right.shield,
-            path: [],
+            path: rightPath.slice(-6),
           },
         },
         activeEvent,
@@ -394,7 +400,7 @@ export function useV3Game() {
         speed,
       } : null,
     }
-  }, [activeEvent, battle, latestPatch, paused, phaseState.phase, player.visualAssetId, progress, speed])
+  }, [activeEvent, battle, exploreFacing, latestPatch, paused, phaseState.phase, player.visualAssetId, progress, speed])
 
   return {
     progress,
