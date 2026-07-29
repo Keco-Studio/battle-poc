@@ -3,8 +3,8 @@ import { BattleRuntimeProviders } from '@/src/components/BattleRuntimeProviders'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'EMBER//NULL',
-  description: 'A MiniMax-directed action breach.',
+  title: 'Battle Demo',
+  description: 'NPC Battle System Demo',
   icons: { icon: '/favicon.svg' },
 }
 
