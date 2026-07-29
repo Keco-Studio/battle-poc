@@ -41,6 +41,15 @@ describe('V3 generated content', () => {
     expect(V3_CONTENT.game.visualVersion).toBe(V3_VISUAL_VERSION)
   })
 
+  it('ships English player-facing authored content', () => {
+    expect(V3_CONTENT.game.name).toBe('AI Battle: Starbright Frontier')
+    expect(V3_CONTENT.jobs.astra_vanguard.name).toBe('Astra Vanguard')
+    expect(V3_CONTENT.skills.solar_lance.name).toBe('Solar Lance')
+    expect(V3_CONTENT.enemies.eclipse_marshal.name).toBe('Eclipse Marshal')
+    expect(V3_CONTENT.encounters.briar_trial.name).toBe('Briar Trial')
+    expect(V3_CONTENT.rewards.reward_briar.name).toBe('Briar Calibration Pack')
+  })
+
   it('keeps every battle loadout at four valid skills', () => {
     const skillIds = new Set(Object.keys(V3_CONTENT.skills))
     expect(V3_CONTENT.jobs.astra_vanguard.skillIds).toHaveLength(4)

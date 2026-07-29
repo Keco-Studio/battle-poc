@@ -48,10 +48,10 @@ describe('V3 battle analysis', () => {
     expect(analysis.decisiveTick).toBe(3)
     expect(analysis.insights).toHaveLength(3)
     expect(analysis.insights.every((insight) => insight.kind === 'adjustment')).toBe(true)
-    expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('3 次')
-    expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('日耀枪')
+    expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('3 times')
+    expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('Solar Lance')
     expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('128')
-    expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('0 点')
+    expect(analysis.insights.map((insight) => insight.detail).join(' ')).toContain('No effective damage')
   })
 
   it('identifies the highest contributing skill as a victory strength', () => {
@@ -65,8 +65,8 @@ describe('V3 battle analysis', () => {
     const analysis = analyzeBattle(battle)
     expect(analysis.damageBySkill[0]).toEqual({ skillId: 'meteor_arc', damage: 120, hits: 2 })
     expect(analysis.decisiveTick).toBe(3)
-    expect(analysis.insights[0]).toMatchObject({ kind: 'strength', title: '核心输出' })
-    expect(analysis.insights[0].detail).toContain('流星弧')
+    expect(analysis.insights[0]).toMatchObject({ kind: 'strength', title: 'Core damage' })
+    expect(analysis.insights[0].detail).toContain('Meteor Arc')
     expect(analysis.insights[0].detail).toContain('120')
   })
 
