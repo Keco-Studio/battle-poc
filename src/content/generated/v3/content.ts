@@ -25,10 +25,10 @@ export const V3_CONTENT: V3Content = {
   jobs: recordById(source.content.jobs as V3Job[]),
   skills: recordById(source.content.skills as V3Skill[]),
   enemies: recordById(source.content.enemies as V3Enemy[]),
-  maps: recordById(source.content.maps as V3Map[]),
+  maps: recordById(source.content.maps as unknown as V3Map[]),
   encounters: recordById(source.content.encounters as V3Encounter[]),
   rewards: recordById(source.content.rewards as V3Reward[]),
-  trees: recordById(source.content.trees as V3BehaviorTree[]),
+  trees: recordById(source.content.trees as unknown as V3BehaviorTree[]),
   rules: source.content.rules,
   assets: recordById(source.content.assets as V3Asset[]),
 }
