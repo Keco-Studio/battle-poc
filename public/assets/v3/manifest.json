@@ -1,0 +1,1789 @@
+{
+  "version": "v3-pixellab-1",
+  "generatedAt": "2026-07-29T10:27:29.706Z",
+  "styleFormula": "optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+  "assets": [
+    {
+      "id": "map_starbright_meadow",
+      "path": "/assets/v3/maps/starbright-meadow.png",
+      "dimensions": {
+        "width": 1280,
+        "height": 720
+      },
+      "transparent": false,
+      "seed": 9101,
+      "prompt": "Top-down colorful signal meadow for a pixel RPG, a bright safe beacon in the lower-left, curved garden paths, sunny ruins, flower beds, shallow cyan streams, four clearly separated encounter clearings, readable open movement lanes, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "map_sunlit_circuit",
+      "path": "/assets/v3/maps/sunlit-circuit.png",
+      "dimensions": {
+        "width": 1024,
+        "height": 1024
+      },
+      "transparent": false,
+      "seed": 9102,
+      "prompt": "Square top-down 16 by 16 tactical garden circuit arena, bright gold lane markings, leaf-green platforms, low coral and cyan obstacles, open readable center and side paths, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "map_prism_gate",
+      "path": "/assets/v3/maps/prism-gate.png",
+      "dimensions": {
+        "width": 1024,
+        "height": 1024
+      },
+      "transparent": false,
+      "seed": 9103,
+      "prompt": "Square top-down 16 by 16 celebratory prism gate boss arena, clean violet and gold geometric floor, cyan light channels, symmetrical low obstacles, readable battle lanes, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "character_astra_vanguard",
+      "path": "/assets/v3/characters/astra-vanguard/reference.png",
+      "dimensions": {
+        "width": 96,
+        "height": 96
+      },
+      "transparent": true,
+      "seed": 9201,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "astra_move_n",
+      "path": "/assets/v3/characters/astra-vanguard/move/n/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9201,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "n"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "astra_move_ne",
+      "path": "/assets/v3/characters/astra-vanguard/move/ne/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9221,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "ne"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "astra_move_e",
+      "path": "/assets/v3/characters/astra-vanguard/move/e/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9241,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "astra_move_se",
+      "path": "/assets/v3/characters/astra-vanguard/move/se/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9261,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "se"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "astra_move_s",
+      "path": "/assets/v3/characters/astra-vanguard/move/s/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9281,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "s"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "astra_move_sw",
+      "path": "/assets/v3/characters/astra-vanguard/move/sw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9261,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "sw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "astra_move_w",
+      "path": "/assets/v3/characters/astra-vanguard/move/w/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9241,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "w"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "astra_move_nw",
+      "path": "/assets/v3/characters/astra-vanguard/move/nw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9221,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "nw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "character_briar_sentinel",
+      "path": "/assets/v3/characters/briar-sentinel/reference.png",
+      "dimensions": {
+        "width": 96,
+        "height": 96
+      },
+      "transparent": true,
+      "seed": 9202,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "briar_move_n",
+      "path": "/assets/v3/characters/briar-sentinel/move/n/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9202,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "n"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "briar_move_ne",
+      "path": "/assets/v3/characters/briar-sentinel/move/ne/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9222,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "ne"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "briar_move_e",
+      "path": "/assets/v3/characters/briar-sentinel/move/e/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9242,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "briar_move_se",
+      "path": "/assets/v3/characters/briar-sentinel/move/se/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9262,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "se"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "briar_move_s",
+      "path": "/assets/v3/characters/briar-sentinel/move/s/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9282,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "s"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "briar_move_sw",
+      "path": "/assets/v3/characters/briar-sentinel/move/sw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9262,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "sw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "briar_move_w",
+      "path": "/assets/v3/characters/briar-sentinel/move/w/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9242,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "w"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "briar_move_nw",
+      "path": "/assets/v3/characters/briar-sentinel/move/nw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9222,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "nw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "character_sunforge_striker",
+      "path": "/assets/v3/characters/sunforge-striker/reference.png",
+      "dimensions": {
+        "width": 96,
+        "height": 96
+      },
+      "transparent": true,
+      "seed": 9203,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "sunforge_move_n",
+      "path": "/assets/v3/characters/sunforge-striker/move/n/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9203,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "n"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "sunforge_move_ne",
+      "path": "/assets/v3/characters/sunforge-striker/move/ne/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9223,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "ne"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "sunforge_move_e",
+      "path": "/assets/v3/characters/sunforge-striker/move/e/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9243,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "sunforge_move_se",
+      "path": "/assets/v3/characters/sunforge-striker/move/se/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9263,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "se"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "sunforge_move_s",
+      "path": "/assets/v3/characters/sunforge-striker/move/s/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9283,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "s"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "sunforge_move_sw",
+      "path": "/assets/v3/characters/sunforge-striker/move/sw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9263,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "sw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "sunforge_move_w",
+      "path": "/assets/v3/characters/sunforge-striker/move/w/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9243,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "w"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "sunforge_move_nw",
+      "path": "/assets/v3/characters/sunforge-striker/move/nw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9223,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "nw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "character_prism_adept",
+      "path": "/assets/v3/characters/prism-adept/reference.png",
+      "dimensions": {
+        "width": 96,
+        "height": 96
+      },
+      "transparent": true,
+      "seed": 9204,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "prism_move_n",
+      "path": "/assets/v3/characters/prism-adept/move/n/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9204,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "n"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "prism_move_ne",
+      "path": "/assets/v3/characters/prism-adept/move/ne/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9224,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "ne"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "prism_move_e",
+      "path": "/assets/v3/characters/prism-adept/move/e/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9244,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "prism_move_se",
+      "path": "/assets/v3/characters/prism-adept/move/se/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9264,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "se"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "prism_move_s",
+      "path": "/assets/v3/characters/prism-adept/move/s/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9284,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "s"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "prism_move_sw",
+      "path": "/assets/v3/characters/prism-adept/move/sw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9264,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "sw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "prism_move_w",
+      "path": "/assets/v3/characters/prism-adept/move/w/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9244,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "w"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "prism_move_nw",
+      "path": "/assets/v3/characters/prism-adept/move/nw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9224,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "nw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "character_eclipse_marshal",
+      "path": "/assets/v3/characters/eclipse-marshal/reference.png",
+      "dimensions": {
+        "width": 128,
+        "height": 128
+      },
+      "transparent": true,
+      "seed": 9205,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "marshal_move_n",
+      "path": "/assets/v3/characters/eclipse-marshal/move/n/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9205,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "n"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "marshal_move_ne",
+      "path": "/assets/v3/characters/eclipse-marshal/move/ne/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9225,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "ne"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "marshal_move_e",
+      "path": "/assets/v3/characters/eclipse-marshal/move/e/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9245,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "marshal_move_se",
+      "path": "/assets/v3/characters/eclipse-marshal/move/se/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9265,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "se"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "marshal_move_s",
+      "path": "/assets/v3/characters/eclipse-marshal/move/s/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9285,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "s"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "marshal_move_sw",
+      "path": "/assets/v3/characters/eclipse-marshal/move/sw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9265,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "sw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "marshal_move_w",
+      "path": "/assets/v3/characters/eclipse-marshal/move/w/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9245,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "w"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "marshal_move_nw",
+      "path": "/assets/v3/characters/eclipse-marshal/move/nw/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9225,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "nw"
+      ],
+      "sourceType": "PixelLab mirror"
+    },
+    {
+      "id": "icon_solar_lance",
+      "path": "/assets/v3/skills/icons/solar_lance.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9301,
+      "prompt": "Centered pixel game skill icon, gold and cyan solar energy lance, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_solar_lance",
+      "path": "/assets/v3/skills/fx/solar_lance/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9401,
+      "prompt": "Centered isolated pixel game skill effect, gold and cyan solar energy lance, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_bloom_guard",
+      "path": "/assets/v3/skills/icons/bloom_guard.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9302,
+      "prompt": "Centered pixel game skill icon, leaf-green and gold flower shield, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_bloom_guard",
+      "path": "/assets/v3/skills/fx/bloom_guard/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9402,
+      "prompt": "Centered isolated pixel game skill effect, leaf-green and gold flower shield, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_gale_step",
+      "path": "/assets/v3/skills/icons/gale_step.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9303,
+      "prompt": "Centered pixel game skill icon, sky-cyan wind step trail, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_gale_step",
+      "path": "/assets/v3/skills/fx/gale_step/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9403,
+      "prompt": "Centered isolated pixel game skill effect, sky-cyan wind step trail, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_prism_snare",
+      "path": "/assets/v3/skills/icons/prism_snare.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9304,
+      "prompt": "Centered pixel game skill icon, violet and cyan geometric prism snare, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_prism_snare",
+      "path": "/assets/v3/skills/fx/prism_snare/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9404,
+      "prompt": "Centered isolated pixel game skill effect, violet and cyan geometric prism snare, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_meteor_arc",
+      "path": "/assets/v3/skills/icons/meteor_arc.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9305,
+      "prompt": "Centered pixel game skill icon, coral and gold falling meteor arc, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_meteor_arc",
+      "path": "/assets/v3/skills/fx/meteor_arc/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9405,
+      "prompt": "Centered isolated pixel game skill effect, coral and gold falling meteor arc, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_radiant_mend",
+      "path": "/assets/v3/skills/icons/radiant_mend.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9306,
+      "prompt": "Centered pixel game skill icon, green and gold healing star spiral, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_radiant_mend",
+      "path": "/assets/v3/skills/fx/radiant_mend/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9406,
+      "prompt": "Centered isolated pixel game skill effect, green and gold healing star spiral, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_echo_bolt",
+      "path": "/assets/v3/skills/icons/echo_bolt.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9307,
+      "prompt": "Centered pixel game skill icon, cyan and violet ricochet energy bolt, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_echo_bolt",
+      "path": "/assets/v3/skills/fx/echo_bolt/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9407,
+      "prompt": "Centered isolated pixel game skill effect, cyan and violet ricochet energy bolt, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "icon_comet_break",
+      "path": "/assets/v3/skills/icons/comet_break.png",
+      "dimensions": {
+        "width": 64,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9308,
+      "prompt": "Centered pixel game skill icon, white and gold finishing comet impact, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 1,
+      "directions": [],
+      "sourceType": "PixelLab"
+    },
+    {
+      "id": "fx_comet_break",
+      "path": "/assets/v3/skills/fx/comet_break/sheet.png",
+      "dimensions": {
+        "width": 512,
+        "height": 64
+      },
+      "transparent": true,
+      "seed": 9408,
+      "prompt": "Centered isolated pixel game skill effect, white and gold finishing comet impact, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "frameCount": 8,
+      "directions": [
+        "e"
+      ],
+      "sourceType": "PixelLab"
+    }
+  ],
+  "maps": [
+    {
+      "id": "starbright_meadow",
+      "path": "/assets/v3/maps/starbright-meadow.png",
+      "width": 1280,
+      "height": 720,
+      "seed": 9101,
+      "prompt": "Top-down colorful signal meadow for a pixel RPG, a bright safe beacon in the lower-left, curved garden paths, sunny ruins, flower beds, shallow cyan streams, four clearly separated encounter clearings, readable open movement lanes, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "sunlit_circuit",
+      "path": "/assets/v3/maps/sunlit-circuit.png",
+      "width": 1024,
+      "height": 1024,
+      "seed": 9102,
+      "prompt": "Square top-down 16 by 16 tactical garden circuit arena, bright gold lane markings, leaf-green platforms, low coral and cyan obstacles, open readable center and side paths, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "prism_gate",
+      "path": "/assets/v3/maps/prism-gate.png",
+      "width": 1024,
+      "height": 1024,
+      "seed": 9103,
+      "prompt": "Square top-down 16 by 16 celebratory prism gate boss arena, clean violet and gold geometric floor, cyan light channels, symmetrical low obstacles, readable battle lanes, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    }
+  ],
+  "characters": [
+    {
+      "id": "astra_vanguard",
+      "referencePath": "/assets/v3/characters/astra-vanguard/reference.png",
+      "seed": 9201,
+      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "directions": {
+        "n": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/n/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/n/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/n/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "ne": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/ne/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/ne/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "e": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/e/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/e/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/e/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "se": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/se/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/se/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/se/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "s": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/s/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/s/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/s/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "sw": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/sw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/sw/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "w": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/w/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/w/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/w/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "nw": {
+          "sheetPath": "/assets/v3/characters/astra-vanguard/move/nw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_000.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_001.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_002.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_003.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_004.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_005.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_006.png",
+            "/assets/v3/characters/astra-vanguard/move/nw/frame_007.png"
+          ],
+          "fps": 10
+        }
+      }
+    },
+    {
+      "id": "briar_sentinel",
+      "referencePath": "/assets/v3/characters/briar-sentinel/reference.png",
+      "seed": 9202,
+      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "directions": {
+        "n": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/n/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/n/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/n/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "ne": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/ne/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/ne/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "e": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/e/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/e/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/e/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "se": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/se/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/se/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/se/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "s": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/s/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/s/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/s/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "sw": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/sw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/sw/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "w": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/w/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/w/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/w/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "nw": {
+          "sheetPath": "/assets/v3/characters/briar-sentinel/move/nw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_000.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_001.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_002.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_003.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_004.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_005.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_006.png",
+            "/assets/v3/characters/briar-sentinel/move/nw/frame_007.png"
+          ],
+          "fps": 10
+        }
+      }
+    },
+    {
+      "id": "sunforge_striker",
+      "referencePath": "/assets/v3/characters/sunforge-striker/reference.png",
+      "seed": 9203,
+      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "directions": {
+        "n": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/n/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/n/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/n/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "ne": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/ne/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/ne/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "e": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/e/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/e/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/e/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "se": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/se/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/se/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/se/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "s": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/s/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/s/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/s/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "sw": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/sw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/sw/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "w": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/w/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/w/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/w/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "nw": {
+          "sheetPath": "/assets/v3/characters/sunforge-striker/move/nw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_000.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_001.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_002.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_003.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_004.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_005.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_006.png",
+            "/assets/v3/characters/sunforge-striker/move/nw/frame_007.png"
+          ],
+          "fps": 10
+        }
+      }
+    },
+    {
+      "id": "prism_adept",
+      "referencePath": "/assets/v3/characters/prism-adept/reference.png",
+      "seed": 9204,
+      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "directions": {
+        "n": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/n/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/n/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/n/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "ne": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/ne/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/ne/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/ne/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "e": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/e/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/e/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/e/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "se": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/se/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/se/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/se/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "s": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/s/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/s/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/s/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "sw": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/sw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/sw/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/sw/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "w": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/w/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/w/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/w/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "nw": {
+          "sheetPath": "/assets/v3/characters/prism-adept/move/nw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/prism-adept/move/nw/frame_000.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_001.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_002.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_003.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_004.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_005.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_006.png",
+            "/assets/v3/characters/prism-adept/move/nw/frame_007.png"
+          ],
+          "fps": 10
+        }
+      }
+    },
+    {
+      "id": "eclipse_marshal",
+      "referencePath": "/assets/v3/characters/eclipse-marshal/reference.png",
+      "seed": 9205,
+      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "directions": {
+        "n": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/n/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/n/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "ne": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/ne/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/ne/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "e": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/e/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/e/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "se": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/se/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/se/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "s": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/s/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/s/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "sw": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/sw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/sw/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "w": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/w/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/w/frame_007.png"
+          ],
+          "fps": 10
+        },
+        "nw": {
+          "sheetPath": "/assets/v3/characters/eclipse-marshal/move/nw/sheet.png",
+          "frames": [
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_000.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_001.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_002.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_003.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_004.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_005.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_006.png",
+            "/assets/v3/characters/eclipse-marshal/move/nw/frame_007.png"
+          ],
+          "fps": 10
+        }
+      }
+    }
+  ],
+  "skills": [
+    {
+      "id": "solar_lance",
+      "iconPath": "/assets/v3/skills/icons/solar_lance.png",
+      "fxSheetPath": "/assets/v3/skills/fx/solar_lance/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/solar_lance/frame_000.png",
+        "/assets/v3/skills/fx/solar_lance/frame_001.png",
+        "/assets/v3/skills/fx/solar_lance/frame_002.png",
+        "/assets/v3/skills/fx/solar_lance/frame_003.png",
+        "/assets/v3/skills/fx/solar_lance/frame_004.png",
+        "/assets/v3/skills/fx/solar_lance/frame_005.png",
+        "/assets/v3/skills/fx/solar_lance/frame_006.png",
+        "/assets/v3/skills/fx/solar_lance/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9301,
+      "fxSeed": 9401,
+      "iconPrompt": "Centered pixel game skill icon, gold and cyan solar energy lance, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, gold and cyan solar energy lance, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "bloom_guard",
+      "iconPath": "/assets/v3/skills/icons/bloom_guard.png",
+      "fxSheetPath": "/assets/v3/skills/fx/bloom_guard/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/bloom_guard/frame_000.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_001.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_002.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_003.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_004.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_005.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_006.png",
+        "/assets/v3/skills/fx/bloom_guard/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9302,
+      "fxSeed": 9402,
+      "iconPrompt": "Centered pixel game skill icon, leaf-green and gold flower shield, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, leaf-green and gold flower shield, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "gale_step",
+      "iconPath": "/assets/v3/skills/icons/gale_step.png",
+      "fxSheetPath": "/assets/v3/skills/fx/gale_step/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/gale_step/frame_000.png",
+        "/assets/v3/skills/fx/gale_step/frame_001.png",
+        "/assets/v3/skills/fx/gale_step/frame_002.png",
+        "/assets/v3/skills/fx/gale_step/frame_003.png",
+        "/assets/v3/skills/fx/gale_step/frame_004.png",
+        "/assets/v3/skills/fx/gale_step/frame_005.png",
+        "/assets/v3/skills/fx/gale_step/frame_006.png",
+        "/assets/v3/skills/fx/gale_step/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9303,
+      "fxSeed": 9403,
+      "iconPrompt": "Centered pixel game skill icon, sky-cyan wind step trail, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, sky-cyan wind step trail, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "prism_snare",
+      "iconPath": "/assets/v3/skills/icons/prism_snare.png",
+      "fxSheetPath": "/assets/v3/skills/fx/prism_snare/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/prism_snare/frame_000.png",
+        "/assets/v3/skills/fx/prism_snare/frame_001.png",
+        "/assets/v3/skills/fx/prism_snare/frame_002.png",
+        "/assets/v3/skills/fx/prism_snare/frame_003.png",
+        "/assets/v3/skills/fx/prism_snare/frame_004.png",
+        "/assets/v3/skills/fx/prism_snare/frame_005.png",
+        "/assets/v3/skills/fx/prism_snare/frame_006.png",
+        "/assets/v3/skills/fx/prism_snare/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9304,
+      "fxSeed": 9404,
+      "iconPrompt": "Centered pixel game skill icon, violet and cyan geometric prism snare, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, violet and cyan geometric prism snare, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "meteor_arc",
+      "iconPath": "/assets/v3/skills/icons/meteor_arc.png",
+      "fxSheetPath": "/assets/v3/skills/fx/meteor_arc/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/meteor_arc/frame_000.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_001.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_002.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_003.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_004.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_005.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_006.png",
+        "/assets/v3/skills/fx/meteor_arc/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9305,
+      "fxSeed": 9405,
+      "iconPrompt": "Centered pixel game skill icon, coral and gold falling meteor arc, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, coral and gold falling meteor arc, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "radiant_mend",
+      "iconPath": "/assets/v3/skills/icons/radiant_mend.png",
+      "fxSheetPath": "/assets/v3/skills/fx/radiant_mend/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/radiant_mend/frame_000.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_001.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_002.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_003.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_004.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_005.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_006.png",
+        "/assets/v3/skills/fx/radiant_mend/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9306,
+      "fxSeed": 9406,
+      "iconPrompt": "Centered pixel game skill icon, green and gold healing star spiral, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, green and gold healing star spiral, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "echo_bolt",
+      "iconPath": "/assets/v3/skills/icons/echo_bolt.png",
+      "fxSheetPath": "/assets/v3/skills/fx/echo_bolt/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/echo_bolt/frame_000.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_001.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_002.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_003.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_004.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_005.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_006.png",
+        "/assets/v3/skills/fx/echo_bolt/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9307,
+      "fxSeed": 9407,
+      "iconPrompt": "Centered pixel game skill icon, cyan and violet ricochet energy bolt, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, cyan and violet ricochet energy bolt, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    },
+    {
+      "id": "comet_break",
+      "iconPath": "/assets/v3/skills/icons/comet_break.png",
+      "fxSheetPath": "/assets/v3/skills/fx/comet_break/sheet.png",
+      "fxFrames": [
+        "/assets/v3/skills/fx/comet_break/frame_000.png",
+        "/assets/v3/skills/fx/comet_break/frame_001.png",
+        "/assets/v3/skills/fx/comet_break/frame_002.png",
+        "/assets/v3/skills/fx/comet_break/frame_003.png",
+        "/assets/v3/skills/fx/comet_break/frame_004.png",
+        "/assets/v3/skills/fx/comet_break/frame_005.png",
+        "/assets/v3/skills/fx/comet_break/frame_006.png",
+        "/assets/v3/skills/fx/comet_break/frame_007.png"
+      ],
+      "fps": 14,
+      "iconSeed": 9308,
+      "fxSeed": 9408,
+      "iconPrompt": "Centered pixel game skill icon, white and gold finishing comet impact, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "fxPrompt": "Centered isolated pixel game skill effect, white and gold finishing comet impact, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels"
+    }
+  ]
+}
