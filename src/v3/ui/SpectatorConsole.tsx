@@ -35,7 +35,7 @@ function ActorSummary({ battle, actorId }: { battle: V3BattleState; actorId: 'le
   const energyRatio = Math.max(0, actor.energy / actor.maxEnergy)
   return (
     <section className={`v3-actor-summary is-${actorId}`}>
-      <div><strong>{actor.name}</strong><span>{actorId === 'left' ? '我方 AI' : '敌方 AI'}</span></div>
+      <div><strong>{actor.name}</strong><span>{actorId === 'left' ? 'Ally AI' : 'Enemy AI'}</span></div>
       <div className="v3-meter"><i style={{ width: `${hpRatio * 100}%` }} /><span>HP {actor.hp}/{actor.maxHp}</span></div>
       <div className="v3-meter is-energy"><i style={{ width: `${energyRatio * 100}%` }} /><span>EN {actor.energy}/{actor.maxEnergy}</span></div>
     </section>
@@ -50,15 +50,15 @@ function filteredEvents(battle: V3BattleState, filter: V3TimelineFilter) {
 }
 
 function decisionSourceText(source: V3DecisionEvidence['source'] | undefined): string {
-  return source === 'llm' ? '在线模型' : source === 'fallback' ? '本地确定性策略' : '等待决策'
+  return source === 'llm' ? 'Online model' : source === 'fallback' ? 'Local deterministic strategy' : 'Awaiting decision'
 }
 
 function decisionStatusText(status: V3DecisionEvidence['status'] | undefined): string {
-  if (status === 'ok') return '决策有效'
-  if (status === 'timeout') return '计算超时，已安全接管'
-  if (status === 'invalid') return '结果无效，已安全接管'
-  if (status === 'unavailable') return '在线模型不可用，已安全接管'
-  return '等待校验'
+  if (status === 'ok') return 'Decision valid'
+  if (status === 'timeout') return 'Computation timed out, safe takeover engaged'
+  if (status === 'invalid') return 'Result invalid, safe takeover engaged'
+  if (status === 'unavailable') return 'Online model unavailable, safe takeover engaged'
+  return 'Awaiting validation'
 }
 
 function ActorDecision({ battle, actorId }: { battle: V3BattleState; actorId: 'left' | 'right' }) {
@@ -67,9 +67,9 @@ function ActorDecision({ battle, actorId }: { battle: V3BattleState; actorId: 'l
   return (
     <section className="v3-decision-row">
       <strong>{battle.actors[actorId].name}</strong>
-      <span><b>当前行动</b>{action ? playerEventText(action, battle) : '等待行动'}</span>
-      <span><b>判断依据</b>{playerNodeText(action?.nodeId, actorId, battle)}</span>
-      <span><b>策略状态</b>{playerPatchStatusText(patch?.status)}</span>
+      <span><b>Current action</b>{action ? playerEventText(action, battle) : 'Awaiting action'}</span>
+      <span><b>Rationale</b>{playerNodeText(action?.nodeId, actorId, battle)}</span>
+      <span><b>Strategy status</b>{playerPatchStatusText(patch?.status)}</span>
     </section>
   )
 }
@@ -78,7 +78,7 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
   const latestPatch = props.battle.patchRecords.at(-1)
   const events = filteredEvents(props.battle, props.eventFilter).slice(-18).reverse()
   return (
-    <aside className="v3-spectator" aria-label="AI 观战控制台">
+    <aside className="v3-spectator" aria-label="AI spectator console">
       <div className="v3-actor-pair">
         <ActorSummary battle={props.battle} actorId="left" />
         <ActorSummary battle={props.battle} actorId="right" />
@@ -86,55 +86,55 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
 
       <div className="v3-tick-line">
         <strong>Tick {props.battle.tick}</strong>
-        <span>{props.activeEvent ? playerEventText(props.activeEvent, props.battle) : '等待下一行动'}</span>
+        <span>{props.activeEvent ? playerEventText(props.activeEvent, props.battle) : 'Awaiting next action'}</span>
       </div>
 
       <div className="v3-viewer-controls">
-        <button type="button" onClick={props.onPauseToggle} title={props.paused ? '继续' : '暂停'}>
-          {props.paused ? <Play size={17} /> : <Pause size={17} />} {props.paused ? '继续' : '暂停'}
+        <button type="button" onClick={props.onPauseToggle} title={props.paused ? 'Resume' : 'Pause'}>
+          {props.paused ? <Play size={17} /> : <Pause size={17} />} {props.paused ? 'Resume' : 'Pause'}
         </button>
-        <button type="button" onClick={props.onStep} title="单步播放一个行动"><SkipForward size={17} /> 单步</button>
+        <button type="button" onClick={props.onStep} title="Play a single action"><SkipForward size={17} /> Step</button>
         <label><FastForward size={17} /><select value={props.speed} onChange={(event) => props.onSpeedChange(Number(event.target.value) as 0.5 | 1 | 2 | 4)}>
           <option value={0.5}>0.5×</option><option value={1}>1×</option><option value={2}>2×</option><option value={4}>4×</option>
         </select></label>
       </div>
 
-      <nav className="v3-console-tabs" aria-label="观战视图">
+      <nav className="v3-console-tabs" aria-label="Spectator views">
         {(['status', 'decision', 'timeline'] as const).map((tab) => (
           <button key={tab} type="button" className={props.activeTab === tab ? 'is-active' : ''} onClick={() => props.onTabChange(tab)}>
-            {tab === 'status' ? '战况' : tab === 'decision' ? 'AI 思路' : '战斗记录'}
+            {tab === 'status' ? 'Battle' : tab === 'decision' ? 'AI Reasoning' : 'Battle Log'}
           </button>
         ))}
       </nav>
 
       {props.activeTab === 'status' && (
         <div className="v3-console-body v3-stat-grid">
-          <span>我方伤害<strong>{props.battle.actors.left.damageDealt}</strong></span>
-          <span>敌方伤害<strong>{props.battle.actors.right.damageDealt}</strong></span>
-          <span>我方技能<strong>{props.battle.actors.left.skillsUsed}</strong></span>
-          <span>敌方技能<strong>{props.battle.actors.right.skillsUsed}</strong></span>
-          <span>当前回合<strong>{props.battle.tick}</strong></span>
-          <span>已执行行动<strong>{props.battle.events.length}</strong></span>
+          <span>Ally damage<strong>{props.battle.actors.left.damageDealt}</strong></span>
+          <span>Enemy damage<strong>{props.battle.actors.right.damageDealt}</strong></span>
+          <span>Ally skills<strong>{props.battle.actors.left.skillsUsed}</strong></span>
+          <span>Enemy skills<strong>{props.battle.actors.right.skillsUsed}</strong></span>
+          <span>Current turn<strong>{props.battle.tick}</strong></span>
+          <span>Actions taken<strong>{props.battle.events.length}</strong></span>
         </div>
       )}
 
       {props.activeTab === 'decision' && (
         <div className="v3-console-body">
-          <h3>本回合为什么这样行动</h3>
+          <h3>Why this action this turn</h3>
           <div className="v3-decision-list">
             <ActorDecision battle={props.battle} actorId="left" />
             <ActorDecision battle={props.battle} actorId="right" />
           </div>
-          <p className="v3-patch-reason">{latestPatch?.reason ?? props.latestDecisionEvidence?.reason ?? 'AI 正在观察距离、生命值和技能状态。'}</p>
+          <p className="v3-patch-reason">{latestPatch?.reason ?? props.latestDecisionEvidence?.reason ?? 'The AI is observing distance, health, and skill status.'}</p>
           <details className="v3-advanced-details">
-            <summary>高级详情</summary>
+            <summary>Advanced details</summary>
             <dl className="v3-evidence">
-              <div><dt>决策来源</dt><dd>{decisionSourceText(props.latestDecisionEvidence?.source)}</dd></div>
-              <div><dt>校验状态</dt><dd>{decisionStatusText(props.latestDecisionEvidence?.status)}</dd></div>
-              <div><dt>耗时</dt><dd>{props.latestDecisionEvidence?.latencyMs ?? 0} ms</dd></div>
-              <div><dt>策略版本</dt><dd>{latestPatch ? `${latestPatch.baseTreeVersion} → ${latestPatch.resultingTreeVersion}` : '-'}</dd></div>
+              <div><dt>Decision source</dt><dd>{decisionSourceText(props.latestDecisionEvidence?.source)}</dd></div>
+              <div><dt>Validation status</dt><dd>{decisionStatusText(props.latestDecisionEvidence?.status)}</dd></div>
+              <div><dt>Latency</dt><dd>{props.latestDecisionEvidence?.latencyMs ?? 0} ms</dd></div>
+              <div><dt>Strategy version</dt><dd>{latestPatch ? `${latestPatch.baseTreeVersion} → ${latestPatch.resultingTreeVersion}` : '-'}</dd></div>
             </dl>
-            <code>{latestPatch?.ops.map(playerPatchOperationText).join(' · ') || '暂无策略调整'}</code>
+            <code>{latestPatch?.ops.map(playerPatchOperationText).join(' | ') || 'No strategy adjustments yet'}</code>
           </details>
         </div>
       )}
@@ -143,7 +143,7 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
         <div className="v3-console-body">
           <label className="v3-filter-line"><ListFilter size={16} />
             <select value={props.eventFilter} onChange={(event) => props.onEventFilterChange(event.target.value as V3TimelineFilter)}>
-              <option value="all">全部记录</option><option value="patch">策略调整</option><option value="action">行动</option><option value="combat">生命变化</option>
+              <option value="all">All events</option><option value="patch">Strategy adjustments</option><option value="action">Actions</option><option value="combat">Health changes</option>
             </select>
           </label>
           <ol className="v3-timeline">

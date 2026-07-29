@@ -23,7 +23,7 @@ export default function LegacyPage() {
         }}
       />
       <GameMap game={game} />
-      <Link href="/" className="legacy-v3-return">返回新版 V3</Link>
+      <Link href="/" className="legacy-v3-return">Return to V3</Link>
       {game.showCharacter && <CharacterPanel game={game} />}
       {game.showEquipment && <EquipmentPanel game={game} />}
       {game.showSkills && <SkillsPanel game={game} />}

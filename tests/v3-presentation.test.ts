@@ -112,11 +112,11 @@ describe('V3 presentation contracts', () => {
     })
     expect(playerEventText({
       id: 'result', tick: 3, sequence: 0, type: 'result', message: 'left_win:hp_zero',
-    }, { ...battle, result: 'left_win', endReason: 'hp_zero' })).toBe('我方赢得战斗，对手生命值归零')
+    }, { ...battle, result: 'left_win', endReason: 'hp_zero' })).toBe('Our side wins the battle; the opponent has been reduced to zero HP')
     expect(playerEventText({
       id: 'reject', tick: 1, sequence: 0, type: 'action_rejected', actorId: 'left',
       rejectCode: 'not_equipped', message: 'not_equipped',
-    }, battle)).toContain('未装备该技能')
-    expect(playerNodeText('control', 'left', battle)).toBe('尝试施放棱镜缚阵')
+    }, battle)).toContain('Skill is not equipped')
+    expect(playerNodeText('control', 'left', battle)).toBe('Try to cast Prism Snare')
   })
 })

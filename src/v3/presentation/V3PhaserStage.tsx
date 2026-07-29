@@ -83,7 +83,7 @@ export function V3PhaserStage({
       data-testid="v3-phaser-stage"
       data-ready={ready ? 'true' : 'false'}
       role="application"
-      aria-label="星辉边境像素战场"
+      aria-label="Starbright Frontier pixel battlefield"
       tabIndex={0}
       onPointerDown={(event) => event.currentTarget.focus({ preventScroll: true })}
       style={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden', imageRendering: 'pixelated' }}

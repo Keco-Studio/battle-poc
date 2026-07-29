@@ -27,7 +27,7 @@ describe('POST /api/v3/decision', () => {
       decision: {
         decisionTick: 0,
         baseTreeVersion: 1,
-        reason: '优先控制目标',
+        reason: 'Prioritize target control',
         ops: [{ kind: 'set_action', nodeId: 'control', skillId: 'prism_snare' }],
       },
     }))
@@ -44,7 +44,7 @@ describe('POST /api/v3/decision', () => {
         actorId: 'left',
         decisionTick: 0,
         baseTreeVersion: 1,
-        reason: '优先控制目标',
+        reason: 'Prioritize target control',
       },
     })
     expect(proxy).toHaveBeenCalledWith(

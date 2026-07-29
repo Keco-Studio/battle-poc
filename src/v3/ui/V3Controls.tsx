@@ -22,12 +22,12 @@ export function V3Controls({ disabled = false, onMove }: V3ControlsProps) {
   )
 
   return (
-    <div className="v3-dpad" aria-label="移动控制">
-      {button('n', '向上移动', <ArrowUp size={20} />, 'v3-dpad-up')}
-      {button('w', '向左移动', <ArrowLeft size={20} />, 'v3-dpad-left')}
+    <div className="v3-dpad" aria-label="Movement controls">
+      {button('n', 'Move up', <ArrowUp size={20} />, 'v3-dpad-up')}
+      {button('w', 'Move left', <ArrowLeft size={20} />, 'v3-dpad-left')}
       <span className="v3-dpad-center" aria-hidden="true" />
-      {button('e', '向右移动', <ArrowRight size={20} />, 'v3-dpad-right')}
-      {button('s', '向下移动', <ArrowDown size={20} />, 'v3-dpad-down')}
+      {button('e', 'Move right', <ArrowRight size={20} />, 'v3-dpad-right')}
+      {button('s', 'Move down', <ArrowDown size={20} />, 'v3-dpad-down')}
     </div>
   )
 }

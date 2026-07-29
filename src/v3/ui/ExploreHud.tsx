@@ -12,9 +12,9 @@ export type ExploreHudProps = {
 
 export function ExploreHud({ progress, objective, nearbyEncounter, onOpenEncounter }: ExploreHudProps) {
   return (
-    <div className="v3-explore-hud" aria-label="探索状态">
+    <div className="v3-explore-hud" aria-label="Exploration status">
       <div className="v3-hud-strip">
-        <span><ShieldCheck size={15} /> 星辉先锋</span>
+        <span><ShieldCheck size={15} /> Starbright Vanguard</span>
         <span><Star size={15} /> {progress.starlight}</span>
         <span><Sparkles size={15} /> EXP {progress.exp}</span>
         <span><MapPin size={15} /> {progress.playerPosition.x},{progress.playerPosition.y}</span>
@@ -29,8 +29,8 @@ export function ExploreHud({ progress, objective, nearbyEncounter, onOpenEncount
           type="button"
           onClick={() => onOpenEncounter(nearbyEncounter.id)}
         >
-          <span>发现 {nearbyEncounter.name}</span>
-          <strong>进入战前准备</strong>
+          <span>Found {nearbyEncounter.name}</span>
+          <strong>Enter battle preparation</strong>
         </button>
       )}
     </div>

@@ -32,34 +32,34 @@ export function BattleReport(props: BattleReportProps) {
   const firstPatch = props.battle.patchRecords[0]
   const lastPatch = props.battle.patchRecords.at(-1)
   const endReason = props.battle.endReason === 'hp_zero'
-    ? '一方生命值归零'
+    ? 'One side reached zero HP'
     : props.battle.endReason === 'max_tick'
-      ? '达到最大回合数'
-      : props.battle.endReason ?? '战斗结束'
+      ? 'Maximum turn count reached'
+      : props.battle.endReason ?? 'Battle ended'
 
   return (
-    <aside className="v3-report" aria-label="战斗复盘">
+    <aside className="v3-report" aria-label="Battle recap">
       <header className={victory ? 'is-victory' : 'is-defeat'}>
         <Trophy size={25} />
-        <div><span>战斗结果</span><h2>{victory ? '挑战成功' : props.battle.result === 'draw' ? '双方战平' : '挑战失败'}</h2></div>
+        <div><span>Battle result</span><h2>{victory ? 'Challenge cleared' : props.battle.result === 'draw' ? 'Draw' : 'Challenge failed'}</h2></div>
       </header>
 
       <div className="v3-report-meta">
-        <span>结束原因<strong>{endReason}</strong></span>
-        <span>战斗回合<strong>{props.battle.tick}</strong></span>
-        <span>耗时<strong>{(props.durationMs / 1000).toFixed(1)}s</strong></span>
+        <span>End reason<strong>{endReason}</strong></span>
+        <span>Turns<strong>{props.battle.tick}</strong></span>
+        <span>Duration<strong>{(props.durationMs / 1000).toFixed(1)}s</strong></span>
       </div>
 
       <section className="v3-report-stats">
-        <h3>战斗统计</h3>
-        <p>我方伤害 <strong>{props.battle.actors.left.damageDealt}</strong></p>
-        <p>敌方伤害 <strong>{props.battle.actors.right.damageDealt}</strong></p>
-        <p>我方治疗 <strong>{props.battle.actors.left.healingDone}</strong></p>
-        <p>策略调整 <strong>{props.battle.patchRecords.length}</strong></p>
+        <h3>Battle stats</h3>
+        <p>Ally damage <strong>{props.battle.actors.left.damageDealt}</strong></p>
+        <p>Enemy damage <strong>{props.battle.actors.right.damageDealt}</strong></p>
+        <p>Ally healing <strong>{props.battle.actors.left.healingDone}</strong></p>
+        <p>Strategy adjustments <strong>{props.battle.patchRecords.length}</strong></p>
       </section>
 
       <section className={`v3-report-insights ${victory ? 'is-strength' : 'is-adjustment'}`}>
-        <h3>{victory ? '制胜关键' : '下次调整'}</h3>
+        <h3>{victory ? 'Keys to victory' : 'Next adjustments'}</h3>
         {analysis.insights.map((insight) => (
           <article key={`${insight.title}-${insight.detail}`}>
             <strong>{insight.title}</strong>
@@ -69,31 +69,31 @@ export function BattleReport(props: BattleReportProps) {
       </section>
 
       <details className="v3-advanced-details v3-report-details">
-        <summary>高级详情</summary>
+        <summary>Advanced details</summary>
         <section className="v3-tree-diff">
-          <p>随机种子 {props.battle.initialConfig.seed}</p>
-          <p>策略版本 {firstPatch?.baseTreeVersion ?? 1} → {lastPatch?.resultingTreeVersion ?? props.battle.trees.left.version}</p>
-          <p>内容版本 {props.battle.initialConfig.versions.content}</p>
-          <p>规则版本 {props.battle.initialConfig.versions.rules}</p>
-          <p>视觉版本 {props.battle.initialConfig.versions.visual}</p>
-          <p>模型版本 {props.battle.initialConfig.versions.model}</p>
-          <code>{lastPatch?.reason ?? '本场没有策略调整'}</code>
+          <p>Random seed {props.battle.initialConfig.seed}</p>
+          <p>Strategy version {firstPatch?.baseTreeVersion ?? 1} → {lastPatch?.resultingTreeVersion ?? props.battle.trees.left.version}</p>
+          <p>Content version {props.battle.initialConfig.versions.content}</p>
+          <p>Rules version {props.battle.initialConfig.versions.rules}</p>
+          <p>Visual version {props.battle.initialConfig.versions.visual}</p>
+          <p>Model version {props.battle.initialConfig.versions.model}</p>
+          <code>{lastPatch?.reason ?? 'No strategy adjustments in this battle'}</code>
         </section>
       </details>
 
       {props.mode === 'standard' && victory && props.reward && (
         <section className="v3-reward-band">
           <strong>{props.reward.name}</strong>
-          <span>+{props.reward.exp} EXP · +{props.reward.starlight} 星辉</span>
+          <span>+{props.reward.exp} EXP | +{props.reward.starlight} Starlight</span>
           <p>{props.reward.description}</p>
         </section>
       )}
-      {props.mode === 'sandbox' && <p className="v3-sandbox-note">自由测试不会写入奖励、解锁或正式记录。</p>}
+      {props.mode === 'sandbox' && <p className="v3-sandbox-note">Sandbox tests do not write rewards, unlocks, or official records.</p>}
 
       <label className="v3-filter-line">
-        <span>时间线筛选</span>
+        <span>Timeline filter</span>
         <select value={props.timelineFilter} onChange={(event) => props.onTimelineFilterChange(event.target.value as V3TimelineFilter)}>
-          <option value="all">全部</option><option value="patch">策略调整</option><option value="action">行动</option><option value="combat">生命变化</option>
+          <option value="all">All</option><option value="patch">Strategy adjustments</option><option value="action">Actions</option><option value="combat">Health changes</option>
         </select>
       </label>
       <ol className="v3-report-timeline">
@@ -101,9 +101,9 @@ export function BattleReport(props: BattleReportProps) {
       </ol>
 
       <div className="v3-report-actions">
-        <button type="button" onClick={props.onReplay}><RotateCcw size={17} /> 确定性重放</button>
-        <button type="button" onClick={props.onRematch}><RefreshCw size={17} /> 同配置再战</button>
-        <button className="is-primary" type="button" onClick={props.onReturnToMap}><Map size={17} /> 返回地图</button>
+        <button type="button" onClick={props.onReplay}><RotateCcw size={17} /> Deterministic replay</button>
+        <button type="button" onClick={props.onRematch}><RefreshCw size={17} /> Rematch same config</button>
+        <button className="is-primary" type="button" onClick={props.onReturnToMap}><Map size={17} /> Return to map</button>
       </div>
     </aside>
   )

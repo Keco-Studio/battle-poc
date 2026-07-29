@@ -316,10 +316,10 @@ export function useV3Game() {
   const startBattle = useCallback(() => {
     if (!selectedEncounter || !selectedEnemy) return
     const errors: string[] = []
-    if (new Set(playerSkillIds).size !== 4) errors.push('我方四个技能槽不能重复。')
-    if (new Set(enemySkillIds).size !== 4) errors.push('敌方四个技能槽不能重复。')
-    if (!V3_CONTENT.trees[playerTreeId]) errors.push('请选择有效的我方行为树。')
-    if (!V3_CONTENT.trees[enemyTreeId]) errors.push('请选择有效的敌方行为树。')
+    if (new Set(playerSkillIds).size !== 4) errors.push('Player skill slots must be unique.')
+    if (new Set(enemySkillIds).size !== 4) errors.push('Enemy skill slots must be unique.')
+    if (!V3_CONTENT.trees[playerTreeId]) errors.push('Select a valid player behavior tree.')
+    if (!V3_CONTENT.trees[enemyTreeId]) errors.push('Select a valid enemy behavior tree.')
     setValidationErrors(errors)
     if (errors.length > 0) return
 
@@ -468,10 +468,10 @@ export function useV3Game() {
           },
         },
         activeEvent,
-        activeActionLabel: activeEvent ? playerEventText(activeEvent, battle) : '等待双方 AI 决策',
+        activeActionLabel: activeEvent ? playerEventText(activeEvent, battle) : 'Waiting for both AIs to decide',
         activeNodeLabel: activeEvent?.actorId
           ? playerNodeText(activeEvent.nodeId, activeEvent.actorId, battle)
-          : '等待双方 AI 决策',
+          : 'Waiting for both AIs to decide',
         latestPatch,
         paused,
         speed,

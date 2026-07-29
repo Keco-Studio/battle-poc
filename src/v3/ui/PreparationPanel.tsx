@@ -56,7 +56,7 @@ function SkillSlots({
         return (
           <label className="v3-skill-slot" key={`${index}-${skillId}`}>
             <Image src={`/assets/v3/skills/icons/${skillId}.png`} alt="" width={42} height={42} unoptimized />
-            <span>槽位 {index + 1}</span>
+            <span>Slot {index + 1}</span>
             {editable ? (
               <select value={skillId} onChange={(event) => onChange(index, event.target.value)}>
                 {Object.values(skills).map((option) => (
@@ -79,31 +79,31 @@ export function PreparationPanel(props: PreparationPanelProps) {
   const enemyTrees = Object.values(props.trees).filter((tree) => tree.ownerType === 'enemy')
 
   return (
-    <section className="v3-work-surface v3-prepare" aria-label="战前准备">
+    <section className="v3-work-surface v3-prepare" aria-label="Battle preparation">
       <header className="v3-section-heading">
         <div>
-          <span className="v3-kicker">战前准备</span>
-          <h2>挑战 {props.encounter.name}</h2>
+          <span className="v3-kicker">Battle preparation</span>
+          <h2>Challenge {props.encounter.name}</h2>
         </div>
-        <button className="v3-icon-button" type="button" onClick={props.onCancel} title="返回探索" aria-label="返回探索">
+        <button className="v3-icon-button" type="button" onClick={props.onCancel} title="Back to exploration" aria-label="Back to exploration">
           <ChevronLeft size={20} />
         </button>
       </header>
 
-      <div className="v3-segmented" aria-label="战斗模式">
-        <button type="button" className={props.mode === 'standard' ? 'is-active' : ''} onClick={() => props.onModeChange('standard')}>正式挑战</button>
-        <button type="button" className={sandbox ? 'is-active' : ''} onClick={() => props.onModeChange('sandbox')}>自由测试</button>
+      <div className="v3-segmented" aria-label="Battle mode">
+        <button type="button" className={props.mode === 'standard' ? 'is-active' : ''} onClick={() => props.onModeChange('standard')}>Ranked challenge</button>
+        <button type="button" className={sandbox ? 'is-active' : ''} onClick={() => props.onModeChange('sandbox')}>Sandbox test</button>
       </div>
 
       {!sandbox && props.progressionBonuses.length > 0 && (
-        <section className="v3-progression-band" aria-label="远征加成">
+        <section className="v3-progression-band" aria-label="Expedition bonuses">
           <div>
-            <strong>远征加成</strong>
-            <span>生命 +{props.statModifiers.hp}</span>
-            <span>能量 +{props.statModifiers.energy}</span>
-            <span>攻击 +{props.statModifiers.atk}</span>
-            <span>防御 +{props.statModifiers.def}</span>
-            <span>速度 +{props.statModifiers.spd}</span>
+            <strong>Expedition bonuses</strong>
+            <span>HP +{props.statModifiers.hp}</span>
+            <span>Energy +{props.statModifiers.energy}</span>
+            <span>ATK +{props.statModifiers.atk}</span>
+            <span>DEF +{props.statModifiers.def}</span>
+            <span>SPD +{props.statModifiers.spd}</span>
           </div>
           <ul>{props.progressionBonuses.map((bonus) => <li key={bonus.id}>{bonus.description}</li>)}</ul>
         </section>
@@ -111,23 +111,23 @@ export function PreparationPanel(props: PreparationPanelProps) {
 
       <div className="v3-prepare-columns">
         <section className="v3-build-column">
-          <h3><Swords size={17} /> 我的队伍</h3>
-          <p>{props.player.name} · HP {props.player.hp} · SPD {props.player.spd}</p>
+          <h3><Swords size={17} /> My team</h3>
+          <p>{props.player.name} | HP {props.player.hp} | SPD {props.player.spd}</p>
           <SkillSlots ids={props.playerSkillIds} skills={props.skills} editable onChange={props.onPlayerSkillChange} />
           <label className="v3-field">
-            <span>作战策略</span>
+            <span>Combat strategy</span>
             <select value={props.playerTreeId} onChange={(event) => props.onPlayerTreeChange(event.target.value)}>
               {playerTrees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name} / {tree.preset}</option>)}
             </select>
           </label>
         </section>
 
-        <section className="v3-build-column" role="grid" data-testid="enemy-loadout" aria-label={sandbox ? '编辑敌方构筑' : '敌方构筑'} aria-readonly={sandbox ? 'false' : 'true'}>
-          <h3>{sandbox && <Wrench size={17} />} {sandbox ? '调整对手' : '对手情报'}</h3>
-          <p>{props.enemy.name} · {props.enemy.title} · HP {props.enemy.hp}</p>
+        <section className="v3-build-column" role="grid" data-testid="enemy-loadout" aria-label={sandbox ? 'Edit enemy build' : 'Enemy build'} aria-readonly={sandbox ? 'false' : 'true'}>
+          <h3>{sandbox && <Wrench size={17} />} {sandbox ? 'Adjust opponent' : 'Opponent intel'}</h3>
+          <p>{props.enemy.name} | {props.enemy.title} | HP {props.enemy.hp}</p>
           <SkillSlots ids={props.enemySkillIds} skills={props.skills} editable={sandbox} onChange={props.onEnemySkillChange} />
           <label className="v3-field">
-            <span>对手策略</span>
+            <span>Opponent strategy</span>
             <select value={props.enemyTreeId} disabled={!sandbox} onChange={(event) => props.onEnemyTreeChange(event.target.value)}>
               {enemyTrees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name} / {tree.preset}</option>)}
             </select>
@@ -137,15 +137,15 @@ export function PreparationPanel(props: PreparationPanelProps) {
 
       <div className="v3-prepare-footer">
         <label className="v3-field v3-model-field">
-          <span><Bot size={16} /> AI 引擎</span>
+          <span><Bot size={16} /> AI engine</span>
           <select value={props.modelProvider} onChange={(event) => props.onModelProviderChange(event.target.value as V3ModelProvider)}>
             <option value="minimax">MiniMax-M2.1</option>
             <option value="deepseek">DeepSeek Chat</option>
           </select>
         </label>
-        <div className="v3-arena-chip">双方将自动判断移动、技能与防守</div>
+        <div className="v3-arena-chip">Both sides auto-decide movement, skills, and guarding</div>
         <button className="v3-command-button" type="button" onClick={props.onStart}>
-          <Play size={18} fill="currentColor" /> 开始 AI 对战
+          <Play size={18} fill="currentColor" /> Start AI battle
         </button>
       </div>
       {props.validationErrors.length > 0 && (

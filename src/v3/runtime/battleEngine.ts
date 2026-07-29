@@ -142,7 +142,7 @@ function dealDamage(state: V3BattleState, actor: V3ActorState, target: V3ActorSt
   target.hp = Math.max(0, target.hp - remaining)
   actor.damageDealt += remaining
   target.damageTaken += remaining
-  pushEvent(state, { type: 'damage', actorId: actor.id, targetId: target.id, skillId, amount: remaining, message: `${actor.name} 造成 ${remaining} 伤害` })
+  pushEvent(state, { type: 'damage', actorId: actor.id, targetId: target.id, skillId, amount: remaining, message: `${actor.name} deals ${remaining} damage` })
 }
 
 function moveToward(state: V3BattleState, actorId: V3ActorId, tiles: number): void {
@@ -160,7 +160,7 @@ function moveToward(state: V3BattleState, actorId: V3ActorId, tiles: number): vo
     if (!next) break
     actor.position = next
   }
-  pushEvent(state, { type: 'move', actorId, position: { ...actor.position }, message: `${actor.name} 移动` })
+  pushEvent(state, { type: 'move', actorId, position: { ...actor.position }, message: `${actor.name} moves` })
 }
 
 function executeAction(state: V3BattleState, action: V3BattleAction, trace: V3BehaviorTrace): void {
@@ -179,12 +179,12 @@ function executeAction(state: V3BattleState, action: V3BattleAction, trace: V3Be
   if (action.kind === 'wait') return
   if (action.kind === 'guard') {
     actor.guarding = true
-    pushEvent(state, { type: 'guard', actorId: actor.id, message: `${actor.name} 进入防御` })
+    pushEvent(state, { type: 'guard', actorId: actor.id, message: `${actor.name} guards` })
     return
   }
   if (action.kind === 'move') {
     actor.position = { ...action.to }
-    pushEvent(state, { type: 'move', actorId: actor.id, position: { ...action.to }, message: `${actor.name} 移动` })
+    pushEvent(state, { type: 'move', actorId: actor.id, position: { ...action.to }, message: `${actor.name} moves` })
     return
   }
 
@@ -204,18 +204,18 @@ function executeAction(state: V3BattleState, action: V3BattleAction, trace: V3Be
   }
   if (skill.shield > 0) {
     actor.shield += skill.shield
-    pushEvent(state, { type: 'shield', actorId: actor.id, skillId: skill.id, amount: skill.shield, message: `${actor.name} 获得 ${skill.shield} 护盾` })
+    pushEvent(state, { type: 'shield', actorId: actor.id, skillId: skill.id, amount: skill.shield, message: `${actor.name} gains ${skill.shield} shield` })
   }
   if (skill.heal > 0) {
     const healed = Math.min(skill.heal, actor.maxHp - actor.hp)
     actor.hp += healed
     actor.healingDone += healed
-    pushEvent(state, { type: 'heal', actorId: actor.id, skillId: skill.id, amount: healed, message: `${actor.name} 恢复 ${healed} 生命` })
+    pushEvent(state, { type: 'heal', actorId: actor.id, skillId: skill.id, amount: healed, message: `${actor.name} restores ${healed} HP` })
   }
   if (skill.status !== 'none' && skill.statusTicks > 0 && target.hp > 0) {
     target.statuses = target.statuses.filter((status) => status.kind !== skill.status)
     target.statuses.push({ kind: skill.status, ticks: skill.statusTicks, value: skill.statusValue })
-    pushEvent(state, { type: 'status', actorId: actor.id, targetId: target.id, skillId: skill.id, message: `${target.name} 获得 ${skill.status}` })
+    pushEvent(state, { type: 'status', actorId: actor.id, targetId: target.id, skillId: skill.id, message: `${target.name} gains ${skill.status}` })
   }
 }
 

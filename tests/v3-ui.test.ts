@@ -49,26 +49,26 @@ describe('V3 React surfaces', () => {
     const html = renderToStaticMarkup(preparation('standard'))
     expect(html).toContain('data-testid="enemy-loadout"')
     expect(html).toContain('aria-readonly="true"')
-    expect(html).not.toContain('编辑敌方构筑')
+    expect(html).not.toContain('Edit enemy build')
   })
 
   it('exposes enemy construction controls only in sandbox mode', () => {
     const html = renderToStaticMarkup(preparation('sandbox'))
     expect(html).toContain('aria-readonly="false"')
-    expect(html).toContain('编辑敌方构筑')
+    expect(html).toContain('Edit enemy build')
   })
 
   it('explains earned expedition bonuses in standard preparation only', () => {
     const standard = renderToStaticMarkup(preparation('standard'))
     const sandbox = renderToStaticMarkup(preparation('sandbox'))
-    expect(standard).toContain('远征加成')
-    expect(standard).toContain('生命 +18')
-    expect(standard).toContain('能量 +20')
-    expect(standard).toContain('攻击 +4')
-    expect(standard).toContain('防御 +3')
-    expect(standard).toContain('速度 +1')
-    expect(standard).toContain('繁花核心强化生命与防御。')
-    expect(sandbox).not.toContain('远征加成')
+    expect(standard).toContain('Expedition bonuses')
+    expect(standard).toContain('HP +18')
+    expect(standard).toContain('Energy +20')
+    expect(standard).toContain('ATK +4')
+    expect(standard).toContain('DEF +3')
+    expect(standard).toContain('SPD +1')
+    expect(standard).toContain('The Bloom Core increases health and defense.')
+    expect(sandbox).not.toContain('Expedition bonuses')
   })
 
   it('shows both actors, tick state, patch evidence, and viewer controls', () => {
@@ -96,13 +96,13 @@ describe('V3 React surfaces', () => {
     expect(html).toContain(player.name)
     expect(html).toContain(enemy.name)
     expect(html).toContain('Tick 0')
-    expect(html).toContain('战况')
-    expect(html).toContain('AI 思路')
-    expect(html).toContain('战斗记录')
-    expect(html).toContain('高级详情')
-    expect(html).not.toContain('Patch 证据')
-    expect(html).toContain('暂停')
-    expect(html).toContain('单步')
+    expect(html).toContain('Battle')
+    expect(html).toContain('AI Reasoning')
+    expect(html).toContain('Battle Log')
+    expect(html).toContain('Advanced details')
+    expect(html).not.toContain('Patch evidence')
+    expect(html).toContain('Pause')
+    expect(html).toContain('Step')
   })
 
   it('shows player-facing event labels in the battle log', () => {
@@ -117,8 +117,8 @@ describe('V3 React surfaces', () => {
       battle: {
         ...battle,
         events: [
-          { id: 'patch', tick: 1, sequence: 0, type: 'patch' as const, message: 'accepted:保持距离' },
-          { id: 'action', tick: 1, sequence: 1, type: 'action' as const, actorId: 'left' as const, skillId: 'solar_lance', actionKind: 'skill' as const, nodeId: 'control', visitedNodeIds: ['root', 'control'], message: '星辉先锋: skill' },
+          { id: 'patch', tick: 1, sequence: 0, type: 'patch' as const, message: 'accepted:Hold distance' },
+          { id: 'action', tick: 1, sequence: 1, type: 'action' as const, actorId: 'left' as const, skillId: 'solar_lance', actionKind: 'skill' as const, nodeId: 'control', visitedNodeIds: ['root', 'control'], message: 'Astra Vanguard: skill' },
           { id: 'reject', tick: 1, sequence: 2, type: 'action_rejected' as const, actorId: 'left' as const, rejectCode: 'not_equipped', nodeId: 'control', visitedNodeIds: ['root', 'control'], message: 'not_equipped' },
           { id: 'result', tick: 2, sequence: 0, type: 'result' as const, message: 'left_win:hp_zero' },
         ],
@@ -137,11 +137,11 @@ describe('V3 React surfaces', () => {
       onTabChange: noop,
       onEventFilterChange: noop,
     }))
-    expect(html).toContain('策略调整')
-    expect(html).toContain('策略已调整：保持距离')
-    expect(html).toContain('星辉先锋施放日耀枪')
-    expect(html).toContain('未装备该技能')
-    expect(html).toContain('我方赢得战斗')
+    expect(html).toContain('Strategy adjustment')
+    expect(html).toContain('Strategy adjusted: Hold distance')
+    expect(html).toContain('Astra Vanguard casts Solar Lance')
+    expect(html).toContain('Skill is not equipped')
+    expect(html).toContain('Our side wins the battle')
     expect(html).not.toMatch(/>patch</)
     expect(html).not.toContain('accepted:')
     expect(html).not.toContain(' skill')
@@ -174,8 +174,8 @@ describe('V3 React surfaces', () => {
       onTabChange: noop,
       onEventFilterChange: noop,
     }))
-    expect(html).toContain('当前行动')
-    expect(html).toContain('判断依据')
+    expect(html).toContain('Current action')
+    expect(html).toContain('Rationale')
     expect(html).not.toContain('>root<')
     expect(html).not.toContain('>control<')
     expect(html).not.toContain('set_threshold')
@@ -220,9 +220,9 @@ describe('V3 React surfaces', () => {
     expect(html).toContain('fixture-rules')
     expect(html).toContain('fixture-visual')
     expect(html).toContain('fixture-model')
-    expect(html).toContain('确定性重放')
+    expect(html).toContain('Deterministic replay')
     expect(html).toContain(V3_CONTENT.rewards[encounter.rewardId].name)
-    expect(html).toContain('制胜关键')
+    expect(html).toContain('Keys to victory')
   })
 
   it('translates the maximum-turn end reason for players', () => {
@@ -245,8 +245,8 @@ describe('V3 React surfaces', () => {
       onRematch: noop,
       onReturnToMap: noop,
     }))
-    expect(html).toContain('达到最大回合数')
-    expect(html).toContain('下次调整')
+    expect(html).toContain('Maximum turn count reached')
+    expect(html).toContain('Next adjustments')
   })
 
   it('makes V3 the default route and preserves the previous app under legacy', async () => {
@@ -259,12 +259,12 @@ describe('V3 React surfaces', () => {
     expect(legacy).toContain('useGameState')
     expect(legacy).toContain("from 'next/link'")
     expect(legacy).toContain('href="/"')
-    expect(legacy).toContain('返回新版 V3')
-    expect(v3Game).toContain('当前任务')
-    expect(v3Game).toContain('旅程进度')
-    expect(v3Game).toContain('可挑战')
-    expect(v3Game).toContain('赢下挑战')
-    expect(v3Game).toContain('前往')
+    expect(legacy).toContain('Return to V3')
+    expect(v3Game).toContain('Current mission')
+    expect(v3Game).toContain('Journey progress')
+    expect(v3Game).toContain('Available')
+    expect(v3Game).toContain('win the challenge')
+    expect(v3Game).toContain('Go')
     expect(v3Game).toContain("game.move({ kind: 'target'")
     expect(v3Game).not.toContain('game.openEncounter(encounter.id)')
   })

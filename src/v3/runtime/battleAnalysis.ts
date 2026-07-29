@@ -16,7 +16,7 @@ export type V3BattleAnalysis = {
 }
 
 function displaySkill(skillId: string | null): string {
-  return skillId ? V3_CONTENT.skills[skillId]?.name ?? '未知技能' : '普通攻击'
+  return skillId ? V3_CONTENT.skills[skillId]?.name ?? 'Unknown skill' : 'Basic attack'
 }
 
 function decisiveTick(state: V3BattleState): number | null {
@@ -68,22 +68,22 @@ export function analyzeBattle(state: V3BattleState): V3BattleAnalysis {
     if (top) {
       insights.push({
         kind: 'strength',
-        title: '核心输出',
-        detail: `${displaySkill(top.skillId)}命中 ${top.hits} 次，累计造成 ${top.damage} 点伤害，是本场最高伤害来源。`,
+        title: 'Core damage',
+        detail: `${displaySkill(top.skillId)} landed ${top.hits} times for ${top.damage} total damage, the top damage source this battle.`,
       })
     }
     if (rejected.length === 0) {
       insights.push({
         kind: 'strength',
-        title: '行动稳定',
-        detail: '本场没有行动被安全规则修正，技能距离与能量安排保持有效。',
+        title: 'Stable actions',
+        detail: 'No actions were corrected by safety rules this battle; skill range and energy management stayed effective.',
       })
     }
     if (state.patchRecords.length > 0) {
       insights.push({
         kind: 'strength',
-        title: '策略响应',
-        detail: `AI 共完成 ${state.patchRecords.length} 次策略校验，并在战况变化后继续执行。`,
+        title: 'Strategic response',
+        detail: `The AI completed ${state.patchRecords.length} strategy validations and kept executing as the battle evolved.`,
       })
     }
   } else {
@@ -91,37 +91,37 @@ export function analyzeBattle(state: V3BattleState): V3BattleAnalysis {
       const names = [...new Set(outOfRange.map((event) => displaySkill(event.skillId ?? null)))]
       insights.push({
         kind: 'adjustment',
-        title: '提前处理距离',
-        detail: `${names.join('、')}共有 ${outOfRange.length} 次因距离不足未执行；提高远程技能优先级或更早调整站位。`,
+        title: 'Manage distance earlier',
+        detail: `${names.join(', ')} failed to execute ${outOfRange.length} times due to insufficient range; raise ranged skill priority or reposition sooner.`,
       })
     }
     const burst = incoming[0]
     if (burst) {
       insights.push({
         kind: 'adjustment',
-        title: '应对爆发伤害',
-        detail: `对手的${displaySkill(burst.skillId ?? null)}单次造成 ${burst.amount ?? 0} 点伤害；在该技能出手前保留护盾或防守行动。`,
+        title: 'Counter burst damage',
+        detail: `The opponent's ${displaySkill(burst.skillId ?? null)} dealt ${burst.amount ?? 0} damage in a single hit; hold a shield or guard action before that skill fires.`,
       })
     }
     if (totalDamage === 0) {
       insights.push({
         kind: 'adjustment',
-        title: '建立有效输出',
-        detail: '本场记录的有效伤害为 0 点；先确保至少一个远程技能能稳定命中，再安排近距离终结技。',
+        title: 'Establish effective damage',
+        detail: 'No effective damage was recorded this battle; first make sure at least one ranged skill hits reliably, then set up a close-range finisher.',
       })
     } else if (damageBySkill[0]) {
       const top = damageBySkill[0]
       insights.push({
         kind: 'adjustment',
-        title: '放大有效输出',
-        detail: `${displaySkill(top.skillId)}已造成 ${top.damage} 点伤害；围绕这一技能调整优先级，减少低收益行动。`,
+        title: 'Amplify effective damage',
+        detail: `${displaySkill(top.skillId)} dealt ${top.damage} damage; adjust priorities around this skill and cut low-value actions.`,
       })
     }
     if (insights.length === 0) {
       insights.push({
         kind: 'adjustment',
-        title: '提高行动转化',
-        detail: `本场共有 ${rejected.length} 次行动被修正；检查技能冷却、能量和目标条件后再战。`,
+        title: 'Improve action conversion',
+        detail: `${rejected.length} actions were corrected this battle; check skill cooldowns, energy, and target conditions before your next fight.`,
       })
     }
   }

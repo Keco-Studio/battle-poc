@@ -36,10 +36,10 @@ describe('V3 decision director', () => {
         actorId: 'left',
         decisionTick: 0,
         baseTreeVersion: 1,
-        reason: '提高残血保护阈值',
+        reason: 'Raise the low-health protection threshold',
         ops: [{ kind: 'set_threshold', nodeId: 'hp_low', value: 0.46 }],
       },
-      rawResponse: '{"reason":"提高残血保护阈值"}',
+      rawResponse: '{"reason":"Raise the low-health protection threshold"}',
     })
 
     const result = await requestDecision(input(), { fetcher, timeoutMs: 50 })

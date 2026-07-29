@@ -319,7 +319,7 @@ export class V3WorldScene extends Phaser.Scene {
       backgroundColor: '#13213ee6',
       padding: { x: 12, y: 7 },
     }).setOrigin(0.5, 0).setDepth(60)
-    this.actionLabel.setVisible(true).setText(battle.activeActionLabel || '等待下一行动')
+    this.actionLabel.setVisible(true).setText(battle.activeActionLabel || 'Waiting for the next action')
     if (battle.paused) this.anims.pauseAll()
     else {
       this.anims.resumeAll()

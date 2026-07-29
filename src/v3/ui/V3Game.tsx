@@ -29,26 +29,26 @@ export function V3Game() {
     && !game.progress.clearedEncounterIds.includes(encounter.id)
   ))
   const objective = remaining.length > 0
-    ? `前往 ${remaining[0].name}，赢下挑战`
-    : '全部挑战已完成，可以重访任意地点'
+    ? `Head to ${remaining[0].name} and win the challenge`
+    : 'All challenges cleared; you can revisit any location'
 
   return (
     <main className="v3-shell" data-phase={phase}>
       <header className="v3-topbar">
         <div className="v3-brand">
           <span className="v3-brand-mark"><Sparkles size={19} /></span>
-          <div><strong>AI BATTLE</strong><span>星辉边境 / Starbright Frontier</span></div>
+          <div><strong>AI BATTLE</strong><span>Starbright Frontier</span></div>
         </div>
         <div className="v3-top-stats">
-          <span><Radio size={15} /> {phase === 'battle' ? '双 AI 在线推演' : '边境信号稳定'}</span>
+          <span><Radio size={15} /> {phase === 'battle' ? 'Dual AI live simulation' : 'Frontier signal stable'}</span>
           <span><Star size={15} /> {game.progress.starlight}</span>
           <span><Shield size={15} /> {game.progress.clearedEncounterIds.length}/4</span>
-          <a href="/legacy" title="打开旧版界面">旧版 <ExternalLink size={14} /></a>
+          <a href="/legacy" title="Open legacy interface">Legacy <ExternalLink size={14} /></a>
         </div>
       </header>
 
       <div className="v3-layout">
-        <section className="v3-stage-column" aria-label="像素世界">
+        <section className="v3-stage-column" aria-label="Pixel world">
           <V3PhaserStage
             className="v3-stage"
             viewModel={game.viewModel}
@@ -70,7 +70,7 @@ export function V3Game() {
           {phase === 'battle' && game.battle && (
             <div className="v3-battle-badge">
               <span>DECISION TICK {game.battle.tick}</span>
-              <strong>{game.viewModel.battle?.activeActionLabel ?? '双方 AI 正在计算下一行动'}</strong>
+              <strong>{game.viewModel.battle?.activeActionLabel ?? 'Both AIs are computing the next action'}</strong>
             </div>
           )}
         </section>
@@ -78,14 +78,14 @@ export function V3Game() {
         <section className="v3-side-column">
           {phase === 'explore' && (
             <div className="v3-map-console">
-              <span className="v3-kicker">星辉边境</span>
-              <h2>冒险路线</h2>
+              <span className="v3-kicker">Starbright Frontier</span>
+              <h2>Adventure route</h2>
               <section className="v3-mission-card">
-                <span><Flag size={15} /> 当前任务</span>
+                <span><Flag size={15} /> Current mission</span>
                 <strong>{objective}</strong>
               </section>
-              <div className="v3-journey-progress" aria-label="旅程进度">
-                <span>旅程进度</span>
+              <div className="v3-journey-progress" aria-label="Journey progress">
+                <span>Journey progress</span>
                 <strong>{game.progress.clearedEncounterIds.length} / {Object.keys(V3_CONTENT.encounters).length}</strong>
                 <i style={{ width: `${game.progress.clearedEncounterIds.length / Object.keys(V3_CONTENT.encounters).length * 100}%` }} />
               </div>
@@ -93,7 +93,7 @@ export function V3Game() {
                 {Object.values(V3_CONTENT.encounters).map((encounter) => {
                   const unlocked = game.progress.unlockedEncounterIds.includes(encounter.id)
                   const cleared = game.progress.clearedEncounterIds.includes(encounter.id)
-                  const stateLabel = cleared ? '已完成' : unlocked ? '可挑战' : '未解锁'
+                  const stateLabel = cleared ? 'Cleared' : unlocked ? 'Available' : 'Locked'
                   return (
                     <li key={encounter.id} className={cleared ? 'is-cleared' : unlocked ? 'is-unlocked' : 'is-locked'}>
                       <span className="v3-node-icon">{encounter.boss ? <Shield size={17} /> : <MapPin size={17} />}</span>
@@ -101,17 +101,17 @@ export function V3Game() {
                       {unlocked && !cleared && (
                         <button
                           type="button"
-                          aria-label={`前往${encounter.name}`}
+                          aria-label={`Go to ${encounter.name}`}
                           onClick={() => game.move({ kind: 'target', to: { x: encounter.x, y: encounter.y } })}
                         >
-                          前往
+                          Go
                         </button>
                       )}
                     </li>
                   )
                 })}
               </ol>
-              <div className="v3-field-tip"><strong>移动方式</strong><span>方向键 / WASD / 点击地图</span></div>
+              <div className="v3-field-tip"><strong>Movement</strong><span>Arrow keys / WASD / click the map</span></div>
             </div>
           )}
 

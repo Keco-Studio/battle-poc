@@ -180,7 +180,7 @@ export async function requestDecision(
       return {
         source: 'fallback',
         status: 'unavailable',
-        patch: buildFallbackPatch(input, '本地 AI 不可用，沿用确定性策略。'),
+        patch: buildFallbackPatch(input, 'Local AI unavailable; falling back to the deterministic strategy.'),
         rawResponse: raw,
         error: `decision_http_${response.status}`,
         latencyMs: Date.now() - startedAt,
@@ -197,7 +197,7 @@ export async function requestDecision(
       return {
         source: 'fallback',
         status: 'invalid',
-        patch: buildFallbackPatch(input, 'LLM Patch 非法，使用确定性修正。'),
+        patch: buildFallbackPatch(input, 'Invalid LLM patch; using deterministic correction.'),
         rawResponse: raw,
         error: 'invalid_patch',
         latencyMs: Date.now() - startedAt,
@@ -217,7 +217,7 @@ export async function requestDecision(
     return {
       source: 'fallback',
       status: timeout ? 'timeout' : 'unavailable',
-      patch: buildFallbackPatch(input, timeout ? 'LLM 超时，使用确定性修正。' : 'LLM 请求失败，使用确定性修正。'),
+      patch: buildFallbackPatch(input, timeout ? 'LLM timed out; using deterministic correction.' : 'LLM request failed; using deterministic correction.'),
       error: timeout ? 'decision_timeout' : error instanceof Error ? error.message : String(error),
       latencyMs: Date.now() - startedAt,
     }
@@ -238,7 +238,7 @@ export async function requestOptionalDecision(
     return {
       source: 'fallback',
       status: 'unavailable',
-      patch: buildFallbackPatch(input, '在线 AI 未启用，使用确定性本地策略。'),
+      patch: buildFallbackPatch(input, 'Online AI disabled; using deterministic local strategy.'),
       error: 'online_ai_disabled',
       latencyMs: 0,
     }
