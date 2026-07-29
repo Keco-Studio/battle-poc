@@ -39,6 +39,10 @@ async function expectPng(relativePath: string, width: number, height: number) {
   expect(metadata.height).toBe(height)
 }
 
+async function rawPixels(relativePath: string) {
+  return sharp(path.resolve('public', relativePath.replace(/^\//, ''))).ensureAlpha().raw().toBuffer()
+}
+
 describe('V3 PixelLab assets', () => {
   it('ships the three required map images at authored dimensions', async () => {
     const data = await manifest()
@@ -62,6 +66,38 @@ describe('V3 PixelLab assets', () => {
     }
   })
 
+  it('ships eight distinct animation frames in every character and skill sheet', async () => {
+    const data = await manifest()
+    const animations = [
+      ...data.characters.flatMap((character) => Object.values(character.directions).map((direction) => direction.frames)),
+      ...data.skills.map((skill) => skill.fxFrames),
+    ]
+
+    for (const frames of animations) {
+      const hashes = await Promise.all(frames.map(async (frame) => {
+        const pixels = await rawPixels(frame)
+        return (await import('node:crypto')).createHash('sha256').update(pixels).digest('hex')
+      }))
+      expect(new Set(hashes).size).toBe(8)
+    }
+  })
+
+  it('ships west-facing character frames as pixel-perfect east-facing mirrors', async () => {
+    const data = await manifest()
+    const mirroredDirections = { sw: 'se', w: 'e', nw: 'ne' } as const
+
+    for (const character of data.characters) {
+      for (const [west, east] of Object.entries(mirroredDirections)) {
+        const westFrames = character.directions[west].frames
+        const eastFrames = character.directions[east].frames
+        for (let index = 0; index < 8; index += 1) {
+          const expectedMirror = await sharp(path.resolve('public', eastFrames[index].replace(/^\//, ''))).flop().ensureAlpha().raw().toBuffer()
+          expect(await rawPixels(westFrames[index])).toEqual(expectedMirror)
+        }
+      }
+    }
+  })
+
   it('ships a readable icon and eight-frame effect for every skill', async () => {
     const data = await manifest()
     expect(data.skills).toHaveLength(8)
@@ -78,6 +114,17 @@ describe('V3 PixelLab assets', () => {
     const data = await manifest()
     const formula = (await readFile(path.resolve('design/STYLE_FORMULA.txt'), 'utf8')).trim()
     expect(data.styleFormula).toBe(formula)
+  })
+
+  it('includes the exact style formula in every PixelLab animation action prompt', async () => {
+    const [generator, formula] = await Promise.all([
+      readFile(path.resolve('scripts/generate-v3-pixellab.mjs'), 'utf8'),
+      readFile(path.resolve('design/STYLE_FORMULA.txt'), 'utf8'),
+    ])
+    const actionField = /action:\s*`([\s\S]*?)`,\n\s*text_guidance_scale/.exec(generator)
+
+    expect(actionField?.[1]).toContain('${styleFormula}')
+    expect(actionField?.[1].replace('${styleFormula}', formula.trim())).toContain(formula.trim())
   })
 
   it('maps every authored asset row to complete PixelLab provenance', async () => {

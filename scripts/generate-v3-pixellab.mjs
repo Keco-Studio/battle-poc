@@ -12,6 +12,7 @@ if (!token) throw new Error('PIXELLAB_API_TOKEN is not configured')
 
 const root = path.join(process.cwd(), 'public', 'assets', 'v3')
 const styleFormula = (await readFile(path.join(process.cwd(), 'design', 'STYLE_FORMULA.txt'), 'utf8')).trim()
+const generatedAt = '2026-07-29T00:00:00.000Z'
 const frameSize = 64
 const frameCount = 8
 const generatedDirections = ['n', 'ne', 'e', 'se', 's']
@@ -186,7 +187,7 @@ async function generateAnimationChunk({ label, reference, description, action, d
     image_size: { width: frameSize, height: frameSize },
     description: `${description}. ${styleFormula}`,
     negative_description: negative,
-    action: `${action}. Camera locked, no camera movement, no zoom, subject stays fully in frame, plain transparent background. The character performs only this action; nothing else happens. The subject keeps facing the same direction for the entire animation and never turns around.`,
+    action: `${action}. Camera locked, no camera movement, no zoom, subject stays fully in frame, plain transparent background. The character performs only this action; nothing else happens. The subject keeps facing the same direction for the entire animation and never turns around. ${styleFormula}`,
     text_guidance_scale: 9,
     image_guidance_scale: 1.75,
     n_frames: frameCount,
@@ -315,7 +316,7 @@ async function skillAnimation(skill, iconPath, seed) {
 }
 
 await mkdir(root, { recursive: true })
-const manifest = { version: 'v3-pixellab-1', generatedAt: new Date().toISOString(), styleFormula, assets: [], maps: [], characters: [], skills: [] }
+const manifest = { version: 'v3-pixellab-1', generatedAt, styleFormula, assets: [], maps: [], characters: [], skills: [] }
 
 function addAsset({ id, path: assetPath, width, height, transparent, seed, prompt, frameCount: count = 1, directions = [], sourceType = 'PixelLab' }) {
   manifest.assets.push({
