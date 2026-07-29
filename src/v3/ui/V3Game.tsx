@@ -53,7 +53,7 @@ export function V3Game() {
             className="v3-stage"
             viewModel={game.viewModel}
             onMoveIntent={game.move}
-            onEncounter={game.openEncounter}
+            onTravelArrival={game.handleTravelArrival}
             onAnimationComplete={game.handleAnimationComplete}
           />
           {phase === 'explore' && (
@@ -98,7 +98,15 @@ export function V3Game() {
                     <li key={encounter.id} className={cleared ? 'is-cleared' : unlocked ? 'is-unlocked' : 'is-locked'}>
                       <span className="v3-node-icon">{encounter.boss ? <Shield size={17} /> : <MapPin size={17} />}</span>
                       <div><strong>{encounter.name}</strong><small>{stateLabel}</small></div>
-                      {unlocked && !cleared && <button type="button" onClick={() => game.openEncounter(encounter.id)}>准备挑战</button>}
+                      {unlocked && !cleared && (
+                        <button
+                          type="button"
+                          aria-label={`前往${encounter.name}`}
+                          onClick={() => game.move({ kind: 'target', to: { x: encounter.x, y: encounter.y } })}
+                        >
+                          前往
+                        </button>
+                      )}
                     </li>
                   )
                 })}

@@ -189,5 +189,8 @@ describe('V3 React surfaces', () => {
     expect(v3Game).toContain('旅程进度')
     expect(v3Game).toContain('可挑战')
     expect(v3Game).toContain('赢下挑战')
+    expect(v3Game).toContain('前往')
+    expect(v3Game).toContain("game.move({ kind: 'target'")
+    expect(v3Game).not.toContain('game.openEncounter(encounter.id)')
   })
 })

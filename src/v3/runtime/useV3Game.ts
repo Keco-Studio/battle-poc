@@ -24,6 +24,12 @@ import {
   type V3Progress,
 } from './campaign'
 import { buildDecisionInput, requestOptionalDecision, type V3DecisionResult } from './decisionDirector'
+import {
+  commitTravelArrival,
+  planStepTravel,
+  planTravel,
+  type V3TravelState,
+} from './exploration'
 import { replayBattle } from './replay'
 import type {
   V3ActorId,
@@ -89,6 +95,11 @@ export function useV3Game() {
   const [enemyTreeId, setEnemyTreeId] = useState(V3_CONTENT.enemies.briar_sentinel.treeId)
   const [battle, setBattle] = useState<V3BattleState | null>(null)
   const [exploreFacing, setExploreFacing] = useState<V3Direction>('s')
+  const [travel, setTravel] = useState<V3TravelState>(() => ({
+    committed: { ...EMPTY_V3_PROGRESS.playerPosition },
+    route: [],
+    requestId: 0,
+  }))
   const [paused, setPaused] = useState(false)
   const [speed, setSpeed] = useState<0.5 | 1 | 2 | 4>(1)
   const [activeEventIndex, setActiveEventIndex] = useState(0)
@@ -101,6 +112,7 @@ export function useV3Game() {
   const battleRef = useRef<V3BattleState | null>(null)
   const progressRef = useRef(progress)
   const phaseRef = useRef(phaseState)
+  const travelRef = useRef(travel)
   const advancingRef = useRef(false)
   const startedAtRef = useRef(0)
   const finishHandledRef = useRef(false)
@@ -110,10 +122,17 @@ export function useV3Game() {
 
   progressRef.current = progress
   phaseRef.current = phaseState
+  travelRef.current = travel
   battleRef.current = battle
 
   useEffect(() => {
-    setProgress(loadV3Progress(window.localStorage))
+    const loaded = loadV3Progress(window.localStorage)
+    setProgress(loaded)
+    setTravel((current) => {
+      const next = { committed: { ...loaded.playerPosition }, route: [], requestId: current.requestId + 1 }
+      travelRef.current = next
+      return next
+    })
   }, [])
 
   useEffect(() => {
@@ -138,26 +157,53 @@ export function useV3Game() {
   const openEncounter = useCallback((encounterId: string) => {
     if (phaseRef.current.phase !== 'explore') return
     if (!progressRef.current.unlockedEncounterIds.includes(encounterId)) return
+    const encounter = V3_CONTENT.encounters[encounterId]
+    if (!encounter) return
+    const position = progressRef.current.playerPosition
+    if (encounter.x !== position.x || encounter.y !== position.y) return
     setPhaseState((current) => transitionV3Phase(current, { type: 'encounter', encounterId }))
   }, [])
 
   const move = useCallback((intent: V3MoveIntent) => {
     if (phaseRef.current.phase !== 'explore') return
-    const current = progressRef.current.playerPosition
-    const target = intent.kind === 'target'
-      ? intent.to
-      : {
-          x: current.x + directionDelta[intent.direction].x,
-          y: current.y + directionDelta[intent.direction].y,
-        }
-    const nextPosition = {
-      x: Math.max(0, Math.min(31, target.x)),
-      y: Math.max(0, Math.min(19, target.y)),
+    const map = V3_CONTENT.maps[V3_CONTENT.game.defaultExplorationMapId]
+    const bounds = { width: map.width, height: map.height }
+    const blocked = map.obstacles.map(([x, y]) => ({ x, y }))
+    const current = travelRef.current
+    const next = intent.kind === 'target'
+      ? planTravel(current, intent.to, bounds, blocked)
+      : planStepTravel(current, directionDelta[intent.direction], bounds, blocked)
+    if (next === current) return
+    travelRef.current = next
+    setTravel(next)
+    const from = current.committed
+    const to = next.route[0]
+    if (to) setExploreFacing(directionFromDelta(to.x - from.x, to.y - from.y, exploreFacing))
+  }, [exploreFacing])
+
+  const handleTravelArrival = useCallback((requestId: number, point: { x: number; y: number }) => {
+    if (phaseRef.current.phase !== 'explore') return
+    const current = travelRef.current
+    let next = commitTravelArrival(current, requestId, point)
+    if (next === current) return
+    const encounter = Object.values(V3_CONTENT.encounters).find((item) => (
+      progressRef.current.unlockedEncounterIds.includes(item.id)
+      && !progressRef.current.clearedEncounterIds.includes(item.id)
+      && item.x === point.x
+      && item.y === point.y
+    ))
+    if (encounter) next = { ...next, route: [] }
+    travelRef.current = next
+    setTravel(next)
+    setProgress((value) => ({ ...value, playerPosition: { ...next.committed } }))
+    if (next.route[0]) {
+      setExploreFacing(directionFromDelta(
+        next.route[0].x - next.committed.x,
+        next.route[0].y - next.committed.y,
+        exploreFacing,
+      ))
     }
-    setExploreFacing(intent.kind === 'direction'
-      ? intent.direction
-      : directionFromDelta(nextPosition.x - current.x, nextPosition.y - current.y, exploreFacing))
-    setProgress((value) => ({ ...value, playerPosition: nextPosition }))
+    if (encounter) setPhaseState((phase) => transitionV3Phase(phase, { type: 'encounter', encounterId: encounter.id }))
   }, [exploreFacing])
 
   const updatePlayerSkill = useCallback((index: number, skillId: string) => {
@@ -326,6 +372,13 @@ export function useV3Game() {
     replayModeRef.current = false
     setBattle(null)
     setPaused(false)
+    const nextTravel = {
+      committed: { ...progressRef.current.playerPosition },
+      route: [],
+      requestId: travelRef.current.requestId + 1,
+    }
+    travelRef.current = nextTravel
+    setTravel(nextTravel)
     setPhaseState((current) => transitionV3Phase(current, { type: 'return_to_map' }))
   }, [])
 
@@ -348,6 +401,8 @@ export function useV3Game() {
       exploration: {
         mapId: explorationMap.id,
         playerPosition: progress.playerPosition,
+        travelRoute: travel.route,
+        travelRequestId: travel.requestId,
         playerVisualAssetId: player.visualAssetId,
         playerFacing: exploreFacing,
         safeBeacon: explorationMap.safeBeacon ?? { x: 3, y: 16 },
@@ -400,7 +455,7 @@ export function useV3Game() {
         speed,
       } : null,
     }
-  }, [activeEvent, battle, exploreFacing, latestPatch, paused, phaseState.phase, player.visualAssetId, progress, speed])
+  }, [activeEvent, battle, exploreFacing, latestPatch, paused, phaseState.phase, player.visualAssetId, progress, speed, travel])
 
   return {
     progress,
@@ -436,6 +491,7 @@ export function useV3Game() {
     updateEnemySkill,
     openEncounter,
     move,
+    handleTravelArrival,
     startBattle,
     cancelPreparation,
     togglePause,

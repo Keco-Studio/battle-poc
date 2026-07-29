@@ -29,7 +29,7 @@ import {
 export type V3SceneBridge = {
   getViewModel: () => V3ViewModel
   onMoveIntent: (intent: V3MoveIntent) => void
-  onEncounter: (encounterId: string) => void
+  onTravelArrival: (requestId: number, point: { x: number; y: number }) => void
   onAnimationComplete: (eventId: string) => void
 }
 
@@ -66,7 +66,7 @@ export class V3WorldScene extends Phaser.Scene {
   private lastMapId = ''
   private lastPhase = ''
   private lastFxEventId = ''
-  private lastEncounterId = ''
+  private lastTravelArrival = ''
 
   constructor(bridge: V3SceneBridge) {
     super({ key: 'V3WorldScene' })
@@ -211,7 +211,8 @@ export class V3WorldScene extends Phaser.Scene {
       )
     }
     this.player.sprite.setVisible(true).setScale(1.15)
-    const playerWorld = gridPointToWorld(explore.playerPosition, V3_EXPLORE_LAYOUT)
+    const travelTarget = explore.travelRoute[0] ?? explore.playerPosition
+    const playerWorld = gridPointToWorld(travelTarget, V3_EXPLORE_LAYOUT)
     const arrived = this.moveSpriteTo(this.player, playerWorld, explore.playerFacing, V3_EXPLORE_MOVE_SPEED)
 
     if (this.markerObjects.length === 0) {
@@ -238,13 +239,12 @@ export class V3WorldScene extends Phaser.Scene {
       }
     }
 
-    if (arrived) {
-      const encounter = explore.encounters.find((item) => item.unlocked && !item.cleared && item.position.x === explore.playerPosition.x && item.position.y === explore.playerPosition.y)
-      if (encounter && encounter.id !== this.lastEncounterId) {
-        this.lastEncounterId = encounter.id
-        this.bridge.onEncounter(encounter.id)
+    if (arrived && explore.travelRoute.length > 0) {
+      const arrivalKey = `${explore.travelRequestId}:${travelTarget.x},${travelTarget.y}`
+      if (arrivalKey !== this.lastTravelArrival) {
+        this.lastTravelArrival = arrivalKey
+        this.bridge.onTravelArrival(explore.travelRequestId, travelTarget)
       }
-      if (!encounter) this.lastEncounterId = ''
     }
   }
 
@@ -336,8 +336,8 @@ export class V3WorldScene extends Phaser.Scene {
       return
     }
     const frame = cameraFrameFor(V3_EXPLORE_LAYOUT, viewport, 'cover')
-    const player = gridPointToWorld(viewModel.exploration.playerPosition, V3_EXPLORE_LAYOUT)
-    this.cameras.main.setZoom(frame.zoom).centerOn(player.x, player.y)
+    if (!this.player) return
+    this.cameras.main.setZoom(frame.zoom).centerOn(this.player.sprite.x, this.player.sprite.y)
   }
 
   update(): void {

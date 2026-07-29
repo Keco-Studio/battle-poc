@@ -59,6 +59,8 @@ export type V3PickupMarker = {
 export type V3ExploreViewModel = {
   mapId: string
   playerPosition: V3Point
+  travelRoute: V3Point[]
+  travelRequestId: number
   playerVisualAssetId: string
   playerFacing: V3Direction
   safeBeacon: V3Point

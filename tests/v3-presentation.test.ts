@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -69,5 +71,18 @@ describe('V3 presentation contracts', () => {
       centerY: 360,
       zoom: 390 / 720,
     })
+  })
+
+  it('lets Phaser report physical travel arrival without opening encounters', async () => {
+    const [scene, stage] = await Promise.all([
+      readFile(path.resolve('src/v3/presentation/V3WorldScene.ts'), 'utf8'),
+      readFile(path.resolve('src/v3/presentation/V3PhaserStage.tsx'), 'utf8'),
+    ])
+
+    expect(scene).toContain('onTravelArrival')
+    expect(stage).toContain('onTravelArrival')
+    expect(scene).not.toContain('onEncounter')
+    expect(stage).not.toContain('onEncounter')
+    expect(scene).toContain('centerOn(this.player.sprite.x, this.player.sprite.y)')
   })
 })

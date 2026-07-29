@@ -7,7 +7,7 @@ import type { V3MoveIntent, V3ViewModel } from './viewModel'
 export type V3PhaserStageProps = {
   viewModel: V3ViewModel
   onMoveIntent: (intent: V3MoveIntent) => void
-  onEncounter: (encounterId: string) => void
+  onTravelArrival: (requestId: number, point: { x: number; y: number }) => void
   onAnimationComplete: (eventId: string) => void
   className?: string
 }
@@ -15,18 +15,18 @@ export type V3PhaserStageProps = {
 export function V3PhaserStage({
   viewModel,
   onMoveIntent,
-  onEncounter,
+  onTravelArrival,
   onAnimationComplete,
   className,
 }: V3PhaserStageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const gameRef = useRef<import('phaser').Game | null>(null)
   const viewModelRef = useRef(viewModel)
-  const callbackRef = useRef({ onMoveIntent, onEncounter, onAnimationComplete })
+  const callbackRef = useRef({ onMoveIntent, onTravelArrival, onAnimationComplete })
   const [ready, setReady] = useState(false)
 
   viewModelRef.current = viewModel
-  callbackRef.current = { onMoveIntent, onEncounter, onAnimationComplete }
+  callbackRef.current = { onMoveIntent, onTravelArrival, onAnimationComplete }
 
   useEffect(() => {
     let cancelled = false
@@ -42,7 +42,7 @@ export function V3PhaserStage({
       const scene = new V3WorldScene({
         getViewModel: () => viewModelRef.current,
         onMoveIntent: (intent) => callbackRef.current.onMoveIntent(intent),
-        onEncounter: (encounterId) => callbackRef.current.onEncounter(encounterId),
+        onTravelArrival: (requestId, point) => callbackRef.current.onTravelArrival(requestId, point),
         onAnimationComplete: (eventId) => callbackRef.current.onAnimationComplete(eventId),
       })
       const game = new Phaser.Game({
