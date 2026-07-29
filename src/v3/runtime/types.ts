@@ -131,16 +131,26 @@ export type V3PatchRecord = {
   ops: V3BehaviorTreePatchOperation[]
 }
 
+export type V3BehaviorTrace = {
+  visitedNodeIds: string[]
+  selectedNodeId: string | null
+}
+
 export type V3BattleEvent = {
   id: string
   tick: number
   sequence: number
-  type: 'patch' | 'action' | 'damage' | 'heal' | 'shield' | 'status' | 'move' | 'guard' | 'result'
+  type: 'patch' | 'action' | 'action_rejected' | 'damage' | 'heal' | 'shield' | 'status' | 'move' | 'guard' | 'result'
   actorId?: V3ActorId
   targetId?: V3ActorId
   skillId?: string
   amount?: number
   position?: V3Point
+  actionKind?: V3BattleAction['kind']
+  nodeId?: string
+  visitedNodeIds?: string[]
+  rejectCode?: string
+  patchStatus?: V3PatchStatus
   message: string
 }
 

@@ -10,6 +10,7 @@ import {
   type V3MoveIntent,
   type V3ViewModel,
 } from '@/src/v3/presentation/viewModel'
+import { playerEventText, playerNodeText } from '@/src/v3/presentation/playerText'
 
 import { createBattle, resolveDecisionTick } from './battleEngine'
 import {
@@ -467,8 +468,10 @@ export function useV3Game() {
           },
         },
         activeEvent,
-        activeActionLabel: activeEvent?.message ?? '等待双方 AI 决策',
-        activeNodeLabel: `${battle.trees.left.rootId} / ${battle.trees.right.rootId}`,
+        activeActionLabel: activeEvent ? playerEventText(activeEvent, battle) : '等待双方 AI 决策',
+        activeNodeLabel: activeEvent?.actorId
+          ? playerNodeText(activeEvent.nodeId, activeEvent.actorId, battle)
+          : '等待双方 AI 决策',
         latestPatch,
         paused,
         speed,

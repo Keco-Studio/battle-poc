@@ -8,7 +8,7 @@ import { V3_CONTENT } from '@/src/content/generated/v3'
 import { BattleReport } from '@/src/v3/ui/BattleReport'
 import { PreparationPanel } from '@/src/v3/ui/PreparationPanel'
 import { SpectatorConsole } from '@/src/v3/ui/SpectatorConsole'
-import { createBattle } from '@/src/v3/runtime'
+import { createBattle, resolveDecisionTick } from '@/src/v3/runtime'
 
 const noop = () => undefined
 const encounter = V3_CONTENT.encounters.briar_trial
@@ -118,8 +118,12 @@ describe('V3 React surfaces', () => {
         ...battle,
         events: [
           { id: 'patch', tick: 1, sequence: 0, type: 'patch' as const, message: 'accepted:保持距离' },
-          { id: 'damage', tick: 1, sequence: 1, type: 'damage' as const, message: '造成 18 点伤害' },
+          { id: 'action', tick: 1, sequence: 1, type: 'action' as const, actorId: 'left' as const, skillId: 'solar_lance', actionKind: 'skill' as const, nodeId: 'control', visitedNodeIds: ['root', 'control'], message: '星辉先锋: skill' },
+          { id: 'reject', tick: 1, sequence: 2, type: 'action_rejected' as const, actorId: 'left' as const, rejectCode: 'not_equipped', nodeId: 'control', visitedNodeIds: ['root', 'control'], message: 'not_equipped' },
+          { id: 'result', tick: 2, sequence: 0, type: 'result' as const, message: 'left_win:hp_zero' },
         ],
+        result: 'left_win' as const,
+        endReason: 'hp_zero' as const,
       },
       activeEvent: null,
       latestDecisionEvidence: null,
@@ -134,11 +138,47 @@ describe('V3 React surfaces', () => {
       onEventFilterChange: noop,
     }))
     expect(html).toContain('策略调整')
-    expect(html).toContain('伤害')
     expect(html).toContain('策略已调整：保持距离')
+    expect(html).toContain('星辉先锋施放日耀枪')
+    expect(html).toContain('未装备该技能')
+    expect(html).toContain('我方赢得战斗')
     expect(html).not.toMatch(/>patch</)
-    expect(html).not.toMatch(/>damage</)
     expect(html).not.toContain('accepted:')
+    expect(html).not.toContain(' skill')
+    expect(html).not.toContain('left_win')
+    expect(html).not.toContain('hp_zero')
+    expect(html).not.toContain('not_equipped')
+    expect(html).not.toContain('>control<')
+  })
+
+  it('shows each AI current action and selected reasoning in player language', () => {
+    let battle = createBattle({
+      seed: 7319,
+      mapId: encounter.battleMapId,
+      maxDecisionTicks: 80,
+      left: { templateType: 'job', templateId: player.id, skillIds: player.skillIds, treeId: player.treeId },
+      right: { templateType: 'enemy', templateId: enemy.id, skillIds: enemy.skillIds, treeId: enemy.treeId },
+    })
+    battle = resolveDecisionTick(battle, { left: null, right: null })
+    const html = renderToStaticMarkup(React.createElement(SpectatorConsole, {
+      battle,
+      activeEvent: battle.events.at(-1) ?? null,
+      latestDecisionEvidence: null,
+      paused: false,
+      speed: 1 as const,
+      activeTab: 'decision' as const,
+      eventFilter: 'all' as const,
+      onPauseToggle: noop,
+      onStep: noop,
+      onSpeedChange: noop,
+      onTabChange: noop,
+      onEventFilterChange: noop,
+    }))
+    expect(html).toContain('当前行动')
+    expect(html).toContain('判断依据')
+    expect(html).not.toContain('>root<')
+    expect(html).not.toContain('>control<')
+    expect(html).not.toContain('set_threshold')
   })
 
   it('shows deterministic report metadata, rewards, and replay commands', () => {

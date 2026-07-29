@@ -4,6 +4,7 @@ import { V3_CONTENT } from '@/src/content/generated/v3'
 import {
   applyBehaviorTreePatch,
   createBattle,
+  evaluateBehaviorTreeWithTrace,
   resolveDecisionTick,
   validateAction,
   type V3BattleConfig,
@@ -69,6 +70,32 @@ describe('V3 deterministic battle engine', () => {
 
     expect(result).toEqual({ ok: false, code: 'out_of_range' })
     expect(state.actors.left.energy).toBe(before)
+  })
+
+  it('records the visited behavior path and selected non-root action node', () => {
+    const state = createBattle(config())
+    const evaluated = evaluateBehaviorTreeWithTrace(state, 'left')
+    expect(evaluated.trace.visitedNodeIds).toEqual(expect.arrayContaining([
+      'root', 'recover_seq', 'hp_low', 'execute_seq', 'enemy_low', 'control_seq', 'enemy_mobile', 'control',
+    ]))
+    expect(evaluated.trace.selectedNodeId).toBe('control')
+    expect(evaluated.trace.selectedNodeId).not.toBe(state.trees.left.rootId)
+  })
+
+  it('records an invalid tree action before executing a safe fallback', () => {
+    const state = createBattle(config({
+      left: {
+        ...config().left,
+        skillIds: ['solar_lance', 'bloom_guard', 'gale_step', 'echo_bolt'],
+      },
+    }))
+    const next = resolveDecisionTick(state, { left: null, right: null })
+    const rejected = next.events.find((event) => event.type === 'action_rejected' && event.actorId === 'left')
+    const fallback = next.events.find((event) => event.type === 'action' && event.actorId === 'left')
+    expect(rejected).toMatchObject({ rejectCode: 'not_equipped', nodeId: 'control' })
+    expect(rejected?.visitedNodeIds).toContain('root')
+    expect(fallback).toMatchObject({ nodeId: 'control' })
+    expect(next.tick).toBe(1)
   })
 
   it('rejects stale Tick and stale tree versions without mutating the tree', () => {

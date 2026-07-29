@@ -14,6 +14,8 @@ import {
   worldPointToGrid,
 } from '@/src/v3/presentation/viewModel'
 import { buildV3AssetCatalog } from '@/src/v3/presentation/assetLoader'
+import { playerEventText, playerNodeText } from '@/src/v3/presentation/playerText'
+import { createBattle } from '@/src/v3/runtime'
 
 describe('V3 presentation contracts', () => {
   it('keeps one-tile exploration movement long enough to show several walk poses', () => {
@@ -84,5 +86,23 @@ describe('V3 presentation contracts', () => {
     expect(scene).not.toContain('onEncounter')
     expect(stage).not.toContain('onEncounter')
     expect(scene).toContain('centerOn(this.player.sprite.x, this.player.sprite.y)')
+  })
+
+  it('translates structured battle results, rejections, and behavior nodes for players', () => {
+    const battle = createBattle({
+      seed: 7319,
+      mapId: 'sunlit_circuit',
+      maxDecisionTicks: 80,
+      left: { templateType: 'job', templateId: 'astra_vanguard', skillIds: ['solar_lance', 'bloom_guard', 'gale_step', 'prism_snare'], treeId: 'tree_balanced' },
+      right: { templateType: 'enemy', templateId: 'briar_sentinel', skillIds: ['solar_lance', 'bloom_guard', 'gale_step', 'prism_snare'], treeId: 'tree_survival' },
+    })
+    expect(playerEventText({
+      id: 'result', tick: 3, sequence: 0, type: 'result', message: 'left_win:hp_zero',
+    }, { ...battle, result: 'left_win', endReason: 'hp_zero' })).toBe('我方赢得战斗，对手生命值归零')
+    expect(playerEventText({
+      id: 'reject', tick: 1, sequence: 0, type: 'action_rejected', actorId: 'left',
+      rejectCode: 'not_equipped', message: 'not_equipped',
+    }, battle)).toContain('未装备该技能')
+    expect(playerNodeText('control', 'left', battle)).toBe('尝试施放棱镜缚阵')
   })
 })

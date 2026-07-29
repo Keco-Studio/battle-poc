@@ -5,6 +5,7 @@ import type {
   V3ActorId,
   V3BattleAction,
   V3BattleState,
+  V3BehaviorTrace,
   V3BehaviorTreePatch,
   V3PatchRecord,
 } from './types'
@@ -113,14 +114,25 @@ function actionForNode(state: V3BattleState, actorId: V3ActorId, node: V3Behavio
   return null
 }
 
-function evaluateNode(state: V3BattleState, actorId: V3ActorId, tree: V3BehaviorTreeState, nodeId: string): V3BattleAction | null {
+function evaluateNode(
+  state: V3BattleState,
+  actorId: V3ActorId,
+  tree: V3BehaviorTreeState,
+  nodeId: string,
+  trace: V3BehaviorTrace,
+): V3BattleAction | null {
   const node = tree.nodes[nodeId]
   if (!node) return null
+  trace.visitedNodeIds.push(nodeId)
   if (node.kind === 'condition') return conditionPasses(state, actorId, node) ? { actorId, kind: 'wait' } : null
-  if (node.kind === 'action') return actionForNode(state, actorId, node)
+  if (node.kind === 'action') {
+    const action = actionForNode(state, actorId, node)
+    if (action) trace.selectedNodeId = nodeId
+    return action
+  }
   if (node.kind === 'selector') {
     for (const childId of node.children ?? []) {
-      const action = evaluateNode(state, actorId, tree, childId)
+      const action = evaluateNode(state, actorId, tree, childId, trace)
       if (action) return action
     }
     return null
@@ -129,16 +141,26 @@ function evaluateNode(state: V3BattleState, actorId: V3ActorId, tree: V3Behavior
     const child = tree.nodes[childId]
     if (!child) return null
     if (child.kind === 'condition') {
+      trace.visitedNodeIds.push(childId)
       if (!conditionPasses(state, actorId, child)) return null
       continue
     }
-    const action = evaluateNode(state, actorId, tree, childId)
+    const action = evaluateNode(state, actorId, tree, childId, trace)
     if (action) return action
   }
   return null
 }
 
 export function evaluateBehaviorTree(state: V3BattleState, actorId: V3ActorId): V3BattleAction {
-  return evaluateNode(state, actorId, state.trees[actorId], state.trees[actorId].rootId)
+  return evaluateBehaviorTreeWithTrace(state, actorId).action
+}
+
+export function evaluateBehaviorTreeWithTrace(
+  state: V3BattleState,
+  actorId: V3ActorId,
+): { action: V3BattleAction; trace: V3BehaviorTrace } {
+  const trace: V3BehaviorTrace = { visitedNodeIds: [], selectedNodeId: null }
+  const action = evaluateNode(state, actorId, state.trees[actorId], state.trees[actorId].rootId, trace)
     ?? chooseSafeFallbackAction(state, actorId)
+  return { action, trace }
 }

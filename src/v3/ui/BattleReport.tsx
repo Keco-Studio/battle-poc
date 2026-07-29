@@ -4,6 +4,7 @@ import type { V3Encounter, V3Reward } from '@/src/content/generated/v3'
 import type { V3BattleMode } from '@/src/v3/runtime/campaign'
 import type { V3BattleState } from '@/src/v3/runtime/types'
 import type { V3TimelineFilter } from '@/src/v3/runtime/useV3Game'
+import { playerEventText } from '@/src/v3/presentation/playerText'
 
 export type BattleReportProps = {
   battle: V3BattleState
@@ -23,7 +24,7 @@ export function BattleReport(props: BattleReportProps) {
   const filtered = props.battle.events.filter((event) => {
     if (props.timelineFilter === 'all') return true
     if (props.timelineFilter === 'patch') return event.type === 'patch'
-    if (props.timelineFilter === 'action') return ['action', 'move', 'guard'].includes(event.type)
+    if (props.timelineFilter === 'action') return ['action', 'action_rejected', 'move', 'guard'].includes(event.type)
     return ['damage', 'heal', 'shield', 'status', 'result'].includes(event.type)
   })
   const firstPatch = props.battle.patchRecords[0]
@@ -84,7 +85,7 @@ export function BattleReport(props: BattleReportProps) {
         </select>
       </label>
       <ol className="v3-report-timeline">
-        {filtered.slice(-12).reverse().map((event) => <li key={event.id}><span>T{event.tick}</span><p>{event.message}</p></li>)}
+        {filtered.slice(-12).reverse().map((event) => <li key={event.id}><span>T{event.tick}</span><p>{playerEventText(event, props.battle)}</p></li>)}
       </ol>
 
       <div className="v3-report-actions">

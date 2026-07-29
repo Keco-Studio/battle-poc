@@ -1,6 +1,6 @@
 import { V3_CONTENT, type V3BehaviorTreeState, type V3CombatantTemplate } from '@/src/content/generated/v3'
 
-import { applyBehaviorTreePatch, evaluateBehaviorTree } from './behaviorTree'
+import { applyBehaviorTreePatch, evaluateBehaviorTreeWithTrace } from './behaviorTree'
 import { chooseSafeFallbackAction, gridDistance, otherActor, validateAction } from './guardrails'
 import { nextRandom } from './rng'
 import type {
@@ -11,6 +11,7 @@ import type {
   V3BattleConfigInput,
   V3BattleEvent,
   V3BattleState,
+  V3BehaviorTrace,
   V3BehaviorTreePatch,
 } from './types'
 
@@ -162,9 +163,18 @@ function moveToward(state: V3BattleState, actorId: V3ActorId, tiles: number): vo
   pushEvent(state, { type: 'move', actorId, position: { ...actor.position }, message: `${actor.name} 移动` })
 }
 
-function executeAction(state: V3BattleState, action: V3BattleAction): void {
+function executeAction(state: V3BattleState, action: V3BattleAction, trace: V3BehaviorTrace): void {
   const actor = state.actors[action.actorId]
-  pushEvent(state, { type: 'action', actorId: actor.id, targetId: 'targetId' in action ? action.targetId : undefined, skillId: action.kind === 'skill' ? action.skillId : undefined, message: `${actor.name}: ${action.kind}` })
+  pushEvent(state, {
+    type: 'action',
+    actorId: actor.id,
+    targetId: 'targetId' in action ? action.targetId : undefined,
+    skillId: action.kind === 'skill' ? action.skillId : undefined,
+    actionKind: action.kind,
+    nodeId: trace.selectedNodeId ?? undefined,
+    visitedNodeIds: [...trace.visitedNodeIds],
+    message: `${actor.name}: ${action.kind}`,
+  })
 
   if (action.kind === 'wait') return
   if (action.kind === 'guard') {
@@ -252,16 +262,31 @@ export function resolveDecisionTick(
     )
     state.trees[actorId] = applied.tree
     state.patchRecords.push(applied.record)
-    pushEvent(state, { type: 'patch', actorId, message: `${applied.status}:${patch.reason}` })
+    pushEvent(state, { type: 'patch', actorId, patchStatus: applied.status, message: `${applied.status}:${patch.reason}` })
   }
 
   const order: V3ActorId[] = ['left', 'right']
   order.sort((a, b) => state.actors[b].spd - state.actors[a].spd || a.localeCompare(b))
   for (const actorId of order) {
     if (state.actors[actorId].hp <= 0 || state.actors[otherActor(actorId)].hp <= 0) continue
-    const proposed = evaluateBehaviorTree(state, actorId)
-    const action = validateAction(state, proposed).ok ? proposed : chooseSafeFallbackAction(state, actorId)
-    executeAction(state, action)
+    const evaluated = evaluateBehaviorTreeWithTrace(state, actorId)
+    const validation = validateAction(state, evaluated.action)
+    let action = evaluated.action
+    if (!validation.ok) {
+      pushEvent(state, {
+        type: 'action_rejected',
+        actorId,
+        targetId: 'targetId' in evaluated.action ? evaluated.action.targetId : undefined,
+        skillId: evaluated.action.kind === 'skill' ? evaluated.action.skillId : undefined,
+        actionKind: evaluated.action.kind,
+        nodeId: evaluated.trace.selectedNodeId ?? undefined,
+        visitedNodeIds: [...evaluated.trace.visitedNodeIds],
+        rejectCode: validation.code,
+        message: validation.code,
+      })
+      action = chooseSafeFallbackAction(state, actorId)
+    }
+    executeAction(state, action, evaluated.trace)
   }
 
   state.tick += 1

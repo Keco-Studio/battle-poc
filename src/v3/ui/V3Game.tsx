@@ -70,7 +70,7 @@ export function V3Game() {
           {phase === 'battle' && game.battle && (
             <div className="v3-battle-badge">
               <span>DECISION TICK {game.battle.tick}</span>
-              <strong>{game.activeEvent?.message ?? '双方 AI 正在计算下一行动'}</strong>
+              <strong>{game.viewModel.battle?.activeActionLabel ?? '双方 AI 正在计算下一行动'}</strong>
             </div>
           )}
         </section>
