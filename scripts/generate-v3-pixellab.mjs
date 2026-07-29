@@ -15,6 +15,26 @@ const styleFormula = (await readFile(path.join(process.cwd(), 'design', 'STYLE_F
 const generatedAt = '2026-07-29T00:00:00.000Z'
 const frameSize = 64
 const frameCount = 8
+const forceCharacterAnimations = process.env.V3_FORCE_CHARACTER_ANIMATIONS ?? ''
+const forceCharacterAnimationTargets = new Set(forceCharacterAnimations.split(',').map((value) => value.trim()).filter(Boolean))
+const walkCycleFirstHalfGuide = [
+  'the first half of one seamless eight-pose walk loop',
+  'frame 1 left foot contact',
+  'frame 2 left leg weight down',
+  'frame 3 left foot passing under the body',
+  'frame 4 left foot lifted behind',
+  'each frame must advance the legs and opposite arm swing',
+].join(', ')
+const walkCycleSecondHalfGuide = [
+  'continue seamlessly from the supplied previous pose to finish the same walk loop',
+  'frame 5 right foot contact',
+  'frame 6 right leg weight down',
+  'frame 7 right foot passing under the body',
+  'frame 8 right foot lifted behind',
+  'feet and knees must visibly change silhouette in every pose',
+  'opposite arm swing follows the planted foot',
+].join(', ')
+const walkCycleGuide = `${walkCycleFirstHalfGuide}, ${walkCycleSecondHalfGuide}`
 const generatedDirections = ['n', 'ne', 'e', 'se', 's']
 const allDirections = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']
 const mirrorSource = { sw: 'se', w: 'e', nw: 'ne' }
@@ -170,15 +190,15 @@ async function generateStatic({ file, width, height, seed, description, transpar
   return outputPath
 }
 
-async function referenceImage(filePath) {
-  const buffer = await sharp(filePath)
+async function referenceImage(source) {
+  const buffer = await sharp(source)
     .resize(frameSize, frameSize, { fit: 'contain', kernel: sharp.kernel.nearest, background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer()
   return { type: 'base64', base64: buffer.toString('base64') }
 }
 
-async function generateAnimationChunk({ label, reference, description, action, direction, seed, startFrameIndex }) {
+async function generateAnimationChunk({ label, reference, description, action, animationGuide = '', inpaintingFrames = [], direction, seed, startFrameIndex }) {
   const negative = [
     'static pose', 'foot sliding', 'random shaking', 'changing costume', 'changing weapon', 'extra limbs', 'cropped body',
     'camera movement', 'zoom', 'turning around', 'facing a different direction', 'background scenery', 'text',
@@ -187,18 +207,78 @@ async function generateAnimationChunk({ label, reference, description, action, d
     image_size: { width: frameSize, height: frameSize },
     description: `${description}. ${styleFormula}`,
     negative_description: negative,
-    action: `${action}. Camera locked, no camera movement, no zoom, subject stays fully in frame, plain transparent background. The character performs only this action; nothing else happens. The subject keeps facing the same direction for the entire animation and never turns around. ${styleFormula}`,
-    text_guidance_scale: 9,
-    image_guidance_scale: 1.75,
+    action: `${action}. ${animationGuide} Camera locked, no camera movement, no zoom, subject stays fully in frame, plain transparent background. The character performs only this action; nothing else happens. The subject keeps facing the same direction for the entire animation and never turns around. ${styleFormula}`,
+    text_guidance_scale: 10,
+    image_guidance_scale: animationGuide ? 1.4 : 1.5,
     n_frames: frameCount,
     start_frame_index: startFrameIndex,
     view: 'low top-down',
     direction,
     reference_image: reference,
+    inpainting_images: inpaintingFrames.length > 0
+      ? inpaintingFrames.map((frame) => ({ type: 'base64', base64: frame.toString('base64') }))
+      : undefined,
     seed,
   }, `${label}:${startFrameIndex}`)
   if (!Array.isArray(json?.images) || json.images.length !== 4) {
     throw new Error(`${label}: expected four PixelLab frames, received ${json?.images?.length ?? 0}`)
+  }
+  return json.images.map((image) => decodeBase64Png(image.base64))
+}
+
+async function estimateCharacterSkeleton(reference, label) {
+  const json = await pixellabRequest('estimate-skeleton', { image: reference }, `${label}:skeleton`)
+  if (!Array.isArray(json?.keypoints) || json.keypoints.length < 14) {
+    throw new Error(`${label}: PixelLab returned an incomplete skeleton`)
+  }
+  return json.keypoints
+}
+
+function walkPoseSkeleton(keypoints, phase) {
+  const pose = keypoints.map((keypoint) => ({ ...keypoint }))
+  const byLabel = Object.fromEntries(pose.map((keypoint) => [keypoint.label, keypoint]))
+  const move = (label, x, y) => {
+    const point = byLabel[label]
+    if (!point) return
+    point.x += x
+    point.y += y
+  }
+  const lowerBody = {
+    0: { leftKnee: [0.05, -0.02], leftLeg: [0.09, 0.01], rightKnee: [-0.025, 0.015], rightLeg: [-0.05, -0.055], hipY: 0 },
+    1: { leftKnee: [0.035, 0.005], leftLeg: [0.065, 0.015], rightKnee: [-0.02, -0.035], rightLeg: [-0.035, -0.085], hipY: 0.018 },
+    2: { leftKnee: [0.015, 0.01], leftLeg: [0.03, 0.012], rightKnee: [-0.015, -0.07], rightLeg: [-0.02, -0.12], hipY: 0 },
+    3: { leftKnee: [-0.02, -0.035], leftLeg: [-0.04, -0.085], rightKnee: [-0.035, 0.005], rightLeg: [-0.065, 0.015], hipY: -0.006 },
+    4: { leftKnee: [0.025, 0.015], leftLeg: [0.05, -0.055], rightKnee: [-0.05, -0.02], rightLeg: [-0.09, 0.01], hipY: 0 },
+    5: { leftKnee: [0.02, -0.035], leftLeg: [0.035, -0.085], rightKnee: [-0.035, 0.005], rightLeg: [-0.065, 0.015], hipY: 0.018 },
+    6: { leftKnee: [0.015, -0.07], leftLeg: [0.02, -0.12], rightKnee: [-0.015, 0.01], rightLeg: [-0.03, 0.012], hipY: 0 },
+    7: { leftKnee: [0.035, 0.005], leftLeg: [0.065, 0.015], rightKnee: [0.02, -0.035], rightLeg: [0.04, -0.085], hipY: -0.006 },
+  }[phase]
+  const armSwing = [1, 0.65, 0.25, -0.55, -1, -0.65, -0.25, 0.55][phase]
+  move('LEFT KNEE', ...lowerBody.leftKnee)
+  move('LEFT LEG', ...lowerBody.leftLeg)
+  move('RIGHT KNEE', ...lowerBody.rightKnee)
+  move('RIGHT LEG', ...lowerBody.rightLeg)
+  move('LEFT HIP', 0, lowerBody.hipY)
+  move('RIGHT HIP', 0, lowerBody.hipY)
+  move('LEFT ELBOW', -0.025 * armSwing, 0)
+  move('LEFT ARM', -0.045 * armSwing, 0.015 * armSwing)
+  move('RIGHT ELBOW', 0.025 * armSwing, 0)
+  move('RIGHT ARM', 0.045 * armSwing, -0.015 * armSwing)
+  return pose
+}
+
+async function generateSkeletonChunk({ label, reference, skeletons, direction, seed }) {
+  const json = await pixellabRequest('animate-with-skeleton', {
+    image_size: { width: frameSize, height: frameSize },
+    guidance_scale: 5,
+    view: 'low top-down',
+    direction,
+    reference_image: reference,
+    skeleton_keypoints: skeletons,
+    seed,
+  }, label)
+  if (!Array.isArray(json?.images) || json.images.length !== 3) {
+    throw new Error(`${label}: expected three PixelLab skeleton frames, received ${json?.images?.length ?? 0}`)
   }
   return json.images.map((image) => decodeBase64Png(image.base64))
 }
@@ -268,26 +348,31 @@ async function validAnimation(relativeRoot) {
   return true
 }
 
-async function characterAnimation(character, direction) {
+async function characterAnimation(character, direction, reference, skeleton) {
   const relativeRoot = path.join('characters', character.slug, 'move', direction)
-  if (await validAnimation(relativeRoot)) {
+  const animationId = `${character.id}:${direction}`
+  const forceThisAnimation = forceCharacterAnimations === '1'
+    || forceCharacterAnimationTargets.has(animationId)
+  if (!forceThisAnimation && await validAnimation(relativeRoot)) {
     return {
       sheetPath: publicPath(path.join(relativeRoot, 'sheet.png')),
       frames: Array.from({ length: 8 }, (_, index) => publicPath(path.join(relativeRoot, `frame_${String(index).padStart(3, '0')}.png`))),
     }
   }
-  const referencePath = path.join(root, 'characters', character.slug, 'reference.png')
-  const reference = await referenceImage(referencePath)
+  if (!reference || !skeleton) throw new Error(`${animationId}: skeleton context is unavailable`)
   const directionName = directionNames[direction]
-  const first = await generateAnimationChunk({
-    label: `${character.id}:${direction}`, reference, description: character.description, action: character.action,
-    direction: directionName, seed: character.seed + generatedDirections.indexOf(direction) * 20, startFrameIndex: 0,
+  const poses = Array.from({ length: frameCount }, (_, phase) => walkPoseSkeleton(skeleton, phase))
+  const seed = character.seed + generatedDirections.indexOf(direction) * 20
+  const first = await generateSkeletonChunk({
+    label: `${animationId}:0-2`, reference, skeletons: poses.slice(0, 3), direction: directionName, seed,
   })
-  const second = await generateAnimationChunk({
-    label: `${character.id}:${direction}`, reference, description: character.description, action: character.action,
-    direction: directionName, seed: character.seed + generatedDirections.indexOf(direction) * 20, startFrameIndex: 4,
+  const second = await generateSkeletonChunk({
+    label: `${animationId}:3-5`, reference, skeletons: poses.slice(3, 6), direction: directionName, seed,
   })
-  return await writeAnimation(relativeRoot, await normalizeFrames([...first, ...second]))
+  const third = await generateSkeletonChunk({
+    label: `${animationId}:6-0`, reference, skeletons: [poses[6], poses[7], poses[0]], direction: directionName, seed,
+  })
+  return await writeAnimation(relativeRoot, await normalizeFrames([...first, ...second, ...third.slice(0, 2)]))
 }
 
 async function mirrorAnimation(character, targetDirection) {
@@ -318,17 +403,18 @@ async function skillAnimation(skill, iconPath, seed) {
 await mkdir(root, { recursive: true })
 const manifest = { version: 'v3-pixellab-1', generatedAt, styleFormula, assets: [], maps: [], characters: [], skills: [] }
 
-function addAsset({ id, path: assetPath, width, height, transparent, seed, prompt, frameCount: count = 1, directions = [], sourceType = 'PixelLab' }) {
+function addAsset({ id, path: assetPath, width, height, transparent, seed, visualBrief, frameCount: count = 1, directions = [], sourceType = 'PixelLab', generationMethod = 'generate-image-pixflux' }) {
   manifest.assets.push({
     id,
     path: assetPath,
     dimensions: { width, height },
     transparent,
     seed,
-    prompt,
+    visualBrief,
     frameCount: count,
     directions,
     sourceType,
+    generationMethod,
   })
 }
 
@@ -338,7 +424,7 @@ for (const map of maps) {
   const prompt = `${map.description}. ${styleFormula}`
   const assetPath = publicPath(map.file)
   manifest.maps.push({ id: map.id, path: assetPath, width: map.width, height: map.height, seed: map.seed, prompt })
-  addAsset({ id: `map_${map.id}`, path: assetPath, width: map.width, height: map.height, transparent: false, seed: map.seed, prompt })
+  addAsset({ id: `map_${map.id}`, path: assetPath, width: map.width, height: map.height, transparent: false, seed: map.seed, visualBrief: prompt })
 }
 
 for (const character of characters) {
@@ -349,15 +435,23 @@ for (const character of characters) {
     file: referenceFile, width: character.referenceSize, height: character.referenceSize, seed: character.seed, transparent: true,
     description: `${character.description}, isolated single game character, plain transparent background, no floor shadow`,
   })
+  const hasInvalidDirection = (await Promise.all(generatedDirections.map((direction) => (
+    validAnimation(path.join('characters', character.slug, 'move', direction))
+  )))).some((valid) => !valid)
+  const needsSkeleton = forceCharacterAnimations === '1'
+    || generatedDirections.some((direction) => forceCharacterAnimationTargets.has(`${character.id}:${direction}`))
+    || hasInvalidDirection
+  const characterReference = needsSkeleton ? await referenceImage(path.join(root, referenceFile)) : null
+  const characterSkeleton = characterReference ? await estimateCharacterSkeleton(characterReference, character.id) : null
   const directions = {}
   const generated = await mapWithConcurrency(generatedDirections, 3, async (direction) => {
     process.stdout.write(`PixelLab character ${character.id} ${direction} frames\n`)
-    return [direction, { ...await characterAnimation(character, direction), fps: 10 }]
+    return [direction, { ...await characterAnimation(character, direction, characterReference, characterSkeleton), fps: 12 }]
   })
   for (const [direction, animation] of generated) directions[direction] = animation
   for (const direction of Object.keys(mirrorSource)) {
     process.stdout.write(`Mirror character ${character.id} ${direction} frames\n`)
-    directions[direction] = { ...await mirrorAnimation(character, direction), fps: 10 }
+    directions[direction] = { ...await mirrorAnimation(character, direction), fps: 12 }
   }
   const referencePath = publicPath(referenceFile)
   manifest.characters.push({
@@ -374,9 +468,9 @@ for (const character of characters) {
     height: character.referenceSize,
     transparent: true,
     seed: character.seed,
-    prompt: referencePrompt,
+    visualBrief: referencePrompt,
   })
-  const animationPrompt = `${character.description}. ${styleFormula}`
+  const animationBrief = `${character.description}. ${character.action}. ${walkCycleGuide}. ${styleFormula}`
   for (const direction of allDirections) {
     const sourceDirection = mirrorSource[direction] ?? direction
     addAsset({
@@ -386,10 +480,11 @@ for (const character of characters) {
       height: 64,
       transparent: true,
       seed: character.seed + generatedDirections.indexOf(sourceDirection) * 20,
-      prompt: animationPrompt,
+      visualBrief: animationBrief,
       frameCount,
       directions: [direction],
       sourceType: mirrorSource[direction] ? 'PixelLab mirror' : 'PixelLab',
+      generationMethod: mirrorSource[direction] ? 'horizontal-mirror' : 'animate-with-skeleton',
     })
   }
 }
@@ -410,8 +505,8 @@ const generatedSkills = await mapWithConcurrency(skills, 3, async (skill, index)
 })
 for (const skill of generatedSkills) {
   manifest.skills.push(skill)
-  addAsset({ id: `icon_${skill.id}`, path: skill.iconPath, width: 64, height: 64, transparent: true, seed: skill.iconSeed, prompt: skill.iconPrompt })
-  addAsset({ id: `fx_${skill.id}`, path: skill.fxSheetPath, width: 512, height: 64, transparent: true, seed: skill.fxSeed, prompt: skill.fxPrompt, frameCount, directions: ['e'] })
+  addAsset({ id: `icon_${skill.id}`, path: skill.iconPath, width: 64, height: 64, transparent: true, seed: skill.iconSeed, visualBrief: skill.iconPrompt })
+  addAsset({ id: `fx_${skill.id}`, path: skill.fxSheetPath, width: 512, height: 64, transparent: true, seed: skill.fxSeed, visualBrief: skill.fxPrompt, frameCount, directions: ['e'], generationMethod: 'animate-with-text' })
 }
 
 const manifestPath = path.join(root, 'manifest.json')

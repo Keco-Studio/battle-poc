@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  V3_EXPLORE_MOVE_SPEED,
   V3_BATTLE_LAYOUT,
   V3_EXPLORE_LAYOUT,
   animationKeysFor,
@@ -13,6 +14,11 @@ import {
 import { buildV3AssetCatalog } from '@/src/v3/presentation/assetLoader'
 
 describe('V3 presentation contracts', () => {
+  it('keeps one-tile exploration movement long enough to show several walk poses', () => {
+    expect(V3_EXPLORE_MOVE_SPEED).toBeLessThanOrEqual(170)
+    expect((V3_EXPLORE_LAYOUT.width / V3_EXPLORE_LAYOUT.columns) / V3_EXPLORE_MOVE_SPEED).toBeGreaterThanOrEqual(0.235)
+  })
+
   it('maps all eight directions to eight-frame Phaser animation keys', () => {
     expect(animationKeysFor('astra')).toEqual([
       'astra-move-n',

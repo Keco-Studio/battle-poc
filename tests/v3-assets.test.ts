@@ -12,10 +12,11 @@ type Manifest = {
     dimensions: { width: number; height: number }
     transparent: boolean
     seed: number
-    prompt: string
+    visualBrief: string
     frameCount: number
     directions: string[]
     sourceType: 'PixelLab' | 'PixelLab mirror'
+    generationMethod: 'generate-image-pixflux' | 'animate-with-text' | 'animate-with-skeleton' | 'horizontal-mirror'
   }>
   maps: Array<{ id: string; path: string; width: number; height: number }>
   characters: Array<{
@@ -43,6 +44,27 @@ async function rawPixels(relativePath: string) {
   return sharp(path.resolve('public', relativePath.replace(/^\//, ''))).ensureAlpha().raw().toBuffer()
 }
 
+async function alphaBoundsArea(relativePath: string) {
+  const { data, info } = await sharp(path.resolve('public', relativePath.replace(/^\//, '')))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  let minX = info.width
+  let minY = info.height
+  let maxX = -1
+  let maxY = -1
+  for (let y = 0; y < info.height; y += 1) {
+    for (let x = 0; x < info.width; x += 1) {
+      if (data[(y * info.width + x) * 4 + 3] <= 8) continue
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+  }
+  return (maxX - minX + 1) * (maxY - minY + 1)
+}
+
 describe('V3 PixelLab assets', () => {
   it('ships the three required map images at authored dimensions', async () => {
     const data = await manifest()
@@ -59,9 +81,43 @@ describe('V3 PixelLab assets', () => {
       await expectPng(character.referencePath, character.id === 'eclipse_marshal' ? 128 : 96, character.id === 'eclipse_marshal' ? 128 : 96)
       for (const direction of Object.values(character.directions)) {
         expect(direction.frames).toHaveLength(8)
-        expect(direction.fps).toBe(10)
+        expect(direction.fps).toBe(12)
         await expectPng(direction.sheetPath, 512, 64)
         for (const frame of direction.frames) await expectPng(frame, 64, 64)
+      }
+    }
+  })
+
+  it('ships several real walk silhouettes instead of recolored static poses', async () => {
+    const data = await manifest()
+
+    for (const character of data.characters) {
+      for (const direction of Object.values(character.directions)) {
+        const first = await rawPixels(direction.frames[0])
+        const silhouetteChanges = await Promise.all(direction.frames.slice(1).map(async (frame) => {
+          const pixels = await rawPixels(frame)
+          let changedAlphaPixels = 0
+          for (let offset = 3; offset < first.length; offset += 4) {
+            if ((first[offset] > 8) !== (pixels[offset] > 8)) changedAlphaPixels += 1
+          }
+          return changedAlphaPixels
+        }))
+        expect(Math.max(...silhouetteChanges), `${character.id} ${direction.sheetPath}`).toBeGreaterThanOrEqual(32)
+        expect(silhouetteChanges.filter((count) => count >= 16).length, `${character.id} ${direction.sheetPath}`).toBeGreaterThanOrEqual(4)
+      }
+    }
+  })
+
+  it('keeps the character silhouette stable across both PixelLab animation chunks', async () => {
+    const data = await manifest()
+
+    for (const character of data.characters) {
+      for (const direction of Object.values(character.directions)) {
+        const areas = await Promise.all(direction.frames.map(alphaBoundsArea))
+        expect(
+          Math.max(...areas) / Math.min(...areas),
+          `${character.id} ${direction.sheetPath}`,
+        ).toBeLessThanOrEqual(1.65)
       }
     }
   })
@@ -96,7 +152,7 @@ describe('V3 PixelLab assets', () => {
         }
       }
     }
-  })
+  }, 15_000)
 
   it('ships a readable icon and eight-frame effect for every skill', async () => {
     const data = await manifest()
@@ -125,6 +181,14 @@ describe('V3 PixelLab assets', () => {
 
     expect(actionField?.[1]).toContain('${styleFormula}')
     expect(actionField?.[1].replace('${styleFormula}', formula.trim())).toContain(formula.trim())
+    expect(actionField?.[1]).toContain('${animationGuide}')
+    expect(generator).toContain('left foot contact')
+    expect(generator).toContain('right foot contact')
+    expect(generator).toContain('V3_FORCE_CHARACTER_ANIMATIONS')
+    expect(generator).toContain('inpainting_images')
+    expect(generator).toContain("pixellabRequest('estimate-skeleton'")
+    expect(generator).toContain("pixellabRequest('animate-with-skeleton'")
+    expect(generator).toContain('skeleton_keypoints')
   })
 
   it('maps every authored asset row to complete PixelLab provenance', async () => {
@@ -139,9 +203,16 @@ describe('V3 PixelLab assets', () => {
       expect(asset.dimensions.height).toBeGreaterThan(0)
       expect(typeof asset.transparent).toBe('boolean')
       expect(asset.seed).toBeGreaterThan(0)
-      expect(asset.prompt).toContain(data.styleFormula)
+      expect(asset.visualBrief).toContain(data.styleFormula)
       expect(asset.frameCount).toBe(asset.directions.length === 0 ? 1 : 8)
       expect(['PixelLab', 'PixelLab mirror']).toContain(asset.sourceType)
+      if (asset.id.includes('_move_')) {
+        expect(asset.generationMethod).toBe(asset.sourceType === 'PixelLab mirror' ? 'horizontal-mirror' : 'animate-with-skeleton')
+      } else if (asset.id.startsWith('fx_')) {
+        expect(asset.generationMethod).toBe('animate-with-text')
+      } else {
+        expect(asset.generationMethod).toBe('generate-image-pixflux')
+      }
     }
   })
 })

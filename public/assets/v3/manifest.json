@@ -12,10 +12,11 @@
       },
       "transparent": false,
       "seed": 9101,
-      "prompt": "Top-down colorful signal meadow for a pixel RPG, a bright safe beacon in the lower-left, curved garden paths, sunny ruins, flower beds, shallow cyan streams, four clearly separated encounter clearings, readable open movement lanes, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Top-down colorful signal meadow for a pixel RPG, a bright safe beacon in the lower-left, curved garden paths, sunny ruins, flower beds, shallow cyan streams, four clearly separated encounter clearings, readable open movement lanes, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "map_sunlit_circuit",
@@ -26,10 +27,11 @@
       },
       "transparent": false,
       "seed": 9102,
-      "prompt": "Square top-down 16 by 16 tactical garden circuit arena, bright gold lane markings, leaf-green platforms, low coral and cyan obstacles, open readable center and side paths, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Square top-down 16 by 16 tactical garden circuit arena, bright gold lane markings, leaf-green platforms, low coral and cyan obstacles, open readable center and side paths, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "map_prism_gate",
@@ -40,10 +42,11 @@
       },
       "transparent": false,
       "seed": 9103,
-      "prompt": "Square top-down 16 by 16 celebratory prism gate boss arena, clean violet and gold geometric floor, cyan light channels, symmetrical low obstacles, readable battle lanes, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Square top-down 16 by 16 celebratory prism gate boss arena, clean violet and gold geometric floor, cyan light channels, symmetrical low obstacles, readable battle lanes, exact square composition, no characters, no labels. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "character_astra_vanguard",
@@ -54,10 +57,11 @@
       },
       "transparent": true,
       "seed": 9201,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "astra_move_n",
@@ -68,12 +72,13 @@
       },
       "transparent": true,
       "seed": 9201,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "n"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "astra_move_ne",
@@ -84,12 +89,13 @@
       },
       "transparent": true,
       "seed": 9221,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "ne"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "astra_move_e",
@@ -100,12 +106,13 @@
       },
       "transparent": true,
       "seed": 9241,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "astra_move_se",
@@ -116,12 +123,13 @@
       },
       "transparent": true,
       "seed": 9261,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "se"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "astra_move_s",
@@ -132,12 +140,13 @@
       },
       "transparent": true,
       "seed": 9281,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "s"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "astra_move_sw",
@@ -148,12 +157,13 @@
       },
       "transparent": true,
       "seed": 9261,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "sw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "astra_move_w",
@@ -164,12 +174,13 @@
       },
       "transparent": true,
       "seed": 9241,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "w"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "astra_move_nw",
@@ -180,12 +191,13 @@
       },
       "transparent": true,
       "seed": 9221,
-      "prompt": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Astra Vanguard, optimistic young tactical hero, sky-blue mantle, gold signal blade, leaf-green relay pack, coral scarf, strong readable silhouette, identical equipment in every frame. a seamless energetic walk cycle with alternating planted footsteps, clear knee bend, opposite arm swing, stable torso and the gold blade held safely low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "nw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "character_briar_sentinel",
@@ -196,10 +208,11 @@
       },
       "transparent": true,
       "seed": 9202,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "briar_move_n",
@@ -210,12 +223,13 @@
       },
       "transparent": true,
       "seed": 9202,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "n"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "briar_move_ne",
@@ -226,12 +240,13 @@
       },
       "transparent": true,
       "seed": 9222,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "ne"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "briar_move_e",
@@ -242,12 +257,13 @@
       },
       "transparent": true,
       "seed": 9242,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "briar_move_se",
@@ -258,12 +274,13 @@
       },
       "transparent": true,
       "seed": 9262,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "se"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "briar_move_s",
@@ -274,12 +291,13 @@
       },
       "transparent": true,
       "seed": 9282,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "s"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "briar_move_sw",
@@ -290,12 +308,13 @@
       },
       "transparent": true,
       "seed": 9262,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "sw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "briar_move_w",
@@ -306,12 +325,13 @@
       },
       "transparent": true,
       "seed": 9242,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "w"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "briar_move_nw",
@@ -322,12 +342,13 @@
       },
       "transparent": true,
       "seed": 9222,
-      "prompt": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Briar Sentinel, friendly-shaped green plated guardian, coral spear, bright flower crest, gold joint details, strong readable silhouette, identical armor and spear in every frame. a seamless measured patrol walk cycle with alternating planted footsteps, visible weight transfer, spear held upright and stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "nw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "character_sunforge_striker",
@@ -338,10 +359,11 @@
       },
       "transparent": true,
       "seed": 9203,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "sunforge_move_n",
@@ -352,12 +374,13 @@
       },
       "transparent": true,
       "seed": 9203,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "n"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "sunforge_move_ne",
@@ -368,12 +391,13 @@
       },
       "transparent": true,
       "seed": 9223,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "ne"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "sunforge_move_e",
@@ -384,12 +408,13 @@
       },
       "transparent": true,
       "seed": 9243,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "sunforge_move_se",
@@ -400,12 +425,13 @@
       },
       "transparent": true,
       "seed": 9263,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "se"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "sunforge_move_s",
@@ -416,12 +442,13 @@
       },
       "transparent": true,
       "seed": 9283,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "s"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "sunforge_move_sw",
@@ -432,12 +459,13 @@
       },
       "transparent": true,
       "seed": 9263,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "sw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "sunforge_move_w",
@@ -448,12 +476,13 @@
       },
       "transparent": true,
       "seed": 9243,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "w"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "sunforge_move_nw",
@@ -464,12 +493,13 @@
       },
       "transparent": true,
       "seed": 9223,
-      "prompt": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Sunforge Striker, compact athletic fighter, warm gold gauntlets, coral scarf, orange furnace core, cyan boots, strong readable silhouette, identical equipment in every frame. a seamless quick combat walk cycle with alternating planted footsteps, springy knees, balanced gauntlet swing and no foot sliding. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "nw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "character_prism_adept",
@@ -480,10 +510,11 @@
       },
       "transparent": true,
       "seed": 9204,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "prism_move_n",
@@ -494,12 +525,13 @@
       },
       "transparent": true,
       "seed": 9204,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "n"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "prism_move_ne",
@@ -510,12 +542,13 @@
       },
       "transparent": true,
       "seed": 9224,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "ne"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "prism_move_e",
@@ -526,12 +559,13 @@
       },
       "transparent": true,
       "seed": 9244,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "prism_move_se",
@@ -542,12 +576,13 @@
       },
       "transparent": true,
       "seed": 9264,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "se"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "prism_move_s",
@@ -558,12 +593,13 @@
       },
       "transparent": true,
       "seed": 9284,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "s"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "prism_move_sw",
@@ -574,12 +610,13 @@
       },
       "transparent": true,
       "seed": 9264,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "sw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "prism_move_w",
@@ -590,12 +627,13 @@
       },
       "transparent": true,
       "seed": 9244,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "w"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "prism_move_nw",
@@ -606,12 +644,13 @@
       },
       "transparent": true,
       "seed": 9224,
-      "prompt": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Prism Adept, bright violet coat, cyan crystal focus, geometric multicolor cape, gold boots, strong readable silhouette, identical focus and clothing in every frame. a seamless light-footed walk cycle with alternating steps, cape following the motion in progressive poses and the crystal focus kept stable. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "nw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "character_eclipse_marshal",
@@ -622,10 +661,11 @@
       },
       "transparent": true,
       "seed": 9205,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame, isolated single game character, plain transparent background, no floor shadow. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "marshal_move_n",
@@ -636,12 +676,13 @@
       },
       "transparent": true,
       "seed": 9205,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "n"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "marshal_move_ne",
@@ -652,12 +693,13 @@
       },
       "transparent": true,
       "seed": 9225,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "ne"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "marshal_move_e",
@@ -668,12 +710,13 @@
       },
       "transparent": true,
       "seed": 9245,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "marshal_move_se",
@@ -684,12 +727,13 @@
       },
       "transparent": true,
       "seed": 9265,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "se"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "marshal_move_s",
@@ -700,12 +744,13 @@
       },
       "transparent": true,
       "seed": 9285,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "s"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-skeleton"
     },
     {
       "id": "marshal_move_sw",
@@ -716,12 +761,13 @@
       },
       "transparent": true,
       "seed": 9265,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "sw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "marshal_move_w",
@@ -732,12 +778,13 @@
       },
       "transparent": true,
       "seed": 9245,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "w"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "marshal_move_nw",
@@ -748,12 +795,13 @@
       },
       "transparent": true,
       "seed": 9225,
-      "prompt": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Full body Eclipse Marshal boss, deep-ink ceremonial armor, large gold crown ring, multicolor prism blade, coral and cyan accents, imposing readable silhouette, identical armor ring and blade in every frame. a seamless deliberate commander walk cycle with alternating heavy planted steps, clear weight transfer, stable crown ring and prism blade held low. the first half of one seamless eight-pose walk loop, frame 1 left foot contact, frame 2 left leg weight down, frame 3 left foot passing under the body, frame 4 left foot lifted behind, each frame must advance the legs and opposite arm swing, continue seamlessly from the supplied previous pose to finish the same walk loop, frame 5 right foot contact, frame 6 right leg weight down, frame 7 right foot passing under the body, frame 8 right foot lifted behind, feet and knees must visibly change silhouette in every pose, opposite arm swing follows the planted foot. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "nw"
       ],
-      "sourceType": "PixelLab mirror"
+      "sourceType": "PixelLab mirror",
+      "generationMethod": "horizontal-mirror"
     },
     {
       "id": "icon_solar_lance",
@@ -764,10 +812,11 @@
       },
       "transparent": true,
       "seed": 9301,
-      "prompt": "Centered pixel game skill icon, gold and cyan solar energy lance, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, gold and cyan solar energy lance, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_solar_lance",
@@ -778,12 +827,13 @@
       },
       "transparent": true,
       "seed": 9401,
-      "prompt": "Centered isolated pixel game skill effect, gold and cyan solar energy lance, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, gold and cyan solar energy lance, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_bloom_guard",
@@ -794,10 +844,11 @@
       },
       "transparent": true,
       "seed": 9302,
-      "prompt": "Centered pixel game skill icon, leaf-green and gold flower shield, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, leaf-green and gold flower shield, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_bloom_guard",
@@ -808,12 +859,13 @@
       },
       "transparent": true,
       "seed": 9402,
-      "prompt": "Centered isolated pixel game skill effect, leaf-green and gold flower shield, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, leaf-green and gold flower shield, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_gale_step",
@@ -824,10 +876,11 @@
       },
       "transparent": true,
       "seed": 9303,
-      "prompt": "Centered pixel game skill icon, sky-cyan wind step trail, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, sky-cyan wind step trail, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_gale_step",
@@ -838,12 +891,13 @@
       },
       "transparent": true,
       "seed": 9403,
-      "prompt": "Centered isolated pixel game skill effect, sky-cyan wind step trail, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, sky-cyan wind step trail, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_prism_snare",
@@ -854,10 +908,11 @@
       },
       "transparent": true,
       "seed": 9304,
-      "prompt": "Centered pixel game skill icon, violet and cyan geometric prism snare, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, violet and cyan geometric prism snare, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_prism_snare",
@@ -868,12 +923,13 @@
       },
       "transparent": true,
       "seed": 9404,
-      "prompt": "Centered isolated pixel game skill effect, violet and cyan geometric prism snare, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, violet and cyan geometric prism snare, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_meteor_arc",
@@ -884,10 +940,11 @@
       },
       "transparent": true,
       "seed": 9305,
-      "prompt": "Centered pixel game skill icon, coral and gold falling meteor arc, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, coral and gold falling meteor arc, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_meteor_arc",
@@ -898,12 +955,13 @@
       },
       "transparent": true,
       "seed": 9405,
-      "prompt": "Centered isolated pixel game skill effect, coral and gold falling meteor arc, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, coral and gold falling meteor arc, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_radiant_mend",
@@ -914,10 +972,11 @@
       },
       "transparent": true,
       "seed": 9306,
-      "prompt": "Centered pixel game skill icon, green and gold healing star spiral, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, green and gold healing star spiral, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_radiant_mend",
@@ -928,12 +987,13 @@
       },
       "transparent": true,
       "seed": 9406,
-      "prompt": "Centered isolated pixel game skill effect, green and gold healing star spiral, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, green and gold healing star spiral, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_echo_bolt",
@@ -944,10 +1004,11 @@
       },
       "transparent": true,
       "seed": 9307,
-      "prompt": "Centered pixel game skill icon, cyan and violet ricochet energy bolt, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, cyan and violet ricochet energy bolt, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_echo_bolt",
@@ -958,12 +1019,13 @@
       },
       "transparent": true,
       "seed": 9407,
-      "prompt": "Centered isolated pixel game skill effect, cyan and violet ricochet energy bolt, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, cyan and violet ricochet energy bolt, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     },
     {
       "id": "icon_comet_break",
@@ -974,10 +1036,11 @@
       },
       "transparent": true,
       "seed": 9308,
-      "prompt": "Centered pixel game skill icon, white and gold finishing comet impact, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered pixel game skill icon, white and gold finishing comet impact, one bold readable symbol, no border frame. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 1,
       "directions": [],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "generate-image-pixflux"
     },
     {
       "id": "fx_comet_break",
@@ -988,12 +1051,13 @@
       },
       "transparent": true,
       "seed": 9408,
-      "prompt": "Centered isolated pixel game skill effect, white and gold finishing comet impact, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
+      "visualBrief": "Centered isolated pixel game skill effect, white and gold finishing comet impact, high contrast readable silhouette. optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels",
       "frameCount": 8,
       "directions": [
         "e"
       ],
-      "sourceType": "PixelLab"
+      "sourceType": "PixelLab",
+      "generationMethod": "animate-with-text"
     }
   ],
   "maps": [
@@ -1041,7 +1105,7 @@
             "/assets/v3/characters/astra-vanguard/move/n/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/n/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "ne": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/ne/sheet.png",
@@ -1055,7 +1119,7 @@
             "/assets/v3/characters/astra-vanguard/move/ne/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/ne/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "e": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/e/sheet.png",
@@ -1069,7 +1133,7 @@
             "/assets/v3/characters/astra-vanguard/move/e/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/e/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "se": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/se/sheet.png",
@@ -1083,7 +1147,7 @@
             "/assets/v3/characters/astra-vanguard/move/se/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/se/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "s": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/s/sheet.png",
@@ -1097,7 +1161,7 @@
             "/assets/v3/characters/astra-vanguard/move/s/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/s/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "sw": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/sw/sheet.png",
@@ -1111,7 +1175,7 @@
             "/assets/v3/characters/astra-vanguard/move/sw/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/sw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "w": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/w/sheet.png",
@@ -1125,7 +1189,7 @@
             "/assets/v3/characters/astra-vanguard/move/w/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/w/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "nw": {
           "sheetPath": "/assets/v3/characters/astra-vanguard/move/nw/sheet.png",
@@ -1139,7 +1203,7 @@
             "/assets/v3/characters/astra-vanguard/move/nw/frame_006.png",
             "/assets/v3/characters/astra-vanguard/move/nw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         }
       }
     },
@@ -1161,7 +1225,7 @@
             "/assets/v3/characters/briar-sentinel/move/n/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/n/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "ne": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/ne/sheet.png",
@@ -1175,7 +1239,7 @@
             "/assets/v3/characters/briar-sentinel/move/ne/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/ne/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "e": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/e/sheet.png",
@@ -1189,7 +1253,7 @@
             "/assets/v3/characters/briar-sentinel/move/e/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/e/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "se": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/se/sheet.png",
@@ -1203,7 +1267,7 @@
             "/assets/v3/characters/briar-sentinel/move/se/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/se/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "s": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/s/sheet.png",
@@ -1217,7 +1281,7 @@
             "/assets/v3/characters/briar-sentinel/move/s/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/s/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "sw": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/sw/sheet.png",
@@ -1231,7 +1295,7 @@
             "/assets/v3/characters/briar-sentinel/move/sw/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/sw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "w": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/w/sheet.png",
@@ -1245,7 +1309,7 @@
             "/assets/v3/characters/briar-sentinel/move/w/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/w/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "nw": {
           "sheetPath": "/assets/v3/characters/briar-sentinel/move/nw/sheet.png",
@@ -1259,7 +1323,7 @@
             "/assets/v3/characters/briar-sentinel/move/nw/frame_006.png",
             "/assets/v3/characters/briar-sentinel/move/nw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         }
       }
     },
@@ -1281,7 +1345,7 @@
             "/assets/v3/characters/sunforge-striker/move/n/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/n/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "ne": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/ne/sheet.png",
@@ -1295,7 +1359,7 @@
             "/assets/v3/characters/sunforge-striker/move/ne/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/ne/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "e": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/e/sheet.png",
@@ -1309,7 +1373,7 @@
             "/assets/v3/characters/sunforge-striker/move/e/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/e/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "se": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/se/sheet.png",
@@ -1323,7 +1387,7 @@
             "/assets/v3/characters/sunforge-striker/move/se/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/se/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "s": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/s/sheet.png",
@@ -1337,7 +1401,7 @@
             "/assets/v3/characters/sunforge-striker/move/s/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/s/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "sw": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/sw/sheet.png",
@@ -1351,7 +1415,7 @@
             "/assets/v3/characters/sunforge-striker/move/sw/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/sw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "w": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/w/sheet.png",
@@ -1365,7 +1429,7 @@
             "/assets/v3/characters/sunforge-striker/move/w/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/w/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "nw": {
           "sheetPath": "/assets/v3/characters/sunforge-striker/move/nw/sheet.png",
@@ -1379,7 +1443,7 @@
             "/assets/v3/characters/sunforge-striker/move/nw/frame_006.png",
             "/assets/v3/characters/sunforge-striker/move/nw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         }
       }
     },
@@ -1401,7 +1465,7 @@
             "/assets/v3/characters/prism-adept/move/n/frame_006.png",
             "/assets/v3/characters/prism-adept/move/n/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "ne": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/ne/sheet.png",
@@ -1415,7 +1479,7 @@
             "/assets/v3/characters/prism-adept/move/ne/frame_006.png",
             "/assets/v3/characters/prism-adept/move/ne/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "e": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/e/sheet.png",
@@ -1429,7 +1493,7 @@
             "/assets/v3/characters/prism-adept/move/e/frame_006.png",
             "/assets/v3/characters/prism-adept/move/e/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "se": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/se/sheet.png",
@@ -1443,7 +1507,7 @@
             "/assets/v3/characters/prism-adept/move/se/frame_006.png",
             "/assets/v3/characters/prism-adept/move/se/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "s": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/s/sheet.png",
@@ -1457,7 +1521,7 @@
             "/assets/v3/characters/prism-adept/move/s/frame_006.png",
             "/assets/v3/characters/prism-adept/move/s/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "sw": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/sw/sheet.png",
@@ -1471,7 +1535,7 @@
             "/assets/v3/characters/prism-adept/move/sw/frame_006.png",
             "/assets/v3/characters/prism-adept/move/sw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "w": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/w/sheet.png",
@@ -1485,7 +1549,7 @@
             "/assets/v3/characters/prism-adept/move/w/frame_006.png",
             "/assets/v3/characters/prism-adept/move/w/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "nw": {
           "sheetPath": "/assets/v3/characters/prism-adept/move/nw/sheet.png",
@@ -1499,7 +1563,7 @@
             "/assets/v3/characters/prism-adept/move/nw/frame_006.png",
             "/assets/v3/characters/prism-adept/move/nw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         }
       }
     },
@@ -1521,7 +1585,7 @@
             "/assets/v3/characters/eclipse-marshal/move/n/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/n/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "ne": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/ne/sheet.png",
@@ -1535,7 +1599,7 @@
             "/assets/v3/characters/eclipse-marshal/move/ne/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/ne/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "e": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/e/sheet.png",
@@ -1549,7 +1613,7 @@
             "/assets/v3/characters/eclipse-marshal/move/e/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/e/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "se": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/se/sheet.png",
@@ -1563,7 +1627,7 @@
             "/assets/v3/characters/eclipse-marshal/move/se/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/se/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "s": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/s/sheet.png",
@@ -1577,7 +1641,7 @@
             "/assets/v3/characters/eclipse-marshal/move/s/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/s/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "sw": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/sw/sheet.png",
@@ -1591,7 +1655,7 @@
             "/assets/v3/characters/eclipse-marshal/move/sw/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/sw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "w": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/w/sheet.png",
@@ -1605,7 +1669,7 @@
             "/assets/v3/characters/eclipse-marshal/move/w/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/w/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         },
         "nw": {
           "sheetPath": "/assets/v3/characters/eclipse-marshal/move/nw/sheet.png",
@@ -1619,7 +1683,7 @@
             "/assets/v3/characters/eclipse-marshal/move/nw/frame_006.png",
             "/assets/v3/characters/eclipse-marshal/move/nw/frame_007.png"
           ],
-          "fps": 10
+          "fps": 12
         }
       }
     }

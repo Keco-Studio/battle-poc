@@ -17,6 +17,7 @@ export type V3StageLayout = {
 
 export const V3_STAGE_WIDTH = 1280
 export const V3_STAGE_HEIGHT = 720
+export const V3_EXPLORE_MOVE_SPEED = 160
 
 export const V3_EXPLORE_LAYOUT: V3StageLayout = {
   width: 1280,

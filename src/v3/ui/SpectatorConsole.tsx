@@ -42,6 +42,32 @@ function filteredEvents(battle: V3BattleState, filter: V3TimelineFilter) {
   return battle.events.filter((event) => ['damage', 'heal', 'shield', 'status', 'result'].includes(event.type))
 }
 
+const EVENT_LABELS: Record<V3BattleEvent['type'], string> = {
+  patch: '策略调整',
+  action: '使用技能',
+  damage: '伤害',
+  heal: '治疗',
+  shield: '护盾',
+  status: '状态变化',
+  move: '移动',
+  guard: '防守',
+  result: '战斗结果',
+}
+
+function playerFacingEventMessage(event: V3BattleEvent): string {
+  if (event.type !== 'patch') return event.message
+  const [status, ...reasonParts] = event.message.split(':')
+  const reason = reasonParts.join(':')
+  const label = status === 'accepted'
+    ? '策略已调整'
+    : status === 'partially_accepted'
+      ? '策略已部分调整'
+      : status === 'rejected'
+        ? '策略未调整'
+        : '策略检查完成'
+  return reason ? `${label}：${reason}` : label
+}
+
 export function SpectatorConsole(props: SpectatorConsoleProps) {
   const latestPatch = props.battle.patchRecords.at(-1)
   const events = filteredEvents(props.battle, props.eventFilter).slice(-18).reverse()
@@ -54,7 +80,7 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
 
       <div className="v3-tick-line">
         <strong>Tick {props.battle.tick}</strong>
-        <span>{props.activeEvent?.message ?? '等待下一行动'}</span>
+        <span>{props.activeEvent ? playerFacingEventMessage(props.activeEvent) : '等待下一行动'}</span>
       </div>
 
       <div className="v3-viewer-controls">
@@ -70,7 +96,7 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
       <nav className="v3-console-tabs" aria-label="观战视图">
         {(['status', 'decision', 'timeline'] as const).map((tab) => (
           <button key={tab} type="button" className={props.activeTab === tab ? 'is-active' : ''} onClick={() => props.onTabChange(tab)}>
-            {tab === 'status' ? '状态' : tab === 'decision' ? '决策' : '时间线'}
+            {tab === 'status' ? '战况' : tab === 'decision' ? 'AI 思路' : '战斗记录'}
           </button>
         ))}
       </nav>
@@ -81,22 +107,25 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
           <span>敌方伤害<strong>{props.battle.actors.right.damageDealt}</strong></span>
           <span>我方技能<strong>{props.battle.actors.left.skillsUsed}</strong></span>
           <span>敌方技能<strong>{props.battle.actors.right.skillsUsed}</strong></span>
-          <span>活动节点<strong>{props.battle.trees.left.rootId}</strong></span>
-          <span>树版本<strong>{props.battle.trees.left.version} / {props.battle.trees.right.version}</strong></span>
+          <span>当前回合<strong>{props.battle.tick}</strong></span>
+          <span>已执行行动<strong>{props.battle.events.length}</strong></span>
         </div>
       )}
 
       {props.activeTab === 'decision' && (
         <div className="v3-console-body">
-          <h3>Patch 证据</h3>
-          <dl className="v3-evidence">
-            <div><dt>来源</dt><dd>{props.latestDecisionEvidence?.source ?? '等待'}</dd></div>
-            <div><dt>状态</dt><dd>{props.latestDecisionEvidence?.status ?? 'none'}</dd></div>
-            <div><dt>延迟</dt><dd>{props.latestDecisionEvidence?.latencyMs ?? 0} ms</dd></div>
-            <div><dt>版本</dt><dd>{latestPatch ? `${latestPatch.baseTreeVersion} → ${latestPatch.resultingTreeVersion}` : '-'}</dd></div>
-          </dl>
-          <p className="v3-patch-reason">{latestPatch?.reason ?? props.latestDecisionEvidence?.reason ?? '双方将在每个决策 Tick 提交一次受约束 Patch。'}</p>
-          <code>{latestPatch?.ops.map((operation) => operation.kind).join(' · ') || 'no patch yet'}</code>
+          <h3>本回合为什么这样行动</h3>
+          <p className="v3-patch-reason">{latestPatch?.reason ?? props.latestDecisionEvidence?.reason ?? 'AI 正在观察距离、生命值和技能状态。'}</p>
+          <details className="v3-advanced-details">
+            <summary>高级详情</summary>
+            <dl className="v3-evidence">
+              <div><dt>决策来源</dt><dd>{props.latestDecisionEvidence?.source ?? '等待'}</dd></div>
+              <div><dt>校验状态</dt><dd>{props.latestDecisionEvidence?.status ?? 'none'}</dd></div>
+              <div><dt>耗时</dt><dd>{props.latestDecisionEvidence?.latencyMs ?? 0} ms</dd></div>
+              <div><dt>策略版本</dt><dd>{latestPatch ? `${latestPatch.baseTreeVersion} → ${latestPatch.resultingTreeVersion}` : '-'}</dd></div>
+            </dl>
+            <code>{latestPatch?.ops.map((operation) => operation.kind).join(' · ') || '暂无策略调整'}</code>
+          </details>
         </div>
       )}
 
@@ -104,11 +133,11 @@ export function SpectatorConsole(props: SpectatorConsoleProps) {
         <div className="v3-console-body">
           <label className="v3-filter-line"><ListFilter size={16} />
             <select value={props.eventFilter} onChange={(event) => props.onEventFilterChange(event.target.value as V3TimelineFilter)}>
-              <option value="all">全部事件</option><option value="patch">Patch</option><option value="action">行动</option><option value="combat">战斗数值</option>
+              <option value="all">全部记录</option><option value="patch">策略调整</option><option value="action">行动</option><option value="combat">生命变化</option>
             </select>
           </label>
           <ol className="v3-timeline">
-            {events.map((event) => <li key={event.id}><span>T{event.tick}</span><strong>{event.type}</strong><p>{event.message}</p></li>)}
+            {events.map((event) => <li key={event.id}><span>T{event.tick}</span><strong>{EVENT_LABELS[event.type]}</strong><p>{playerFacingEventMessage(event)}</p></li>)}
           </ol>
         </div>
       )}

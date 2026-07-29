@@ -11,6 +11,7 @@ import {
 } from './assetLoader'
 import {
   V3_BATTLE_LAYOUT,
+  V3_EXPLORE_MOVE_SPEED,
   V3_EXPLORE_LAYOUT,
   V3_STAGE_HEIGHT,
   V3_STAGE_WIDTH,
@@ -211,7 +212,7 @@ export class V3WorldScene extends Phaser.Scene {
     }
     this.player.sprite.setVisible(true).setScale(1.15)
     const playerWorld = gridPointToWorld(explore.playerPosition, V3_EXPLORE_LAYOUT)
-    const arrived = this.moveSpriteTo(this.player, playerWorld, explore.playerFacing, 260)
+    const arrived = this.moveSpriteTo(this.player, playerWorld, explore.playerFacing, V3_EXPLORE_MOVE_SPEED)
 
     if (this.markerObjects.length === 0) {
       const beaconWorld = gridPointToWorld(explore.safeBeacon, V3_EXPLORE_LAYOUT)

@@ -28,21 +28,23 @@ export function BattleReport(props: BattleReportProps) {
   })
   const firstPatch = props.battle.patchRecords[0]
   const lastPatch = props.battle.patchRecords.at(-1)
+  const endReason = props.battle.endReason === 'hp_zero'
+    ? '一方生命值归零'
+    : props.battle.endReason === 'max_tick'
+      ? '达到最大回合数'
+      : props.battle.endReason ?? '战斗结束'
 
   return (
     <aside className="v3-report" aria-label="战斗复盘">
       <header className={victory ? 'is-victory' : 'is-defeat'}>
         <Trophy size={25} />
-        <div><span>REPORT / {props.mode}</span><h2>{victory ? '校验成功' : props.battle.result === 'draw' ? '推演平局' : '校验失败'}</h2></div>
+        <div><span>战斗结果</span><h2>{victory ? '挑战成功' : props.battle.result === 'draw' ? '双方战平' : '挑战失败'}</h2></div>
       </header>
 
       <div className="v3-report-meta">
-        <span>结束原因<strong>{props.battle.endReason ?? '-'}</strong></span>
-        <span>决策 Tick<strong>{props.battle.tick}</strong></span>
+        <span>结束原因<strong>{endReason}</strong></span>
+        <span>战斗回合<strong>{props.battle.tick}</strong></span>
         <span>耗时<strong>{(props.durationMs / 1000).toFixed(1)}s</strong></span>
-        <span>种子<strong>{props.battle.initialConfig.seed}</strong></span>
-        <span>规则版本<strong>{V3_CONTENT.game.rulesetVersion}</strong></span>
-        <span>视觉版本<strong>{V3_CONTENT.game.visualVersion}</strong></span>
       </div>
 
       <section className="v3-report-stats">
@@ -50,15 +52,19 @@ export function BattleReport(props: BattleReportProps) {
         <p>我方伤害 <strong>{props.battle.actors.left.damageDealt}</strong></p>
         <p>敌方伤害 <strong>{props.battle.actors.right.damageDealt}</strong></p>
         <p>我方治疗 <strong>{props.battle.actors.left.healingDone}</strong></p>
-        <p>Patch <strong>{props.battle.patchRecords.length}</strong></p>
+        <p>策略调整 <strong>{props.battle.patchRecords.length}</strong></p>
       </section>
 
-      <section className="v3-tree-diff">
-        <h3>行为树变化</h3>
-        <p>初始版本 {firstPatch?.baseTreeVersion ?? 1}</p>
-        <p>最终版本 {lastPatch?.resultingTreeVersion ?? props.battle.trees.left.version}</p>
-        <code>{lastPatch?.reason ?? '本场无 Patch'}</code>
-      </section>
+      <details className="v3-advanced-details v3-report-details">
+        <summary>高级详情</summary>
+        <section className="v3-tree-diff">
+          <p>随机种子 {props.battle.initialConfig.seed}</p>
+          <p>策略版本 {firstPatch?.baseTreeVersion ?? 1} → {lastPatch?.resultingTreeVersion ?? props.battle.trees.left.version}</p>
+          <p>规则版本 {V3_CONTENT.game.rulesetVersion}</p>
+          <p>视觉版本 {V3_CONTENT.game.visualVersion}</p>
+          <code>{lastPatch?.reason ?? '本场没有策略调整'}</code>
+        </section>
+      </details>
 
       {props.mode === 'standard' && victory && props.reward && (
         <section className="v3-reward-band">
@@ -67,12 +73,12 @@ export function BattleReport(props: BattleReportProps) {
           <p>{props.reward.description}</p>
         </section>
       )}
-      {props.mode === 'sandbox' && <p className="v3-sandbox-note">沙盒推演不写入奖励、解锁或标准记录。</p>}
+      {props.mode === 'sandbox' && <p className="v3-sandbox-note">自由测试不会写入奖励、解锁或正式记录。</p>}
 
       <label className="v3-filter-line">
         <span>时间线筛选</span>
         <select value={props.timelineFilter} onChange={(event) => props.onTimelineFilterChange(event.target.value as V3TimelineFilter)}>
-          <option value="all">全部</option><option value="patch">Patch</option><option value="action">行动</option><option value="combat">数值</option>
+          <option value="all">全部</option><option value="patch">策略调整</option><option value="action">行动</option><option value="combat">生命变化</option>
         </select>
       </label>
       <ol className="v3-report-timeline">

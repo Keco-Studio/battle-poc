@@ -78,8 +78,8 @@ export function PreparationPanel(props: PreparationPanelProps) {
     <section className="v3-work-surface v3-prepare" aria-label="战前准备">
       <header className="v3-section-heading">
         <div>
-          <span className="v3-kicker">PREPARE / {props.encounter.id}</span>
-          <h2>{props.encounter.name}</h2>
+          <span className="v3-kicker">战前准备</span>
+          <h2>挑战 {props.encounter.name}</h2>
         </div>
         <button className="v3-icon-button" type="button" onClick={props.onCancel} title="返回探索" aria-label="返回探索">
           <ChevronLeft size={20} />
@@ -87,29 +87,29 @@ export function PreparationPanel(props: PreparationPanelProps) {
       </header>
 
       <div className="v3-segmented" aria-label="战斗模式">
-        <button type="button" className={props.mode === 'standard' ? 'is-active' : ''} onClick={() => props.onModeChange('standard')}>标准挑战</button>
-        <button type="button" className={sandbox ? 'is-active' : ''} onClick={() => props.onModeChange('sandbox')}>沙盒推演</button>
+        <button type="button" className={props.mode === 'standard' ? 'is-active' : ''} onClick={() => props.onModeChange('standard')}>正式挑战</button>
+        <button type="button" className={sandbox ? 'is-active' : ''} onClick={() => props.onModeChange('sandbox')}>自由测试</button>
       </div>
 
       <div className="v3-prepare-columns">
         <section className="v3-build-column">
-          <h3><Swords size={17} /> 我方构筑</h3>
+          <h3><Swords size={17} /> 我的队伍</h3>
           <p>{props.player.name} · HP {props.player.hp} · SPD {props.player.spd}</p>
           <SkillSlots ids={props.playerSkillIds} skills={props.skills} editable onChange={props.onPlayerSkillChange} />
           <label className="v3-field">
-            <span>行为优先树</span>
+            <span>作战策略</span>
             <select value={props.playerTreeId} onChange={(event) => props.onPlayerTreeChange(event.target.value)}>
               {playerTrees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name} / {tree.preset}</option>)}
             </select>
           </label>
         </section>
 
-        <section className="v3-build-column" role="grid" data-testid="enemy-loadout" aria-readonly={sandbox ? 'false' : 'true'}>
-          <h3>{sandbox && <Wrench size={17} />} {sandbox ? '编辑敌方构筑' : '敌方情报'}</h3>
+        <section className="v3-build-column" role="grid" data-testid="enemy-loadout" aria-label={sandbox ? '编辑敌方构筑' : '敌方构筑'} aria-readonly={sandbox ? 'false' : 'true'}>
+          <h3>{sandbox && <Wrench size={17} />} {sandbox ? '调整对手' : '对手情报'}</h3>
           <p>{props.enemy.name} · {props.enemy.title} · HP {props.enemy.hp}</p>
           <SkillSlots ids={props.enemySkillIds} skills={props.skills} editable={sandbox} onChange={props.onEnemySkillChange} />
           <label className="v3-field">
-            <span>敌方行为树</span>
+            <span>对手策略</span>
             <select value={props.enemyTreeId} disabled={!sandbox} onChange={(event) => props.onEnemyTreeChange(event.target.value)}>
               {enemyTrees.map((tree) => <option key={tree.id} value={tree.id}>{tree.name} / {tree.preset}</option>)}
             </select>
@@ -119,15 +119,15 @@ export function PreparationPanel(props: PreparationPanelProps) {
 
       <div className="v3-prepare-footer">
         <label className="v3-field v3-model-field">
-          <span><Bot size={16} /> 决策模型</span>
+          <span><Bot size={16} /> AI 引擎</span>
           <select value={props.modelProvider} onChange={(event) => props.onModelProviderChange(event.target.value as V3ModelProvider)}>
             <option value="minimax">MiniMax-M2.1</option>
             <option value="deepseek">DeepSeek Chat</option>
           </select>
         </label>
-        <div className="v3-arena-chip">16×16 · 自动战斗 · 无逃跑</div>
+        <div className="v3-arena-chip">双方将自动判断移动、技能与防守</div>
         <button className="v3-command-button" type="button" onClick={props.onStart}>
-          <Play size={18} fill="currentColor" /> 启动双 AI 战斗
+          <Play size={18} fill="currentColor" /> 开始 AI 对战
         </button>
       </div>
       {props.validationErrors.length > 0 && (

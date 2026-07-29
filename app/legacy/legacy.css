@@ -1,0 +1,40 @@
+.legacy-v3-return {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 10000;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 13px;
+  color: #16233c;
+  border: 3px solid #16233c;
+  border-radius: 3px;
+  background: #ffd45a;
+  box-shadow: 4px 4px 0 #ff7b70;
+  font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-decoration: none;
+}
+
+.legacy-v3-return:hover {
+  background: #75db91;
+}
+
+.legacy-v3-return:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .legacy-v3-return {
+    top: 8px;
+    right: 8px;
+    min-height: 36px;
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+}

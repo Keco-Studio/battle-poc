@@ -10,7 +10,7 @@ V3 keeps its existing `/legacy` link. The legacy page receives a fixed, high-con
 
 ## Character Animation
 
-Each character keeps eight directional sheets and eight frames per direction. The frame sequence represents one complete walk cycle: left contact, left down, left passing, left lift, right contact, right down, right passing, right lift. PixelLab generation prompts describe those phases explicitly and reduce reference-image guidance enough for the limbs to move while preserving costume identity.
+Each character keeps eight directional sheets and eight frames per direction. The frame sequence represents one complete walk cycle: left contact, left down, left passing, left lift, right contact, right down, right passing, right lift. PixelLab first estimates each character's skeleton, then `animate-with-skeleton` renders three-frame windows from explicit hip, knee, foot, elbow, and hand keypoints. This preserves costume identity while making the gait structural rather than relying on text-only motion guesses.
 
 The runtime continues looping the active direction's spritesheet only while the actor is moving. Exploration travel is slowed slightly so multiple walk poses are visible during a one-tile move. Asset validation checks more than byte uniqueness: opposite half-cycles must have materially different silhouettes, and generation can be forced so stale weak animations are not silently reused.
 
@@ -29,4 +29,3 @@ Preparation uses `战前准备`, `正式挑战`, and `自由测试` rather than 
 ## Testing
 
 Unit/static rendering tests assert the new player-facing copy and legacy return link. Asset tests assert eight-frame loops and meaningful silhouette changes. Playwright verifies bidirectional route switching, production asset loading, canvas rendering, sidebar labels, standard battle completion, and mobile overflow.
-
