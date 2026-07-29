@@ -222,6 +222,7 @@ describe('V3 React surfaces', () => {
     expect(html).toContain('fixture-model')
     expect(html).toContain('确定性重放')
     expect(html).toContain(V3_CONTENT.rewards[encounter.rewardId].name)
+    expect(html).toContain('制胜关键')
   })
 
   it('translates the maximum-turn end reason for players', () => {
@@ -245,6 +246,7 @@ describe('V3 React surfaces', () => {
       onReturnToMap: noop,
     }))
     expect(html).toContain('达到最大回合数')
+    expect(html).toContain('下次调整')
   })
 
   it('makes V3 the default route and preserves the previous app under legacy', async () => {

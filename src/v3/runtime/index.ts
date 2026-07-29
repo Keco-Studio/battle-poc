@@ -1,4 +1,5 @@
 export * from './battleEngine'
+export * from './battleAnalysis'
 export * from './behaviorTree'
 export * from './campaign'
 export * from './decisionDirector'

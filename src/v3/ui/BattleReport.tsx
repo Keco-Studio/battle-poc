@@ -5,6 +5,7 @@ import type { V3BattleMode } from '@/src/v3/runtime/campaign'
 import type { V3BattleState } from '@/src/v3/runtime/types'
 import type { V3TimelineFilter } from '@/src/v3/runtime/useV3Game'
 import { playerEventText } from '@/src/v3/presentation/playerText'
+import { analyzeBattle } from '@/src/v3/runtime/battleAnalysis'
 
 export type BattleReportProps = {
   battle: V3BattleState
@@ -21,6 +22,7 @@ export type BattleReportProps = {
 
 export function BattleReport(props: BattleReportProps) {
   const victory = props.battle.result === 'left_win'
+  const analysis = analyzeBattle(props.battle)
   const filtered = props.battle.events.filter((event) => {
     if (props.timelineFilter === 'all') return true
     if (props.timelineFilter === 'patch') return event.type === 'patch'
@@ -54,6 +56,16 @@ export function BattleReport(props: BattleReportProps) {
         <p>敌方伤害 <strong>{props.battle.actors.right.damageDealt}</strong></p>
         <p>我方治疗 <strong>{props.battle.actors.left.healingDone}</strong></p>
         <p>策略调整 <strong>{props.battle.patchRecords.length}</strong></p>
+      </section>
+
+      <section className={`v3-report-insights ${victory ? 'is-strength' : 'is-adjustment'}`}>
+        <h3>{victory ? '制胜关键' : '下次调整'}</h3>
+        {analysis.insights.map((insight) => (
+          <article key={`${insight.title}-${insight.detail}`}>
+            <strong>{insight.title}</strong>
+            <p>{insight.detail}</p>
+          </article>
+        ))}
       </section>
 
       <details className="v3-advanced-details v3-report-details">
