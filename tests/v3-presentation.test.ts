@@ -67,6 +67,20 @@ describe('V3 presentation contracts', () => {
     expect(catalog.skills.every((skill) => skill.frameCount === 8)).toBe(true)
   })
 
+  it('maps gameplay facing to the opposite PixelLab camera-bearing sheet', () => {
+    const astra = buildV3AssetCatalog().characters.find((character) => character.id === 'astra_vanguard')
+    expect(astra?.directions.map(({ direction, path }) => [direction, path])).toEqual([
+      ['n', '/assets/v3/characters/astra-vanguard/move/s/sheet.png'],
+      ['ne', '/assets/v3/characters/astra-vanguard/move/sw/sheet.png'],
+      ['e', '/assets/v3/characters/astra-vanguard/move/w/sheet.png'],
+      ['se', '/assets/v3/characters/astra-vanguard/move/nw/sheet.png'],
+      ['s', '/assets/v3/characters/astra-vanguard/move/n/sheet.png'],
+      ['sw', '/assets/v3/characters/astra-vanguard/move/ne/sheet.png'],
+      ['w', '/assets/v3/characters/astra-vanguard/move/e/sheet.png'],
+      ['nw', '/assets/v3/characters/astra-vanguard/move/se/sheet.png'],
+    ])
+  })
+
   it('centers and contains the complete battle arena on a mobile canvas', () => {
     expect(cameraFrameFor(V3_BATTLE_LAYOUT, { width: 390, height: 435 }, 'contain')).toEqual({
       centerX: 640,

@@ -38,7 +38,8 @@ const walkCycleGuide = `${walkCycleFirstHalfGuide}, ${walkCycleSecondHalfGuide}`
 const generatedDirections = ['n', 'ne', 'e', 'se', 's']
 const allDirections = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw']
 const mirrorSource = { sw: 'se', w: 'e', nw: 'ne' }
-const directionNames = { n: 'north', ne: 'north-east', e: 'east', se: 'south-east', s: 'south' }
+// PixelLab's direction is the camera bearing, so the rendered actor faces the opposite way.
+const pixelLabCameraBearingNames = { n: 'north', ne: 'north-east', e: 'east', se: 'south-east', s: 'south' }
 const characterAnimationPrefixes = {
   astra_vanguard: 'astra',
   briar_sentinel: 'briar',
@@ -360,7 +361,7 @@ async function characterAnimation(character, direction, reference, skeleton) {
     }
   }
   if (!reference || !skeleton) throw new Error(`${animationId}: skeleton context is unavailable`)
-  const directionName = directionNames[direction]
+  const directionName = pixelLabCameraBearingNames[direction]
   const poses = Array.from({ length: frameCount }, (_, phase) => walkPoseSkeleton(skeleton, phase))
   const seed = character.seed + generatedDirections.indexOf(direction) * 20
   const first = await generateSkeletonChunk({

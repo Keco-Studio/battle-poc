@@ -3,6 +3,17 @@ import type * as Phaser from 'phaser'
 
 import { V3_DIRECTIONS, animationKeyFor, type V3Direction } from './viewModel'
 
+const PIXELLAB_CAMERA_BEARING_BY_FACING: Record<V3Direction, V3Direction> = {
+  n: 's',
+  ne: 'sw',
+  e: 'w',
+  se: 'nw',
+  s: 'n',
+  sw: 'ne',
+  w: 'e',
+  nw: 'se',
+}
+
 type V3AssetManifest = typeof manifestJson
 
 export type V3AssetCatalog = {
@@ -69,14 +80,18 @@ export function buildV3AssetCatalog(manifest: V3AssetManifest = manifestJson): V
     maps: manifest.maps.map((map) => ({ id: map.id, key: mapTextureKey(map.id), path: map.path })),
     characters: manifest.characters.map((character) => ({
       id: character.id,
-      directions: V3_DIRECTIONS.map((direction) => ({
-        direction,
-        textureKey: characterTextureKey(character.id, direction),
-        animationKey: animationKeyFor(character.id, direction),
-        path: character.directions[direction].sheetPath,
-        frameCount: character.directions[direction].frames.length,
-        fps: character.directions[direction].fps,
-      })),
+      directions: V3_DIRECTIONS.map((direction) => {
+        // PixelLab names the camera bearing; gameplay names where the actor faces.
+        const source = character.directions[PIXELLAB_CAMERA_BEARING_BY_FACING[direction]]
+        return {
+          direction,
+          textureKey: characterTextureKey(character.id, direction),
+          animationKey: animationKeyFor(character.id, direction),
+          path: source.sheetPath,
+          frameCount: source.frames.length,
+          fps: source.fps,
+        }
+      }),
     })),
     skills: manifest.skills.map((skill) => ({
       id: skill.id,
