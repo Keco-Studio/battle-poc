@@ -1,0 +1,161 @@
+'use client'
+
+import { ExternalLink, Radio, Shield, Sparkles, Star } from 'lucide-react'
+
+import { V3_CONTENT } from '@/src/content/generated/v3'
+import { V3PhaserStage } from '@/src/v3/presentation/V3PhaserStage'
+import { useV3Game } from '@/src/v3/runtime/useV3Game'
+
+import { BattleReport } from './BattleReport'
+import { ExploreHud } from './ExploreHud'
+import { PreparationPanel } from './PreparationPanel'
+import { SpectatorConsole } from './SpectatorConsole'
+import { V3Controls } from './V3Controls'
+import './v3.css'
+
+export function V3Game() {
+  const game = useV3Game()
+  const phase = game.phaseState.phase
+  const reward = game.selectedEncounter
+    ? V3_CONTENT.rewards[game.selectedEncounter.rewardId] ?? null
+    : null
+  const currentPositionEncounter = Object.values(V3_CONTENT.encounters).find((encounter) => (
+    game.progress.unlockedEncounterIds.includes(encounter.id)
+    && encounter.x === game.progress.playerPosition.x
+    && encounter.y === game.progress.playerPosition.y
+  )) ?? null
+  const remaining = Object.values(V3_CONTENT.encounters).filter((encounter) => (
+    game.progress.unlockedEncounterIds.includes(encounter.id)
+    && !game.progress.clearedEncounterIds.includes(encounter.id)
+  ))
+  const objective = remaining.length > 0
+    ? `前往 ${remaining[0].name}，完成 AI 战术校验`
+    : '星辉边境已完成，仍可重访试炼节点'
+
+  return (
+    <main className="v3-shell" data-phase={phase}>
+      <header className="v3-topbar">
+        <div className="v3-brand">
+          <span className="v3-brand-mark"><Sparkles size={19} /></span>
+          <div><strong>AI BATTLE</strong><span>星辉边境 / Starbright Frontier</span></div>
+        </div>
+        <div className="v3-top-stats">
+          <span><Radio size={15} /> {phase === 'battle' ? '双 AI 在线推演' : '边境信号稳定'}</span>
+          <span><Star size={15} /> {game.progress.starlight}</span>
+          <span><Shield size={15} /> {game.progress.clearedEncounterIds.length}/4</span>
+          <a href="/legacy" title="打开旧版界面">旧版 <ExternalLink size={14} /></a>
+        </div>
+      </header>
+
+      <div className="v3-layout">
+        <section className="v3-stage-column" aria-label="像素世界">
+          <V3PhaserStage
+            className="v3-stage"
+            viewModel={game.viewModel}
+            onMoveIntent={game.move}
+            onEncounter={game.openEncounter}
+            onAnimationComplete={game.handleAnimationComplete}
+          />
+          {phase === 'explore' && (
+            <>
+              <ExploreHud
+                progress={game.progress}
+                objective={objective}
+                nearbyEncounter={currentPositionEncounter}
+                onOpenEncounter={game.openEncounter}
+              />
+              <V3Controls onMove={(direction) => game.move({ kind: 'direction', direction })} />
+            </>
+          )}
+          {phase === 'battle' && game.battle && (
+            <div className="v3-battle-badge">
+              <span>DECISION TICK {game.battle.tick}</span>
+              <strong>{game.activeEvent?.message ?? '双方 AI 正在计算下一行动'}</strong>
+            </div>
+          )}
+        </section>
+
+        <section className="v3-side-column">
+          {phase === 'explore' && (
+            <div className="v3-map-console">
+              <span className="v3-kicker">FIELD / 32×20</span>
+              <h2>边境节点</h2>
+              <ol>
+                {Object.values(V3_CONTENT.encounters).map((encounter) => {
+                  const unlocked = game.progress.unlockedEncounterIds.includes(encounter.id)
+                  const cleared = game.progress.clearedEncounterIds.includes(encounter.id)
+                  return (
+                    <li key={encounter.id} className={cleared ? 'is-cleared' : unlocked ? 'is-unlocked' : 'is-locked'}>
+                      <span>{encounter.boss ? 'BOSS' : 'TRIAL'}</span>
+                      <strong>{encounter.name}</strong>
+                      <small>{cleared ? '已校验' : unlocked ? `${encounter.x},${encounter.y}` : '尚未解锁'}</small>
+                      {unlocked && !cleared && <button type="button" onClick={() => game.openEncounter(encounter.id)}>准备</button>}
+                    </li>
+                  )
+                })}
+              </ol>
+              <div className="v3-field-tip">方向键 / WASD 移动，也可点击地图目标。进入发光节点后开始准备。</div>
+            </div>
+          )}
+
+          {phase === 'prepare' && game.selectedEncounter && game.selectedEnemy && (
+            <PreparationPanel
+              mode={game.mode}
+              encounter={game.selectedEncounter}
+              player={game.player}
+              enemy={game.selectedEnemy}
+              playerSkillIds={game.playerSkillIds}
+              enemySkillIds={game.enemySkillIds}
+              playerTreeId={game.playerTreeId}
+              enemyTreeId={game.enemyTreeId}
+              modelProvider={game.modelProvider}
+              skills={V3_CONTENT.skills}
+              trees={V3_CONTENT.trees}
+              validationErrors={game.validationErrors}
+              onModeChange={game.setMode}
+              onPlayerSkillChange={game.updatePlayerSkill}
+              onEnemySkillChange={game.updateEnemySkill}
+              onPlayerTreeChange={game.setPlayerTreeId}
+              onEnemyTreeChange={game.setEnemyTreeId}
+              onModelProviderChange={game.setModelProvider}
+              onStart={game.startBattle}
+              onCancel={game.cancelPreparation}
+            />
+          )}
+
+          {phase === 'battle' && game.battle && (
+            <SpectatorConsole
+              battle={game.battle}
+              activeEvent={game.activeEvent}
+              latestDecisionEvidence={game.latestDecisionEvidence}
+              paused={game.paused}
+              speed={game.speed}
+              activeTab={game.consoleTab}
+              eventFilter={game.timelineFilter}
+              onPauseToggle={game.togglePause}
+              onStep={game.step}
+              onSpeedChange={game.setSpeed}
+              onTabChange={game.setConsoleTab}
+              onEventFilterChange={game.setTimelineFilter}
+            />
+          )}
+
+          {phase === 'report' && game.battle && game.selectedEncounter && (
+            <BattleReport
+              battle={game.battle}
+              encounter={game.selectedEncounter}
+              mode={game.mode}
+              durationMs={game.durationMs}
+              reward={reward}
+              timelineFilter={game.timelineFilter}
+              onTimelineFilterChange={game.setTimelineFilter}
+              onReplay={game.replay}
+              onRematch={game.rematch}
+              onReturnToMap={game.returnToMap}
+            />
+          )}
+        </section>
+      </div>
+    </main>
+  )
+}

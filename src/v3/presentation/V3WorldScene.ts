@@ -15,6 +15,7 @@ import {
   V3_STAGE_HEIGHT,
   V3_STAGE_WIDTH,
   animationKeyFor,
+  cameraFrameFor,
   characterIdFromVisualAsset,
   gridPointToWorld,
   worldPointToGrid,
@@ -222,7 +223,7 @@ export class V3WorldScene extends Phaser.Scene {
         const color = encounter.cleared ? 0x79d98c : encounter.unlocked ? (encounter.boss ? 0xffd45a : 0x68ddf0) : 0x6f7891
         const marker = this.add.circle(world.x, world.y, encounter.boss ? 18 : 14, color, 0.9).setStrokeStyle(3, 0xffffff, 0.8).setDepth(8)
         const label = this.add.text(world.x, world.y - 25, encounter.name, {
-          fontFamily: 'monospace',
+          fontFamily: '"Noto Sans SC", sans-serif',
           fontSize: '13px',
           color: '#ffffff',
           backgroundColor: '#16233cdd',
@@ -311,7 +312,7 @@ export class V3WorldScene extends Phaser.Scene {
     }
     this.drawBattleOverlay(battle)
     this.actionLabel ??= this.add.text(V3_STAGE_WIDTH / 2, 18, '', {
-      fontFamily: 'monospace',
+      fontFamily: '"Noto Sans SC", sans-serif',
       fontSize: '16px',
       color: '#fff8d6',
       backgroundColor: '#13213ee6',
@@ -326,9 +327,22 @@ export class V3WorldScene extends Phaser.Scene {
     }
   }
 
+  private syncCamera(viewModel: V3ViewModel): void {
+    const viewport = { width: this.scale.width, height: this.scale.height }
+    if (viewModel.phase === 'battle' || viewModel.phase === 'report') {
+      const frame = cameraFrameFor(V3_BATTLE_LAYOUT, viewport, 'contain')
+      this.cameras.main.setZoom(frame.zoom).centerOn(frame.centerX, frame.centerY)
+      return
+    }
+    const frame = cameraFrameFor(V3_EXPLORE_LAYOUT, viewport, 'cover')
+    const player = gridPointToWorld(viewModel.exploration.playerPosition, V3_EXPLORE_LAYOUT)
+    this.cameras.main.setZoom(frame.zoom).centerOn(player.x, player.y)
+  }
+
   update(): void {
     const viewModel = this.bridge.getViewModel()
     if (viewModel.phase === 'battle' || viewModel.phase === 'report') this.renderBattle(viewModel)
     else this.renderExplore(viewModel)
+    this.syncCamera(viewModel)
   }
 }

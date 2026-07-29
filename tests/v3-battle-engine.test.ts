@@ -96,4 +96,10 @@ describe('V3 deterministic battle engine', () => {
     expect(state.result).toBe('draw')
     expect(state.endReason).toBe('max_tick')
   })
+
+  it('routes around arena obstacles and reaches damaging combat', () => {
+    const state = runBattle(7319)
+    expect(state.actors.left.damageDealt + state.actors.right.damageDealt).toBeGreaterThan(0)
+    expect(state.events.some((event) => event.type === 'damage')).toBe(true)
+  })
 })

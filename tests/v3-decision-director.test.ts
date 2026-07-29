@@ -4,6 +4,7 @@ import { createBattle } from '@/src/v3/runtime'
 import {
   buildDecisionInput,
   requestDecision,
+  requestOptionalDecision,
   type V3DecisionFetcher,
 } from '@/src/v3/runtime/decisionDirector'
 
@@ -67,5 +68,19 @@ describe('V3 decision director', () => {
     expect(result.source).toBe('fallback')
     expect(result.status).toBe('invalid')
     expect(result.error).toBe('invalid_patch')
+  })
+
+  it('uses an offline fallback without issuing a request when online AI is disabled', async () => {
+    let calls = 0
+    const fetcher: V3DecisionFetcher = async () => {
+      calls += 1
+      return Response.json({})
+    }
+    const result = await requestOptionalDecision(input(), { online: false, fetcher })
+
+    expect(calls).toBe(0)
+    expect(result.source).toBe('fallback')
+    expect(result.status).toBe('unavailable')
+    expect(result.error).toBe('online_ai_disabled')
   })
 })

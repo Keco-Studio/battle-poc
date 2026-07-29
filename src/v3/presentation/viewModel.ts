@@ -134,6 +134,20 @@ export function worldPointToGrid(point: V3Point, layout: V3StageLayout): V3Point
   }
 }
 
+export function cameraFrameFor(
+  layout: V3StageLayout,
+  viewport: { width: number; height: number },
+  fit: 'contain' | 'cover',
+): { centerX: number; centerY: number; zoom: number } {
+  const horizontal = viewport.width / layout.width
+  const vertical = viewport.height / layout.height
+  return {
+    centerX: layout.offsetX + layout.width / 2,
+    centerY: layout.offsetY + layout.height / 2,
+    zoom: fit === 'contain' ? Math.min(horizontal, vertical) : Math.max(horizontal, vertical),
+  }
+}
+
 export function characterIdFromVisualAsset(assetId: string): string {
   return assetId.replace(/^character_/, '')
 }

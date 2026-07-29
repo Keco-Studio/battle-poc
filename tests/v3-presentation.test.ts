@@ -4,6 +4,7 @@ import {
   V3_BATTLE_LAYOUT,
   V3_EXPLORE_LAYOUT,
   animationKeysFor,
+  cameraFrameFor,
   directionFromDelta,
   gridPointToWorld,
   worldPointToGrid,
@@ -48,5 +49,13 @@ describe('V3 presentation contracts', () => {
     expect(catalog.characters[0].directions).toHaveLength(8)
     expect(catalog.characters[0].directions.every((direction) => direction.frameCount === 8)).toBe(true)
     expect(catalog.skills.every((skill) => skill.frameCount === 8)).toBe(true)
+  })
+
+  it('centers and contains the complete battle arena on a mobile canvas', () => {
+    expect(cameraFrameFor(V3_BATTLE_LAYOUT, { width: 390, height: 435 }, 'contain')).toEqual({
+      centerX: 640,
+      centerY: 360,
+      zoom: 390 / 720,
+    })
   })
 })

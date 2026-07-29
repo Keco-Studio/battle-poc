@@ -1,30 +1,5 @@
-'use client'
-
-import { useGameState } from './hooks/useGameState'
-import CharacterPanel from './components/CharacterPanel'
-import EquipmentPanel from './components/EquipmentPanel'
-import SkillsPanel from './components/SkillsPanel'
-import GameMap from './components/GameMap'
-import StudioImportModal from './components/studioImport/StudioImportModal'
-import AuthErrorNotice from './components/AuthErrorNotice'
+import { V3Game } from '@/src/v3/ui/V3Game'
 
 export default function HomePage() {
-  const game = useGameState()
-
-  return (
-    <>
-      <AuthErrorNotice
-        onRetry={() => {
-          game.setShowJobSelect(false)
-          game.setDockPanel('character_login')
-        }}
-      />
-      {/* Map always rendered; character/equipment/skill panels overlay on top, keeping map visible as background */}
-      <GameMap game={game} />
-      {game.showCharacter && <CharacterPanel game={game} />}
-      {game.showEquipment && <EquipmentPanel game={game} />}
-      {game.showSkills && <SkillsPanel game={game} />}
-      {game.showStudioImport && <StudioImportModal game={game} />}
-    </>
-  )
+  return <V3Game />
 }

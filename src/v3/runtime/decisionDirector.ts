@@ -226,6 +226,26 @@ export async function requestDecision(
   }
 }
 
+export async function requestOptionalDecision(
+  input: V3DecisionInput,
+  options: {
+    online: boolean
+    fetcher?: V3DecisionFetcher
+    timeoutMs?: number
+  },
+): Promise<V3DecisionResult> {
+  if (!options.online) {
+    return {
+      source: 'fallback',
+      status: 'unavailable',
+      patch: buildFallbackPatch(input, '在线 AI 未启用，使用确定性本地策略。'),
+      error: 'online_ai_disabled',
+      latencyMs: 0,
+    }
+  }
+  return requestDecision(input, options)
+}
+
 export function asBehaviorTreeState(input: V3DecisionInput): V3BehaviorTreeState {
   return input.tree as V3BehaviorTreeState
 }

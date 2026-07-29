@@ -56,18 +56,51 @@ export function validateAction(state: V3BattleState, action: V3BattleAction): V3
 function stepToward(state: V3BattleState, actorId: V3ActorId): V3Point | null {
   const actor = state.actors[actorId]
   const target = state.actors[otherActor(actorId)]
-  const candidates: V3Point[] = []
-  const dx = Math.sign(target.position.x - actor.position.x)
-  const dy = Math.sign(target.position.y - actor.position.y)
-  if (dx !== 0) candidates.push({ x: actor.position.x + dx, y: actor.position.y })
-  if (dy !== 0) candidates.push({ x: actor.position.x, y: actor.position.y + dy })
-  candidates.push(
-    { x: actor.position.x + 1, y: actor.position.y },
-    { x: actor.position.x - 1, y: actor.position.y },
-    { x: actor.position.x, y: actor.position.y + 1 },
-    { x: actor.position.x, y: actor.position.y - 1 },
-  )
-  return candidates.find((point) => validateAction(state, { actorId, kind: 'move', to: point }).ok) ?? null
+  const key = (point: V3Point) => `${point.x},${point.y}`
+  const start = { ...actor.position }
+  const queue: V3Point[] = [start]
+  const previous = new Map<string, V3Point | null>([[key(start), null]])
+  let destination: V3Point | null = null
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (key(current) !== key(start) && gridDistance(current, target.position) <= 1) {
+      destination = current
+      break
+    }
+
+    const dx = Math.sign(target.position.x - current.x)
+    const dy = Math.sign(target.position.y - current.y)
+    const offsets = [
+      { x: dx, y: 0 },
+      { x: 0, y: dy },
+      { x: 0, y: 1 },
+      { x: 1, y: 0 },
+      { x: 0, y: -1 },
+      { x: -1, y: 0 },
+    ].filter((offset, index, values) => (
+      (offset.x !== 0 || offset.y !== 0)
+      && values.findIndex((value) => value.x === offset.x && value.y === offset.y) === index
+    ))
+
+    for (const offset of offsets) {
+      const next = { x: current.x + offset.x, y: current.y + offset.y }
+      const nextKey = key(next)
+      if (previous.has(nextKey)) continue
+      if (isBlocked(state, next)) continue
+      previous.set(nextKey, current)
+      queue.push(next)
+    }
+  }
+
+  if (!destination) return null
+  let step = destination
+  let parent = previous.get(key(step)) ?? null
+  while (parent && key(parent) !== key(start)) {
+    step = parent
+    parent = previous.get(key(step)) ?? null
+  }
+  return validateAction(state, { actorId, kind: 'move', to: step }).ok ? step : null
 }
 
 export function chooseSafeFallbackAction(state: V3BattleState, actorId: V3ActorId): V3BattleAction {
