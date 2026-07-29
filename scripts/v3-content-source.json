@@ -1,0 +1,115 @@
+{
+  "contentVersion": "v3.0.0",
+  "rulesetVersion": "v3-rules-1",
+  "visualVersion": "v3-pixellab-1",
+  "sourceProjectId": "fc3376fb-b6b8-42b0-8a16-459916e41da2",
+  "sourceDocumentId": "c29ee604-f82b-487d-85fa-f1b36635a530",
+  "tables": {
+    "game": "30aac796-199f-4fca-8dd5-7632096a701f",
+    "jobs": "dcf65abd-4776-4586-b24d-9cb710a65ecd",
+    "skills": "a98b3b0d-f7cd-4afe-bad9-fa58130aaf8d",
+    "enemies": "184ab6c1-e267-4024-a5a3-1d481a74839d",
+    "maps": "c6bd530b-8759-4b22-ac84-c25dbd092691",
+    "encounters": "4f4b39e9-2448-4378-99df-bd9f79155118",
+    "trees": "819b7300-ecc2-4cc3-8a6f-1a8f8c14557c",
+    "rewards": "8de28ba9-d926-4125-82ad-9fd1ede1e9d9",
+    "rules": "7c763f47-d70f-473e-9570-a9bbf40698de",
+    "assets": "bf80ff7a-07e0-45b3-b7cb-e5e3916e978b"
+  },
+  "content": {
+    "game": {
+      "id": "starbright_frontier",
+      "name": "AI Battle: 星辉边境",
+      "theme": "明亮积极的像素战术冒险",
+      "contentVersion": "v3.0.0",
+      "rulesetVersion": "v3-rules-1",
+      "visualVersion": "v3-pixellab-1",
+      "defaultExplorationMapId": "starbright_meadow",
+      "defaultJobId": "astra_vanguard",
+      "maxDecisionTicks": 80,
+      "defaultModel": "MiniMax-M2.1"
+    },
+    "jobs": [
+      {
+        "id": "astra_vanguard",
+        "name": "星辉先锋",
+        "description": "以机动、护盾与棱镜控制构筑战术节奏的前线指挥者。",
+        "contentVersion": "v3.0.0",
+        "hp": 180,
+        "energy": 100,
+        "atk": 34,
+        "def": 20,
+        "spd": 18,
+        "skillIds": ["solar_lance", "bloom_guard", "gale_step", "prism_snare"],
+        "visualAssetId": "character_astra_vanguard",
+        "treeId": "tree_balanced"
+      }
+    ],
+    "skills": [
+      { "id": "solar_lance", "name": "日耀枪", "description": "发射高亮能量枪，对中远距离目标造成稳定爆发。", "contentVersion": "v3.0.0", "category": "burst", "power": 1.45, "energyCost": 20, "range": 6, "cooldownTicks": 2, "areaRadius": 0, "moveTiles": 0, "shield": 0, "heal": 0, "status": "none", "statusTicks": 0, "statusValue": 0, "iconAssetId": "icon_solar_lance", "fxAssetId": "fx_solar_lance" },
+      { "id": "bloom_guard", "name": "繁花守御", "description": "展开绿金护盾并恢复少量生命。", "contentVersion": "v3.0.0", "category": "utility", "power": 0, "energyCost": 18, "range": 0, "cooldownTicks": 4, "areaRadius": 0, "moveTiles": 0, "shield": 34, "heal": 8, "status": "none", "statusTicks": 0, "statusValue": 0, "iconAssetId": "icon_bloom_guard", "fxAssetId": "fx_bloom_guard" },
+      { "id": "gale_step", "name": "晴风步", "description": "向目标方向快速移动并造成轻击。", "contentVersion": "v3.0.0", "category": "mobility", "power": 0.55, "energyCost": 15, "range": 1, "cooldownTicks": 3, "areaRadius": 0, "moveTiles": 3, "shield": 0, "heal": 0, "status": "none", "statusTicks": 0, "statusValue": 0, "iconAssetId": "icon_gale_step", "fxAssetId": "fx_gale_step" },
+      { "id": "prism_snare", "name": "棱镜缚阵", "description": "以彩色格阵束缚目标，短暂限制移动。", "contentVersion": "v3.0.0", "category": "control", "power": 0.75, "energyCost": 22, "range": 5, "cooldownTicks": 4, "areaRadius": 0, "moveTiles": 0, "shield": 0, "heal": 0, "status": "root", "statusTicks": 2, "statusValue": 1, "iconAssetId": "icon_prism_snare", "fxAssetId": "fx_prism_snare" },
+      { "id": "meteor_arc", "name": "流星弧", "description": "召唤珊瑚金色弧光打击目标及相邻格。", "contentVersion": "v3.0.0", "category": "burst", "power": 1.75, "energyCost": 30, "range": 5, "cooldownTicks": 5, "areaRadius": 1, "moveTiles": 0, "shield": 0, "heal": 0, "status": "none", "statusTicks": 0, "statusValue": 0, "iconAssetId": "icon_meteor_arc", "fxAssetId": "fx_meteor_arc" },
+      { "id": "radiant_mend", "name": "星光修复", "description": "集中星光恢复生命并稳定战线。", "contentVersion": "v3.0.0", "category": "sustain", "power": 0, "energyCost": 24, "range": 0, "cooldownTicks": 4, "areaRadius": 0, "moveTiles": 0, "shield": 0, "heal": 38, "status": "none", "statusTicks": 0, "statusValue": 0, "iconAssetId": "icon_radiant_mend", "fxAssetId": "fx_radiant_mend" },
+      { "id": "echo_bolt", "name": "回响弹", "description": "低消耗的远距离棱彩弹，适合持续压制。", "contentVersion": "v3.0.0", "category": "utility", "power": 1, "energyCost": 10, "range": 7, "cooldownTicks": 1, "areaRadius": 0, "moveTiles": 0, "shield": 0, "heal": 0, "status": "atk_down", "statusTicks": 1, "statusValue": 0.08, "iconAssetId": "icon_echo_bolt", "fxAssetId": "fx_echo_bolt" },
+      { "id": "comet_break", "name": "彗星破", "description": "近距离终结技，对低生命目标造成高额伤害。", "contentVersion": "v3.0.0", "category": "execute", "power": 2.2, "energyCost": 35, "range": 2, "cooldownTicks": 6, "areaRadius": 0, "moveTiles": 0, "shield": 0, "heal": 0, "status": "def_down", "statusTicks": 2, "statusValue": 0.15, "iconAssetId": "icon_comet_break", "fxAssetId": "fx_comet_break" }
+    ],
+    "enemies": [
+      { "id": "briar_sentinel", "name": "青藤哨卫", "title": "花冠守门人", "description": "擅长护盾、束缚与稳步逼近。", "contentVersion": "v3.0.0", "hp": 150, "energy": 100, "atk": 29, "def": 22, "spd": 14, "skillIds": ["solar_lance", "bloom_guard", "gale_step", "prism_snare"], "visualAssetId": "character_briar_sentinel", "treeId": "tree_survival", "boss": false },
+      { "id": "sunforge_striker", "name": "晴铸斗士", "title": "热浪推进者", "description": "以高速位移和爆发连段施压。", "contentVersion": "v3.0.0", "hp": 145, "energy": 110, "atk": 36, "def": 16, "spd": 20, "skillIds": ["solar_lance", "meteor_arc", "gale_step", "comet_break"], "visualAssetId": "character_sunforge_striker", "treeId": "tree_aggressive", "boss": false },
+      { "id": "prism_adept", "name": "棱彩术师", "title": "花园解算者", "description": "擅长远程消耗、控制和恢复。", "contentVersion": "v3.0.0", "hp": 138, "energy": 120, "atk": 31, "def": 17, "spd": 17, "skillIds": ["echo_bolt", "prism_snare", "radiant_mend", "meteor_arc"], "visualAssetId": "character_prism_adept", "treeId": "tree_control", "boss": false },
+      { "id": "eclipse_marshal", "name": "曜环统帅", "title": "星门最终校验者", "description": "综合运用控制、范围爆发与终结技的首领。", "contentVersion": "v3.0.0", "hp": 260, "energy": 140, "atk": 39, "def": 24, "spd": 19, "skillIds": ["solar_lance", "prism_snare", "meteor_arc", "comet_break"], "visualAssetId": "character_eclipse_marshal", "treeId": "tree_balanced", "boss": true }
+    ],
+    "maps": [
+      { "id": "starbright_meadow", "name": "星辉草甸", "kind": "exploration", "contentVersion": "v3.0.0", "width": 32, "height": 20, "backgroundAssetId": "map_starbright_meadow", "obstacles": [], "spawns": { "player": { "x": 3, "y": 16 } }, "safeBeacon": { "x": 3, "y": 16 } },
+      { "id": "sunlit_circuit", "name": "晴光回路", "kind": "battle", "contentVersion": "v3.0.0", "width": 16, "height": 16, "backgroundAssetId": "map_sunlit_circuit", "obstacles": [[7,4],[8,4],[7,5],[8,5],[4,8],[11,8],[7,10],[8,10],[7,11],[8,11]], "spawns": { "left": { "x": 2, "y": 8 }, "right": { "x": 13, "y": 8 } }, "safeBeacon": null },
+      { "id": "prism_gate", "name": "棱镜星门", "kind": "battle", "contentVersion": "v3.0.0", "width": 16, "height": 16, "backgroundAssetId": "map_prism_gate", "obstacles": [[5,5],[10,5],[5,10],[10,10],[7,7],[8,8]], "spawns": { "left": { "x": 2, "y": 8 }, "right": { "x": 13, "y": 8 } }, "safeBeacon": null }
+    ],
+    "encounters": [
+      { "id": "briar_trial", "name": "青藤试炼", "contentVersion": "v3.0.0", "explorationMapId": "starbright_meadow", "battleMapId": "sunlit_circuit", "enemyId": "briar_sentinel", "rewardId": "reward_briar", "x": 9, "y": 14, "unlockAfterIds": [], "boss": false },
+      { "id": "sunforge_trial", "name": "晴铸试炼", "contentVersion": "v3.0.0", "explorationMapId": "starbright_meadow", "battleMapId": "sunlit_circuit", "enemyId": "sunforge_striker", "rewardId": "reward_sunforge", "x": 20, "y": 15, "unlockAfterIds": [], "boss": false },
+      { "id": "prism_trial", "name": "棱彩试炼", "contentVersion": "v3.0.0", "explorationMapId": "starbright_meadow", "battleMapId": "sunlit_circuit", "enemyId": "prism_adept", "rewardId": "reward_prism", "x": 24, "y": 7, "unlockAfterIds": [], "boss": false },
+      { "id": "marshal_gate", "name": "曜环星门", "contentVersion": "v3.0.0", "explorationMapId": "starbright_meadow", "battleMapId": "prism_gate", "enemyId": "eclipse_marshal", "rewardId": "reward_marshal", "x": 15, "y": 3, "unlockAfterIds": ["briar_trial", "sunforge_trial", "prism_trial"], "boss": true }
+    ],
+    "rewards": [
+      { "id": "reward_briar", "name": "青叶校准包", "contentVersion": "v3.0.0", "exp": 45, "starlight": 30, "dropId": "bloom_core", "description": "获得繁花核心与 30 星辉。" },
+      { "id": "reward_sunforge", "name": "晴铸推进器", "contentVersion": "v3.0.0", "exp": 50, "starlight": 35, "dropId": "sunforge_coil", "description": "获得晴铸线圈与 35 星辉。" },
+      { "id": "reward_prism", "name": "棱彩推演片", "contentVersion": "v3.0.0", "exp": 55, "starlight": 40, "dropId": "prism_lens", "description": "获得棱镜透镜与 40 星辉。" },
+      { "id": "reward_marshal", "name": "星门指挥印", "contentVersion": "v3.0.0", "exp": 120, "starlight": 100, "dropId": "marshal_sigil", "description": "完成星辉边境并获得曜环指挥印。" }
+    ],
+    "trees": [
+      { "id": "tree_balanced", "name": "均衡星阵", "contentVersion": "v3.0.0", "ownerType": "player", "preset": "balanced", "tree": { "version": 1, "rootId": "root", "nodes": { "root": { "id": "root", "kind": "selector", "children": ["recover_seq", "execute_seq", "control_seq", "pressure"] }, "recover_seq": { "id": "recover_seq", "kind": "sequence", "children": ["hp_low", "heal"] }, "hp_low": { "id": "hp_low", "kind": "condition", "metric": "self_hp_ratio", "op": "lte", "value": 0.38 }, "heal": { "id": "heal", "kind": "action", "action": "skill", "skillId": "bloom_guard" }, "execute_seq": { "id": "execute_seq", "kind": "sequence", "children": ["enemy_low", "execute"] }, "enemy_low": { "id": "enemy_low", "kind": "condition", "metric": "enemy_hp_ratio", "op": "lte", "value": 0.3 }, "execute": { "id": "execute", "kind": "action", "action": "skill", "skillId": "comet_break" }, "control_seq": { "id": "control_seq", "kind": "sequence", "children": ["enemy_mobile", "control"] }, "enemy_mobile": { "id": "enemy_mobile", "kind": "condition", "metric": "enemy_rooted", "op": "eq", "value": 0 }, "control": { "id": "control", "kind": "action", "action": "skill", "skillId": "prism_snare" }, "pressure": { "id": "pressure", "kind": "action", "action": "best_attack" } } } },
+      { "id": "tree_aggressive", "name": "流星强攻", "contentVersion": "v3.0.0", "ownerType": "enemy", "preset": "aggressive", "tree": { "version": 1, "rootId": "root", "nodes": { "root": { "id": "root", "kind": "selector", "children": ["execute_seq", "burst", "advance"] }, "execute_seq": { "id": "execute_seq", "kind": "sequence", "children": ["enemy_low", "execute"] }, "enemy_low": { "id": "enemy_low", "kind": "condition", "metric": "enemy_hp_ratio", "op": "lte", "value": 0.42 }, "execute": { "id": "execute", "kind": "action", "action": "skill", "skillId": "comet_break" }, "burst": { "id": "burst", "kind": "action", "action": "skill", "skillId": "meteor_arc" }, "advance": { "id": "advance", "kind": "action", "action": "best_attack" } } } },
+      { "id": "tree_control", "name": "棱彩控制", "contentVersion": "v3.0.0", "ownerType": "enemy", "preset": "control", "tree": { "version": 1, "rootId": "root", "nodes": { "root": { "id": "root", "kind": "selector", "children": ["recover_seq", "root_seq", "poke"] }, "recover_seq": { "id": "recover_seq", "kind": "sequence", "children": ["hp_low", "heal"] }, "hp_low": { "id": "hp_low", "kind": "condition", "metric": "self_hp_ratio", "op": "lte", "value": 0.45 }, "heal": { "id": "heal", "kind": "action", "action": "skill", "skillId": "radiant_mend" }, "root_seq": { "id": "root_seq", "kind": "sequence", "children": ["enemy_mobile", "snare"] }, "enemy_mobile": { "id": "enemy_mobile", "kind": "condition", "metric": "enemy_rooted", "op": "eq", "value": 0 }, "snare": { "id": "snare", "kind": "action", "action": "skill", "skillId": "prism_snare" }, "poke": { "id": "poke", "kind": "action", "action": "skill", "skillId": "echo_bolt" } } } },
+      { "id": "tree_survival", "name": "繁花守势", "contentVersion": "v3.0.0", "ownerType": "enemy", "preset": "survival", "tree": { "version": 1, "rootId": "root", "nodes": { "root": { "id": "root", "kind": "selector", "children": ["recover_seq", "guard_seq", "pressure"] }, "recover_seq": { "id": "recover_seq", "kind": "sequence", "children": ["hp_low", "guard"] }, "hp_low": { "id": "hp_low", "kind": "condition", "metric": "self_hp_ratio", "op": "lte", "value": 0.52 }, "guard": { "id": "guard", "kind": "action", "action": "skill", "skillId": "bloom_guard" }, "guard_seq": { "id": "guard_seq", "kind": "sequence", "children": ["enemy_close", "snare"] }, "enemy_close": { "id": "enemy_close", "kind": "condition", "metric": "distance", "op": "lte", "value": 3 }, "snare": { "id": "snare", "kind": "action", "action": "skill", "skillId": "prism_snare" }, "pressure": { "id": "pressure", "kind": "action", "action": "best_attack" } } } }
+    ],
+    "rules": { "id": "v3_rules_1", "contentVersion": "v3.0.0", "maxDecisionTicks": 80, "decisionTimeoutMs": 1800, "maxPatchOps": 3, "antiLoopWindow": 4, "moveTiles": 2, "guardReduction": 0.45, "defaultSeed": 7319 },
+    "assets": [
+      { "id": "map_starbright_meadow", "kind": "map", "ownerId": "starbright_meadow", "localPath": "/assets/v3/maps/starbright-meadow.png", "width": 1280, "height": 720, "transparent": false, "seed": 9101 },
+      { "id": "map_sunlit_circuit", "kind": "map", "ownerId": "sunlit_circuit", "localPath": "/assets/v3/maps/sunlit-circuit.png", "width": 1024, "height": 1024, "transparent": false, "seed": 9102 },
+      { "id": "map_prism_gate", "kind": "map", "ownerId": "prism_gate", "localPath": "/assets/v3/maps/prism-gate.png", "width": 1024, "height": 1024, "transparent": false, "seed": 9103 },
+      { "id": "character_astra_vanguard", "kind": "character", "ownerId": "astra_vanguard", "localPath": "/assets/v3/characters/astra-vanguard/reference.png", "width": 96, "height": 96, "transparent": true, "seed": 9201, "directions": ["n","ne","e","se","s","sw","w","nw"], "framesPerDirection": 8, "fps": 10 },
+      { "id": "character_briar_sentinel", "kind": "character", "ownerId": "briar_sentinel", "localPath": "/assets/v3/characters/briar-sentinel/reference.png", "width": 96, "height": 96, "transparent": true, "seed": 9202, "directions": ["n","ne","e","se","s","sw","w","nw"], "framesPerDirection": 8, "fps": 10 },
+      { "id": "character_sunforge_striker", "kind": "character", "ownerId": "sunforge_striker", "localPath": "/assets/v3/characters/sunforge-striker/reference.png", "width": 96, "height": 96, "transparent": true, "seed": 9203, "directions": ["n","ne","e","se","s","sw","w","nw"], "framesPerDirection": 8, "fps": 10 },
+      { "id": "character_prism_adept", "kind": "character", "ownerId": "prism_adept", "localPath": "/assets/v3/characters/prism-adept/reference.png", "width": 96, "height": 96, "transparent": true, "seed": 9204, "directions": ["n","ne","e","se","s","sw","w","nw"], "framesPerDirection": 8, "fps": 10 },
+      { "id": "character_eclipse_marshal", "kind": "character", "ownerId": "eclipse_marshal", "localPath": "/assets/v3/characters/eclipse-marshal/reference.png", "width": 128, "height": 128, "transparent": true, "seed": 9205, "directions": ["n","ne","e","se","s","sw","w","nw"], "framesPerDirection": 8, "fps": 10 },
+      { "id": "icon_solar_lance", "kind": "skill_icon", "ownerId": "solar_lance", "localPath": "/assets/v3/skills/icons/solar_lance.png", "width": 64, "height": 64, "transparent": true, "seed": 9301 },
+      { "id": "fx_solar_lance", "kind": "skill_fx", "ownerId": "solar_lance", "localPath": "/assets/v3/skills/fx/solar_lance/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9401, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_bloom_guard", "kind": "skill_icon", "ownerId": "bloom_guard", "localPath": "/assets/v3/skills/icons/bloom_guard.png", "width": 64, "height": 64, "transparent": true, "seed": 9302 },
+      { "id": "fx_bloom_guard", "kind": "skill_fx", "ownerId": "bloom_guard", "localPath": "/assets/v3/skills/fx/bloom_guard/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9402, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_gale_step", "kind": "skill_icon", "ownerId": "gale_step", "localPath": "/assets/v3/skills/icons/gale_step.png", "width": 64, "height": 64, "transparent": true, "seed": 9303 },
+      { "id": "fx_gale_step", "kind": "skill_fx", "ownerId": "gale_step", "localPath": "/assets/v3/skills/fx/gale_step/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9403, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_prism_snare", "kind": "skill_icon", "ownerId": "prism_snare", "localPath": "/assets/v3/skills/icons/prism_snare.png", "width": 64, "height": 64, "transparent": true, "seed": 9304 },
+      { "id": "fx_prism_snare", "kind": "skill_fx", "ownerId": "prism_snare", "localPath": "/assets/v3/skills/fx/prism_snare/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9404, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_meteor_arc", "kind": "skill_icon", "ownerId": "meteor_arc", "localPath": "/assets/v3/skills/icons/meteor_arc.png", "width": 64, "height": 64, "transparent": true, "seed": 9305 },
+      { "id": "fx_meteor_arc", "kind": "skill_fx", "ownerId": "meteor_arc", "localPath": "/assets/v3/skills/fx/meteor_arc/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9405, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_radiant_mend", "kind": "skill_icon", "ownerId": "radiant_mend", "localPath": "/assets/v3/skills/icons/radiant_mend.png", "width": 64, "height": 64, "transparent": true, "seed": 9306 },
+      { "id": "fx_radiant_mend", "kind": "skill_fx", "ownerId": "radiant_mend", "localPath": "/assets/v3/skills/fx/radiant_mend/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9406, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_echo_bolt", "kind": "skill_icon", "ownerId": "echo_bolt", "localPath": "/assets/v3/skills/icons/echo_bolt.png", "width": 64, "height": 64, "transparent": true, "seed": 9307 },
+      { "id": "fx_echo_bolt", "kind": "skill_fx", "ownerId": "echo_bolt", "localPath": "/assets/v3/skills/fx/echo_bolt/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9407, "framesPerDirection": 8, "fps": 14 },
+      { "id": "icon_comet_break", "kind": "skill_icon", "ownerId": "comet_break", "localPath": "/assets/v3/skills/icons/comet_break.png", "width": 64, "height": 64, "transparent": true, "seed": 9308 },
+      { "id": "fx_comet_break", "kind": "skill_fx", "ownerId": "comet_break", "localPath": "/assets/v3/skills/fx/comet_break/sheet.png", "width": 512, "height": 64, "transparent": true, "seed": 9408, "framesPerDirection": 8, "fps": 14 }
+    ]
+  }
+}
