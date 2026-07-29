@@ -59,8 +59,8 @@ async function installProgress(page: Page, progress: Progress) {
 }
 
 async function travelTo(page: Page, encounterName: string) {
-  await page.getByRole('button', { name: `前往${encounterName}` }).click()
-  await expect(page.getByRole('heading', { name: `挑战 ${encounterName}` })).toBeVisible({ timeout: 20_000 })
+  await page.getByRole('button', { name: `Go to ${encounterName}` }).click()
+  await expect(page.getByRole('heading', { name: `Challenge ${encounterName}` })).toBeVisible({ timeout: 20_000 })
 }
 
 async function choosePlayerSkills(page: Page, skillIds: string[]) {
@@ -70,7 +70,7 @@ async function choosePlayerSkills(page: Page, skillIds: string[]) {
 }
 
 async function runBattle(page: Page) {
-  await page.getByRole('button', { name: /开始 AI 对战/ }).click()
+  await page.getByRole('button', { name: /Start AI battle/ }).click()
   await page.locator('.v3-viewer-controls select').selectOption('4')
   await expect(page.locator('.v3-report')).toBeVisible({ timeout: 30_000 })
 }
@@ -86,11 +86,11 @@ test('travel commits intermediate cells before opening preparation', async ({ pa
   await expect(page.getByTestId('v3-phaser-stage')).toHaveAttribute('data-ready', 'true')
   await expectCanvasPixels(page)
 
-  await page.getByRole('button', { name: '前往青藤试炼' }).click()
+  await page.getByRole('button', { name: 'Go to Briar Trial' }).click()
   const seen = new Set<string>()
   const deadline = Date.now() + 15_000
   while (Date.now() < deadline) {
-    if (await page.getByRole('heading', { name: '挑战 青藤试炼' }).isVisible().catch(() => false)) break
+    if (await page.getByRole('heading', { name: 'Challenge Briar Trial' }).isVisible().catch(() => false)) break
     const text = await page.locator('.v3-hud-strip').textContent({ timeout: 100 }).catch(() => null)
     if (!text) {
       await page.waitForTimeout(30)
@@ -101,7 +101,7 @@ test('travel commits intermediate cells before opening preparation', async ({ pa
     if (seen.size === 2) await page.screenshot({ path: `${outputRoot}/exploration-travel.png`, fullPage: true })
     await page.waitForTimeout(60)
   }
-  await expect(page.getByRole('heading', { name: '挑战 青藤试炼' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Challenge Briar Trial' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => {
     const progress = JSON.parse(localStorage.getItem('ai-battle-v3-progress') ?? '{}')
     return `${progress.playerPosition?.x},${progress.playerPosition?.y}`
@@ -115,18 +115,18 @@ test('travel commits intermediate cells before opening preparation', async ({ pa
 test('sunforge defeat gives evidence and an adjusted build can win', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await page.goto('/')
-  await travelTo(page, '晴铸试炼')
+  await travelTo(page, 'Sunforge Trial')
   await runBattle(page)
-  await expect(page.getByRole('heading', { name: '挑战失败' })).toBeVisible()
-  await expect(page.locator('.v3-report-insights')).toContainText('下次调整')
+  await expect(page.getByRole('heading', { name: 'Challenge failed' })).toBeVisible()
+  await expect(page.locator('.v3-report-insights')).toContainText('Next adjustments')
   await page.screenshot({ path: `${outputRoot}/sunforge-defeat.png`, fullPage: true })
 
-  await page.getByRole('button', { name: /返回地图/ }).click()
-  await travelTo(page, '晴铸试炼')
+  await page.getByRole('button', { name: /Return to map/ }).click()
+  await travelTo(page, 'Sunforge Trial')
   await choosePlayerSkills(page, ['bloom_guard', 'prism_snare', 'meteor_arc', 'comet_break'])
   await runBattle(page)
-  await expect(page.getByRole('heading', { name: '挑战成功' })).toBeVisible()
-  await expect(page.locator('.v3-report-insights')).toContainText('制胜关键')
+  await expect(page.getByRole('heading', { name: 'Challenge cleared' })).toBeVisible()
+  await expect(page.locator('.v3-report-insights')).toContainText('Keys to victory')
   await page.screenshot({ path: `${outputRoot}/sunforge-adjusted-victory.png`, fullPage: true })
 })
 
@@ -135,21 +135,21 @@ test('earned progression enables a boss victory and deterministic replay', async
   await installProgress(page, completedPrerequisites())
   await page.goto('/')
   await expect(page.getByText('3 / 4')).toBeVisible()
-  await travelTo(page, '曜环星门')
-  await expect(page.getByLabel('远征加成')).toContainText('生命 +18')
-  await expect(page.getByLabel('远征加成')).toContainText('能量 +20')
+  await travelTo(page, 'Eclipse Gate')
+  await expect(page.getByLabel('Expedition bonuses')).toContainText('HP +18')
+  await expect(page.getByLabel('Expedition bonuses')).toContainText('Energy +20')
   await choosePlayerSkills(page, ['solar_lance', 'bloom_guard', 'gale_step', 'echo_bolt'])
   await page.screenshot({ path: `${outputRoot}/boss-preparation.png`, fullPage: true })
   await runBattle(page)
-  await expect(page.getByRole('heading', { name: '挑战成功' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Challenge cleared' })).toBeVisible()
   const firstResult = await page.locator('.v3-report header h2').innerText()
   await page.screenshot({ path: `${outputRoot}/boss-victory.png`, fullPage: true })
 
-  await page.getByRole('button', { name: /确定性重放/ }).click()
+  await page.getByRole('button', { name: /Deterministic replay/ }).click()
   await page.locator('.v3-viewer-controls select').selectOption('4')
   await expect(page.locator('.v3-report')).toBeVisible({ timeout: 30_000 })
   expect(await page.locator('.v3-report header h2').innerText()).toBe(firstResult)
-  await page.getByRole('button', { name: /返回地图/ }).click()
+  await page.getByRole('button', { name: /Return to map/ }).click()
   const progress = await page.evaluate(() => JSON.parse(localStorage.getItem('ai-battle-v3-progress') ?? '{}'))
   expect(progress.clearedEncounterIds).toContain('marshal_gate')
   expect(progress.starlight).toBe(205)
@@ -159,8 +159,8 @@ test('mobile battle stays framed, local, and free of engine tokens', async ({ pa
   await page.setViewportSize({ width: 390, height: 844 })
   const evidence = runtimeEvidence(page)
   await page.goto('/')
-  await travelTo(page, '青藤试炼')
-  await page.getByRole('button', { name: /开始 AI 对战/ }).click()
+  await travelTo(page, 'Briar Trial')
+  await page.getByRole('button', { name: /Start AI battle/ }).click()
   await expect(page.locator('.v3-actor-pair')).toBeVisible()
   await expectCanvasPixels(page)
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
