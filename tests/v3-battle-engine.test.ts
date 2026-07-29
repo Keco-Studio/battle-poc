@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { V3_CONTENT } from '@/src/content/generated/v3'
 import {
   applyBehaviorTreePatch,
+  buildDecisionInput,
   createBattle,
   evaluateBehaviorTreeWithTrace,
   resolveDecisionTick,
+  requestOptionalDecision,
   validateAction,
   type V3BattleConfig,
 } from '@/src/v3/runtime'
@@ -189,4 +191,33 @@ describe('V3 deterministic battle engine', () => {
     expect(progressedWins).toBeGreaterThan(0)
     expect(progressedWins).toBeLessThan(loadouts.length)
   }, 30_000)
+
+  it('keeps the boss finishable through the browser offline-decision path', async () => {
+    const boss = V3_CONTENT.enemies.eclipse_marshal
+    let state = createBattle(config({
+      mapId: 'prism_gate',
+      maxDecisionTicks: V3_CONTENT.rules.maxDecisionTicks,
+      left: {
+        ...config().left,
+        skillIds: ['solar_lance', 'bloom_guard', 'gale_step', 'echo_bolt'],
+        modifiers: { hp: 18, energy: 20, atk: 4, def: 3, spd: 1 },
+      },
+      right: {
+        templateType: 'enemy',
+        templateId: boss.id,
+        skillIds: boss.skillIds,
+        treeId: boss.treeId,
+        modifiers: { hp: 0, energy: 0, atk: 0, def: 0, spd: 0 },
+      },
+    }))
+    while (state.result === 'ongoing') {
+      const model = { provider: 'minimax' as const, model: 'MiniMax-M2.1' }
+      const [left, right] = await Promise.all([
+        requestOptionalDecision(buildDecisionInput(state, 'left', model), { online: false }),
+        requestOptionalDecision(buildDecisionInput(state, 'right', model), { online: false }),
+      ])
+      state = resolveDecisionTick(state, { left: left.patch, right: right.patch })
+    }
+    expect(state.result).toBe('left_win')
+  })
 })

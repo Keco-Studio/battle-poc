@@ -5,57 +5,32 @@ Branch: `v3`
 
 ## Scope
 
-- Default route: V3 Starbright Frontier loop
-- Legacy route: `/legacy`
-- Loop: 32x20 exploration -> preparation -> 16x16 automatic dual-AI battle -> report/replay
-- Standard and sandbox progression remain isolated
-- Browser runtime uses compiled local content and assets only
+- V3 is the default route at `/`; the previous app remains at `/legacy` with two-way navigation.
+- The complete local loop is exploration, encounter arrival, preparation, dual-AI battle, report, and deterministic replay.
+- Standard progression and sandbox tests remain isolated.
+- Browser runtime consumes only compiled local content and assets.
 
 ## Authored Data
 
-- Keco project: `battle-poc`
-- Project ID: `fc3376fb-b6b8-42b0-8a16-459916e41da2`
-- V3 source document ID: `c29ee604-f82b-487d-85fa-f1b36635a530`
-- Tables: `V3_Game` 1, `V3_Jobs` 1, `V3_Skills` 8, `V3_Enemies` 4, `V3_Maps` 3, `V3_Encounters` 4, `V3_BehaviorTrees` 4, `V3_Rewards` 4, `V3_Rulesets` 1, `V3_Assets` 24
+- Keco project: `fc3376fb-b6b8-42b0-8a16-459916e41da2`
+- V3 source document: `c29ee604-f82b-487d-85fa-f1b36635a530`
+- Progression table: `e696dc72-e605-421d-b297-9816b1d50c8c`
+- Delivered scope: 1 job, 8 skills, 4 enemies, 3 maps, 4 encounters, 4 behavior trees, 4 rewards, 3 progression rows, 1 ruleset, and 24 asset records.
 
 ## Fingerprints
 
-- Content: `e1a94f10d78a48a3ed12bcabfedcc06fea6700c96aac9429438cc73c3ff78973`
-- Visual: `1a461d39315100837ea46cac1437de5d92d69dc0f7e8c2b618691322ff46b4e0`
+- Content: `f20b0f0b8e598e0cf60e4f9d5128d860d0d3d05f6226df925bf93531d3930f2a`
+- Visual: `413a10ec9007ae69632d68743b93527a909616d94fedb48de613a9242affd580`
 - Ruleset: `v3-rules-1`
 - Visual version: `v3-pixellab-1`
 
-## PixelLab Inventory
+## Acceptance
 
-- 3 map images
-- 5 character references
-- 40 directional character sheets
-- 320 distinct character frames
-- 8 skill icons
-- 8 skill effect sheets
-- 64 distinct effect frames
-- 64 direct manifest provenance rows
-- West, southwest, and northwest frames are pixel-perfect mirrors of east, southeast, and northeast
+- Exploration position is committed only after physical cell arrival, with deterministic multi-cell routing.
+- Five characters each provide eight directions, eight independent frames per direction, and 12 FPS walking.
+- The campaign boss is finishable after applying three earned progression bonuses.
+- Battle events expose player-facing actions and reasoning without raw engine tokens.
+- Reports provide deterministic replay plus evidence-based victory or defeat insights.
+- Production desktop and mobile browser scenarios verify canvas pixels, successful assets, local requests, and zero mobile horizontal overflow.
 
-## Acceptance Evidence
-
-- Desktop viewport: 1440x900, no horizontal overflow, nonblank Phaser canvas, standard loop completes at deterministic seed 7319.
-- Mobile viewport: 390x844, full battle arena is centered and contained, no horizontal overflow, status/decision/timeline controls remain readable.
-- Standard evidence: first encounter reaches `left_win`, grants 45 EXP and 30 starlight, and stores one cleared encounter.
-- Sandbox evidence: victory writes no starlight, cleared encounters, rewards, or standard records.
-- Replay evidence: accepted Patch history replays from Tick 0 without network decisions and returns the same terminal state.
-- Offline evidence: online AI is opt-in; default runtime records labeled deterministic fallback decisions without 503 browser noise.
-
-## Commands
-
-```bash
-npm run typecheck
-npm test
-npm run build
-PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3004 npx playwright test tests/integration/v3.spec.ts --reporter=line
-```
-
-## Known Limitations
-
-- The optional live decision proxy must be started separately and enabled with `NEXT_PUBLIC_V3_AI_ENABLED=1`; the default local experience deliberately uses deterministic fallback.
-- Browser-engine release gating is Chromium-based in automation. Firefox/WebKit and a physical touch device remain a manual release matrix item.
+Full scoring, traceability, Keco readback, commands, screenshots, and residual limits are recorded in `docs/evaluations/v3-gamecraft-report.md`.

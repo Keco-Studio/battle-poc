@@ -25,8 +25,8 @@ async function expectNonblankCanvas(page: Page) {
 }
 
 async function startFirstBattle(page: Page, mode: 'standard' | 'sandbox') {
-  await page.getByRole('button', { name: '准备' }).first().click()
-  await expect(page.getByRole('heading', { name: '青藤试炼' })).toBeVisible()
+  await page.getByRole('button', { name: '前往青藤试炼' }).click()
+  await expect(page.getByRole('heading', { name: '挑战 青藤试炼' })).toBeVisible({ timeout: 15_000 })
   if (mode === 'sandbox') await page.getByRole('button', { name: '自由测试' }).click()
   await expect(page.getByTestId('enemy-loadout')).toHaveAttribute('aria-readonly', mode === 'standard' ? 'true' : 'false')
   await page.getByRole('button', { name: /开始 AI 对战/ }).click()
@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('desktop completes the standard loop, viewer controls, report, and replay', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.setViewportSize({ width: 1280, height: 720 })
   const failures = collectRuntimeFailures(page)
   await page.goto('/')
   await expect(page.getByText('星辉边境 / Starbright Frontier')).toBeVisible()
@@ -68,7 +68,7 @@ test('desktop completes the standard loop, viewer controls, report, and replay',
   await expect(page.locator('.v3-report')).toContainText('7319')
   await expect(page.locator('.v3-report')).toContainText('青叶校准包')
   await page.locator('.v3-report > .v3-filter-line select').selectOption('patch')
-  await expect(page.locator('.v3-report-timeline')).toContainText('accepted')
+  await expect(page.locator('.v3-report-timeline')).toContainText('策略已调整')
 
   await page.getByRole('button', { name: /确定性重放/ }).click()
   await expect(page.locator('.v3-tick-line strong')).toContainText('Tick 0')
@@ -83,7 +83,7 @@ test('desktop completes the standard loop, viewer controls, report, and replay',
 })
 
 test('sandbox battle remains isolated from standard rewards and unlocks', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.setViewportSize({ width: 1280, height: 720 })
   const failures = collectRuntimeFailures(page)
   await page.goto('/')
   await startFirstBattle(page, 'sandbox')
