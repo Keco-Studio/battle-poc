@@ -1,5 +1,6 @@
 export * from './battleEngine'
 export * from './behaviorTree'
+export * from './campaign'
 export * from './decisionDirector'
 export * from './guardrails'
 export * from './replay'
