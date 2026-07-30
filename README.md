@@ -1,6 +1,6 @@
 # Battle POC
 
-Battle prototype built with Next.js 15 + React 19 + Phaser. Includes a playable battle/map UI and an optional local AI proxy (used to forward chat requests without exposing API keys in the browser).
+Battle prototype built with Next.js 15 + React 19 + Phaser. The default experience is AI Battle V3: a bright pixel-RPG loop with exploration, preparation, automatic dual-AI combat, reports, and deterministic replay. The previous application remains available at `/legacy`.
 
 ## Requirements
 
@@ -17,6 +17,8 @@ npm run dev
 ```
 
 Then open [http://localhost:3002](http://localhost:3002).
+
+V3 starts at `/`. Move with arrow keys/WASD, click an unlocked trial, configure the four-skill loadout and behavior tree, then watch the 16x16 battle. The AI proxy is optional: offline play uses a labeled deterministic fallback and remains fully playable.
 
 ## Local Web data mode
 
@@ -66,6 +68,7 @@ MINIMAX_BASE_URL=https://api.minimax.io
 ```bash
 NEXT_PUBLIC_BATTLE_LLM_PROVIDER=minimax
 NEXT_PUBLIC_BATTLE_LLM_MODEL=MiniMax-M2.1
+NEXT_PUBLIC_V3_AI_ENABLED=1
 ```
 
 然后 `npm run dev:ai` 启动代理。
@@ -86,14 +89,17 @@ npm run generate:demo-tileset
 ```text
 battle-poc/
 ├── app/                     # Next.js App Router (UI + API routes)
+│   ├── legacy/              # previous default application
 │   ├── battle/              # battle route(s)
 │   ├── components/          # UI components (includes GameMap, etc.)
 │   └── api/                 # Route Handlers
+├── src/v3/                  # deterministic V3 runtime, Phaser presentation, React UI
+├── public/assets/v3/        # generated maps, sprites, animation frames, skill FX
 ├── src/                     # battle/render/engine core logic
 ├── server/                  # local AI proxy (Node scripts)
 ├── docs/                    # design/task docs
 ├── tests/                   # Vitest tests
-└── e2e/                     # Playwright e2e tests
+└── tests/integration/       # Playwright end-to-end tests
 ```
 
 ## Notes

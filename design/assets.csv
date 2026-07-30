@@ -1,0 +1,65 @@
+id,role,type,description,size/ratio,style line ref,source
+map_starbright_meadow,exploration_background,image,Colorful signal meadow with safe beacon paths ruins and four encounter clearings,1280x720,STYLE_FORMULA.txt,PixelLab
+map_sunlit_circuit,battle_background,image,Readable 16x16 garden circuit arena with low obstacles and bright lane markings,1024x1024,STYLE_FORMULA.txt,PixelLab
+map_prism_gate,boss_battle_background,image,Readable 16x16 prism gate arena with celebratory gold and violet geometry,1024x1024,STYLE_FORMULA.txt,PixelLab
+character_astra_vanguard,character_reference,image,Astra Vanguard with sky-blue mantle gold signal blade and leaf-green relay pack,96x96 transparent,STYLE_FORMULA.txt,PixelLab
+character_briar_sentinel,character_reference,image,Briar Sentinel with green plated armor coral spear and bright flower crest,96x96 transparent,STYLE_FORMULA.txt,PixelLab
+character_sunforge_striker,character_reference,image,Sunforge Striker with gold gauntlets coral scarf and compact orange furnace core,96x96 transparent,STYLE_FORMULA.txt,PixelLab
+character_prism_adept,character_reference,image,Prism Adept with violet coat cyan crystal focus and bright geometric cape,96x96 transparent,STYLE_FORMULA.txt,PixelLab
+character_eclipse_marshal,character_reference,image,Eclipse Marshal boss with deep-ink armor gold crown ring and multicolor prism blade,128x128 transparent,STYLE_FORMULA.txt,PixelLab
+astra_move_n,character_animation,spritesheet,Astra Vanguard north movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+astra_move_ne,character_animation,spritesheet,Astra Vanguard northeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+astra_move_e,character_animation,spritesheet,Astra Vanguard east movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+astra_move_se,character_animation,spritesheet,Astra Vanguard southeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+astra_move_s,character_animation,spritesheet,Astra Vanguard south movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+astra_move_sw,character_animation,spritesheet,Astra Vanguard southwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+astra_move_w,character_animation,spritesheet,Astra Vanguard west movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+astra_move_nw,character_animation,spritesheet,Astra Vanguard northwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+briar_move_n,character_animation,spritesheet,Briar Sentinel north movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+briar_move_ne,character_animation,spritesheet,Briar Sentinel northeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+briar_move_e,character_animation,spritesheet,Briar Sentinel east movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+briar_move_se,character_animation,spritesheet,Briar Sentinel southeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+briar_move_s,character_animation,spritesheet,Briar Sentinel south movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+briar_move_sw,character_animation,spritesheet,Briar Sentinel southwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+briar_move_w,character_animation,spritesheet,Briar Sentinel west movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+briar_move_nw,character_animation,spritesheet,Briar Sentinel northwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+sunforge_move_n,character_animation,spritesheet,Sunforge Striker north movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+sunforge_move_ne,character_animation,spritesheet,Sunforge Striker northeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+sunforge_move_e,character_animation,spritesheet,Sunforge Striker east movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+sunforge_move_se,character_animation,spritesheet,Sunforge Striker southeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+sunforge_move_s,character_animation,spritesheet,Sunforge Striker south movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+sunforge_move_sw,character_animation,spritesheet,Sunforge Striker southwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+sunforge_move_w,character_animation,spritesheet,Sunforge Striker west movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+sunforge_move_nw,character_animation,spritesheet,Sunforge Striker northwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+prism_move_n,character_animation,spritesheet,Prism Adept north movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+prism_move_ne,character_animation,spritesheet,Prism Adept northeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+prism_move_e,character_animation,spritesheet,Prism Adept east movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+prism_move_se,character_animation,spritesheet,Prism Adept southeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+prism_move_s,character_animation,spritesheet,Prism Adept south movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+prism_move_sw,character_animation,spritesheet,Prism Adept southwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+prism_move_w,character_animation,spritesheet,Prism Adept west movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+prism_move_nw,character_animation,spritesheet,Prism Adept northwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+marshal_move_n,character_animation,spritesheet,Eclipse Marshal north movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+marshal_move_ne,character_animation,spritesheet,Eclipse Marshal northeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+marshal_move_e,character_animation,spritesheet,Eclipse Marshal east movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+marshal_move_se,character_animation,spritesheet,Eclipse Marshal southeast movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+marshal_move_s,character_animation,spritesheet,Eclipse Marshal south movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+marshal_move_sw,character_animation,spritesheet,Eclipse Marshal southwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+marshal_move_w,character_animation,spritesheet,Eclipse Marshal west movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+marshal_move_nw,character_animation,spritesheet,Eclipse Marshal northwest movement eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab mirror
+icon_solar_lance,skill_icon,image,Gold-cyan forward lance icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_solar_lance,skill_effect,spritesheet,Gold-cyan lance launch impact eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_bloom_guard,skill_icon,image,Leaf-green shield bloom icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_bloom_guard,skill_effect,spritesheet,Leaf-green shield bloom eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_gale_step,skill_icon,image,Sky-cyan wind step icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_gale_step,skill_effect,spritesheet,Sky-cyan dash trail eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_prism_snare,skill_icon,image,Violet-cyan geometric snare icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_prism_snare,skill_effect,spritesheet,Violet-cyan lattice close eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_meteor_arc,skill_icon,image,Coral-gold falling arc icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_meteor_arc,skill_effect,spritesheet,Coral-gold falling arc burst eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_radiant_mend,skill_icon,image,Green-gold repair star icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_radiant_mend,skill_effect,spritesheet,Green-gold healing spiral eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_echo_bolt,skill_icon,image,Cyan-violet ricochet bolt icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_echo_bolt,skill_effect,spritesheet,Cyan-violet ricochet bolt eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab
+icon_comet_break,skill_icon,image,White-gold comet breaker icon,64x64 transparent,STYLE_FORMULA.txt,PixelLab
+fx_comet_break,skill_effect,spritesheet,White-gold finishing comet impact eight sequential frames,512x64,STYLE_FORMULA.txt,PixelLab

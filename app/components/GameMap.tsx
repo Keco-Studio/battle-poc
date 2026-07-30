@@ -590,6 +590,10 @@ export default function GameMap({ game }: Props) {
             next[visualId] = null
             return
           }
+          if (packId.startsWith('vs01-')) {
+            next[visualId] = null
+            return
+          }
           const url = `/assets/characters/packs/${encodeURIComponent(packId)}/meta.json`
           try {
             const res = await fetch(url)

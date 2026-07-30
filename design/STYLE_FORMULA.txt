@@ -1,0 +1,1 @@
+optimistic 32-bit tactical RPG pixel art, low top-down three-quarter view, crisp 1-pixel clusters, lively readable silhouettes, controlled colorful palette of sky cyan, leaf green, warm gold, coral red, clean violet and deep ink, bright natural lighting, no antialiasing, no gradients, no text, readable at 64 pixels
